@@ -59,7 +59,8 @@ test('expression inside SQL is rejected', () =>
     .toMatch(/query in node Insert row must use \$n parameters, not expressions/));
 test('normalize drops volatile fields and is idempotent', () => {
   const n = normalizeWorkflow(fx('volatile'));
-  expect([n.pinData, n.versionId, (n.meta as { instanceId?: string } | undefined)?.instanceId]).toEqual([undefined, undefined, undefined]);
+  expect([n.pinData, n.versionId, n.active, n.versionCounter, (n.meta as { instanceId?: string } | undefined)?.instanceId])
+    .toEqual([undefined, undefined, undefined, undefined, undefined]);
   expect(n.id).toBe(fx('volatile').id);
   expect(normalizeWorkflow(structuredClone(n))).toEqual(n);
 });

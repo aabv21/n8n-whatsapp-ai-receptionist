@@ -8,6 +8,9 @@ import { CODE_NODES, WORKFLOWS } from './manifest.ts';
 
 // Fields n8n sets on every export that are never meaningful diff material: pinned test data,
 // server-assigned bookkeeping, and the exporting instance's own identity.
+// Ruling P15: `active` and `versionCounter` showed up once Task 4's workflows were published;
+// both reflect this instance's own history (publish state, save count), not the workflow's
+// source, so they're dropped the same way as the other bookkeeping fields below.
 const VOLATILE_FIELDS = [
   'pinData',
   'versionId',
@@ -18,6 +21,8 @@ const VOLATILE_FIELDS = [
   'shared',
   'staticData',
   'isArchived',
+  'active',
+  'versionCounter',
 ] as const;
 
 export function normalizeWorkflow(wf: Workflow): Workflow {

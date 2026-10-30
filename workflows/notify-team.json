@@ -1,0 +1,242 @@
+{
+  "id": "cmbNotifyTeam001",
+  "name": "Notify team",
+  "description": null,
+  "nodes": [
+    {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "name": "Receive alert request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        200
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "reason",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "summary",
+              "type": "string"
+            },
+            {
+              "name": "recent_messages",
+              "type": "array"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000002",
+      "name": "Load context",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        100,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbLoadContext01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "schema": [],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        }
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000003",
+      "name": "Compose alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        360,
+        200
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "30000000-0000-4000-8000-0000000a0004",
+              "name": "subject",
+              "type": "string",
+              "value": "=[Cumbident] {{ ({ emergency: 'Dental emergency', human_requested: 'Patient asked for a person', complaint: 'Complaint', unknown_treatment: \"Asked about a treatment we don't list\", out_of_scope: \"Question the assistant couldn't answer\", tool_failure: 'Assistant tool failure', other: 'Needs attention' })[$('Receive alert request').item.json.reason] ?? 'Needs attention' }}: {{ $('Receive alert request').item.json.name || $('Receive alert request').item.json.phone }}"
+            },
+            {
+              "id": "30000000-0000-4000-8000-0000000a0005",
+              "name": "body",
+              "type": "string",
+              "value": "=Reason: {{ ({ emergency: 'Dental emergency', human_requested: 'Patient asked for a person', complaint: 'Complaint', unknown_treatment: \"Asked about a treatment we don't list\", out_of_scope: \"Question the assistant couldn't answer\", tool_failure: 'Assistant tool failure', other: 'Needs attention' })[$('Receive alert request').item.json.reason] ?? 'Needs attention' }}\nName: {{ $('Receive alert request').item.json.name || '(not given)' }}\nPhone: https://wa.me/{{ $('Receive alert request').item.json.phone }}\nSummary: {{ $('Receive alert request').item.json.summary || '(none)' }}\nTime: {{ $now.setZone('America/Bogota').toFormat('yyyy-LL-dd HH:mm') }} America/Bogota\n\nRecent messages:\n{{ ($('Receive alert request').item.json.recent_messages || []).join('\\n') }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000006",
+      "name": "Send alert email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        620,
+        200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.config.team_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "cmbCredGmail0001",
+          "name": "Gmail"
+        }
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000007",
+      "name": "Return success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        880,
+        80
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000008",
+      "name": "Return failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        880,
+        340
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"email_failed\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000009",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -60
+      ],
+      "parameters": {
+        "width": 1300,
+        "height": 160,
+        "content": "## Notify team\nComposes a plain-text alert (so patient-written text can't inject markup) and emails config.team_email. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
+      }
+    }
+  ],
+  "connections": {
+    "Receive alert request": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Compose alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose alert": {
+      "main": [
+        [
+          {
+            "node": "Send alert email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send alert email": {
+      "main": [
+        [
+          {
+            "node": "Return success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
