@@ -1,0 +1,6 @@
+.env
+config/config.json
+.n8n-import/
+node_modules/
+.superpowers/
+.DS_Store

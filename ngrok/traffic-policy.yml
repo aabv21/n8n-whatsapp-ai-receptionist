@@ -1,0 +1,22 @@
+on_http_request:
+  - name: Forward webhooks only
+    expressions:
+      - "!req.url.path.startsWith('/webhook/')"
+    actions:
+      - type: deny
+        config:
+          status_code: 404
+  - name: Hide the dev harness
+    expressions:
+      - "req.url.path == '/webhook/dev' || req.url.path.startsWith('/webhook/dev/')"
+    actions:
+      - type: deny
+        config:
+          status_code: 404
+  - name: Refuse doubled slashes
+    expressions:
+      - "req.url.path.contains('//')"
+    actions:
+      - type: deny
+        config:
+          status_code: 404
