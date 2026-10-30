@@ -13,7 +13,8 @@
     "build:workflows": "node scripts/build-workflows.ts",
     "check": "node scripts/check-workflows.ts workflows",
     "setup": "node scripts/setup-credentials.ts && node scripts/import-workflows.ts",
-    "export": "node scripts/export-workflows.ts"
+    "export": "node scripts/export-workflows.ts",
+    "scenarios": "node scripts/run-scenarios.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
