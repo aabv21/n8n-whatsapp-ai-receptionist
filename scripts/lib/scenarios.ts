@@ -75,7 +75,7 @@ export interface ProcessResult {
   tool_calls: { tool: string; input: unknown; output: unknown }[];
 }
 
-const BOGOTA = 'America/Bogota';
+export const BOGOTA = 'America/Bogota';
 const THURSDAY = 4;
 
 /**

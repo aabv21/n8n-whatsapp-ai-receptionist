@@ -1,12 +1,14 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { DateTime } from 'luxon';
 import type { Scores } from '../src/nodes/decide-route.ts';
 import { callDev } from './lib/dev-client.ts';
-import { checkTurn, resolveTokens, triageAccuracy, type AccuracyRow, type ProcessResult, type Scenario, type TriageItem } from './lib/scenarios.ts';
+import { BOGOTA, checkTurn, resolveTokens, triageAccuracy, type AccuracyRow, type ProcessResult, type Scenario, type TriageItem } from './lib/scenarios.ts';
 
 const CLEANUP_PREFIX = '5700000000';
 const CONFIG_PATH = 'config/config.json';
+const CONFIG_BACKUP_PATH = 'config/config.json.bak';
+const CONFIG_TMP_PATH = 'config/config.json.tmp';
 const CONVERSATIONS_PATH = 'tests/scenarios/conversations.json';
 const TRIAGE_PATH = 'tests/scenarios/triage.json';
 
@@ -64,7 +66,7 @@ export function formatConversationTable(rows: readonly ConversationRow[]): strin
 }
 
 function isTomorrowSunday(now: DateTime): boolean {
-  return now.setZone('America/Bogota').plus({ days: 1 }).weekday === 7;
+  return now.setZone(BOGOTA).plus({ days: 1 }).weekday === 7;
 }
 
 async function cleanup(label: string): Promise<void> {
@@ -147,19 +149,27 @@ const TOOL_FAILURE_SCENARIO: Scenario = {
   ],
 };
 
+/**
+ * n8n reads `config/config.json` through a bind mount on every execution, so this never edits it
+ * in place: a `writeFileSync` truncates before it writes, and a reader can land in between and see
+ * partial JSON (Ruling P37). It also never holds the only copy of the original in memory — the
+ * on-disk `.bak` file is that copy throughout, so even a SIGINT that skips `finally` leaves a
+ * recoverable backup on disk instead of losing the original.
+ */
 export async function runToolFailureScenario(now: DateTime): Promise<ConversationRow> {
-  const original = readFileSync(CONFIG_PATH, 'utf8');
+  copyFileSync(CONFIG_PATH, CONFIG_BACKUP_PATH);
   try {
-    const config = JSON.parse(original) as { google: { calendar_id: string } };
+    const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) as { google: { calendar_id: string } };
     config.google.calendar_id = 'invalid-test-calendar@example.com';
-    writeFileSync(CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`);
+    writeFileSync(CONFIG_TMP_PATH, `${JSON.stringify(config, null, 2)}\n`);
+    renameSync(CONFIG_TMP_PATH, CONFIG_PATH);
 
     await cleanup('before');
     const row = await runScenario(TOOL_FAILURE_SCENARIO, now);
     await cleanup('after');
     return row;
   } finally {
-    writeFileSync(CONFIG_PATH, original);
+    renameSync(CONFIG_BACKUP_PATH, CONFIG_PATH);
   }
 }
 
@@ -172,6 +182,13 @@ async function main(): Promise<void> {
   const now = DateTime.now();
 
   if (args.includes('--tool-failure')) {
+    if (existsSync(CONFIG_BACKUP_PATH)) {
+      console.error(`${CONFIG_BACKUP_PATH} already exists: an earlier --tool-failure run didn't finish.`);
+      console.error(`Restore it with: mv ${CONFIG_BACKUP_PATH} ${CONFIG_PATH} (or delete ${CONFIG_BACKUP_PATH} if ${CONFIG_PATH} already looks right).`);
+      process.exitCode = 1;
+      return;
+    }
+
     const row = await runToolFailureScenario(now);
     console.log(formatConversationTable([row]));
     if (row.result === 'FAIL') process.exitCode = 1;
