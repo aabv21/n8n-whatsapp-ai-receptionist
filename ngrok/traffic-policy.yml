@@ -9,12 +9,18 @@ on_http_request:
       - type: deny
         config:
           status_code: 404
-  # Allowlist: only n8n's webhook-trigger shape (/webhook/<36-char-id>/webhook)
-  # gets through. This also covers the old dev-harness path (/webhook/dev),
-  # which never matches this shape, so it no longer needs its own rule.
-  - name: Forward webhook trigger paths only
+  # Allowlist: only the WhatsApp Trigger's own fixed webhookId
+  # (workflows/whatsapp-entry.json) gets through, not any webhook-shaped path.
+  # This also covers the old dev-harness path (/webhook/dev) and every other
+  # workflow's webhook id, none of which match this one id, so they need no
+  # rule of their own. Meta's subscription-verification GET carries hub.*
+  # query parameters, not path segments, and req.url.raw_path excludes the
+  # query string (https://ngrok.com/docs/traffic-policy/variables/req/: "The
+  # full query string ... excluding the leading question mark" is the separate
+  # req.url.query), so that GET still matches this same anchored path.
+  - name: Forward the WhatsApp trigger path only
     expressions:
-      - '!req.url.raw_path.matches("^/webhook/[0-9a-f-]{36}/webhook$")'
+      - '!req.url.raw_path.matches("^/webhook/a0000000-aaaa-4bbb-8ccc-000000000001/webhook$")'
     actions:
       - type: deny
         config:

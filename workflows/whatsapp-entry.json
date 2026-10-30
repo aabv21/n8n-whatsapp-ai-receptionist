@@ -1,0 +1,356 @@
+{
+  "id": "cmbWhatsappEntry",
+  "name": "WhatsApp entry",
+  "description": null,
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "name": "Receive WhatsApp message",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        300
+      ],
+      "webhookId": "a0000000-aaaa-4bbb-8ccc-000000000001",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "cmbCredWaTrigger",
+          "name": "WhatsApp trigger"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "a0000000-0001-4000-8000-0000000a0101",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ Array.isArray($json.messages) && $json.messages.length > 0 }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "name": "Is there a message",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        80,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  channel: 'whatsapp',\n  message_id: $json.messages[0].id,\n  phone: $json.messages[0].from,\n  name: $json.contacts?.[0]?.profile?.name ?? null,\n  type: $json.messages[0].type === 'text' ? 'text' : 'other',\n  text: $json.messages[0].text?.body ?? '',\n  received_at: DateTime.fromSeconds(Number($json.messages[0].timestamp)).toISO()\n} }}",
+        "options": {}
+      },
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "name": "Normalize message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbProcMessage01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "channel": "={{ $json.channel }}",
+            "message_id": "={{ $json.message_id }}",
+            "phone": "={{ $json.phone }}",
+            "name": "={{ $json.name }}",
+            "type": "={{ $json.type }}",
+            "text": "={{ $json.text }}",
+            "received_at": "={{ $json.received_at }}"
+          },
+          "schema": [
+            {
+              "id": "channel",
+              "displayName": "channel",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "a0000000-0000-4000-8000-000000000004",
+      "name": "Process message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "a0000000-0001-4000-8000-0000000a0102",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ typeof $json.reply === 'string' && $json.reply.trim() !== '' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a0000000-0000-4000-8000-000000000005",
+      "name": "Is there a reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "phoneNumberId": "={{ $('Receive WhatsApp message').item.json.metadata.phone_number_id }}",
+        "recipientPhoneNumber": "={{ $('Normalize message').item.json.phone }}",
+        "messageType": "text",
+        "textBody": "={{ $json.reply }}"
+      },
+      "id": "a0000000-0000-4000-8000-000000000006",
+      "name": "Send WhatsApp reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "whatsAppApi": {
+          "id": "cmbCredWhatsApp1",
+          "name": "WhatsApp send"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE inbound_messages SET replied_at = now() WHERE message_id = $1",
+        "options": {
+          "queryReplacement": "={{ $('Normalize message').item.json.message_id }}"
+        }
+      },
+      "id": "a0000000-0000-4000-8000-000000000007",
+      "name": "Mark replied",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1280,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "width": 1760,
+        "height": 300,
+        "content": "## WhatsApp entry\nMeta's webhook delivers one item per change; a status callback (sent/delivered/read/failed) carries no messages array and stops at \"Is there a message\". A real message is normalized into process-message's contract: channel 'whatsapp', the Unix-seconds timestamp converted to an ISO string with Luxon, name null when WhatsApp sent no contacts block, text '' and type 'other' for anything but a plain text message. process-message then does everything else: recording, deduping, rate-limiting, triage, routing, and the reply. A null reply (a duplicate or a rate-limited silence) sends nothing and leaves replied_at NULL; only a real reply reaches WhatsApp send, and only a send that actually succeeds reaches \"Mark replied\". \"Send WhatsApp reply\" retries 3 times with a 2000 ms wait, not this project's 1000 ms default \u2014 Meta's Cloud API is slower and more rate-limit-prone than Postgres or Google, so a longer backoff avoids retrying into the same throttling window.\nNOTE: when process-message throws unexpectedly, there is no patient reply \u2014 the execution fails into the error workflow, which emails the team. Ceiling: no reply during a Postgres or n8n outage. Upgrade: an error output that alerts and sends technical_issue_retry.\nNOTE: only messages[0] is processed. Ceiling: a batched webhook's extra messages are skipped. Upgrade: Split Out on messages."
+      },
+      "id": "a0000000-0000-4000-8000-000000000008",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -320
+      ]
+    }
+  ],
+  "connections": {
+    "Receive WhatsApp message": {
+      "main": [
+        [
+          {
+            "node": "Is there a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is there a message": {
+      "main": [
+        [
+          {
+            "node": "Normalize message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Normalize message": {
+      "main": [
+        [
+          {
+            "node": "Process message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process message": {
+      "main": [
+        [
+          {
+            "node": "Is there a reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is there a reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send WhatsApp reply": {
+      "main": [
+        [
+          {
+            "node": "Mark replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

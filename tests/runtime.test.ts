@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { readWorkflow } from '../scripts/lib/workflow.ts';
 
 const compose = readFileSync('compose.yaml', 'utf8');
 const envExample = readFileSync('.env.example', 'utf8');
 const policy = readFileSync('ngrok/traffic-policy.yml', 'utf8');
 const config: unknown = JSON.parse(readFileSync('config/config.example.json', 'utf8'));
+const whatsappTrigger = readWorkflow('workflows/whatsapp-entry.json').nodes.find((n) => typeof n.webhookId === 'string');
+const triggerWebhookId = typeof whatsappTrigger?.webhookId === 'string' ? whatsappTrigger.webhookId : '';
 const service = (name: string): string =>
   compose.split(/^ {2}(?=[a-z][\w-]*:$)/m).find((block) => block.startsWith(`${name}:`)) ?? '';
 
@@ -22,7 +25,8 @@ test('n8n never sees the Postgres superuser', () => {
   expect(service('n8n')).not.toMatch(/POSTGRES_(USER|PASSWORD)/);
 });
 test('the tunnel forwards webhooks only', () => {
-  expect(policy).toContain(`req.url.raw_path.matches("^/webhook/[0-9a-f-]{36}/webhook$")`);
+  expect(triggerWebhookId).not.toBe('');
+  expect(policy).toContain(`req.url.raw_path.matches("^/webhook/${triggerWebhookId}/webhook$")`);
   expect(policy).toContain(`req.url.raw_path.contains("%")`);
   expect(policy).toContain(`req.url.raw_path.contains("\\\\")`);
   expect(policy).toContain(`req.url.raw_path.contains("//")`);
@@ -30,14 +34,16 @@ test('the tunnel forwards webhooks only', () => {
   expect(policy).toContain(`req.url.raw_path.contains("/../")`);
   expect(service('ngrok')).toContain('./ngrok/traffic-policy.yml:/etc/ngrok/traffic-policy.yml:ro');
 });
-test('the webhook allowlist regex only accepts the trigger path shape', () => {
+test('the webhook allowlist regex only accepts the WhatsApp trigger path', () => {
   const source = /\.matches\("([^"]+)"\)/.exec(policy)?.[1] ?? '';
+  expect(source).toBe(`^/webhook/${triggerWebhookId}/webhook$`);
   // eslint-disable-next-line security/detect-non-literal-regexp -- source is extracted from our own committed traffic policy, not user input
   const allowlist = new RegExp(source);
-  expect(allowlist.test('/webhook/0b5e8f3a-1c2d-4e5f-8a9b-0c1d2e3f4a5b/webhook')).toBe(true);
+  expect(allowlist.test(`/webhook/${triggerWebhookId}/webhook`)).toBe(true);
   expect(allowlist.test('/webhook/dev')).toBe(false);
-  expect(allowlist.test('/Webhook/0b5e8f3a-1c2d-4e5f-8a9b-0c1d2e3f4a5b/webhook')).toBe(false);
-  expect(allowlist.test('/webhook/0b5e8f3a-1c2d-4e5f-8a9b-0c1d2e3f4a5b/webhook/extra')).toBe(false);
+  expect(allowlist.test('/webhook/0b5e8f3a-1c2d-4e5f-8a9b-0c1d2e3f4a5b/webhook')).toBe(false);
+  expect(allowlist.test(`/Webhook/${triggerWebhookId}/webhook`)).toBe(false);
+  expect(allowlist.test(`/webhook/${triggerWebhookId}/webhook/extra`)).toBe(false);
   expect(allowlist.test('/rest/login')).toBe(false);
 });
 test('config example carries the starting thresholds', () => expect(config).toEqual({
