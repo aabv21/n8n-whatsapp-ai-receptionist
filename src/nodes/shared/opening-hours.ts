@@ -3,7 +3,7 @@ import type { Business, Weekday } from '../types.ts';
 const WEEKDAYS: readonly Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 /** `day` at the given "HH:mm" wall-clock time, in `day`'s own zone. */
-function atTime(day: DateTime, time: string): DateTime {
+export function atTime(day: DateTime, time: string): DateTime {
   return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });
 }
 
