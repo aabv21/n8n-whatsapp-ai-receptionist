@@ -1,0 +1,25 @@
+{
+  "id": "fixtureCleanWf01",
+  "name": "Fixture: clean",
+  "nodes": [
+    {
+      "name": "Double value",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: fixture\nreturn [{ json: { n: $input.first().json.n * 2 } }];"
+      }
+    }
+  ],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1"
+  },
+  "pinData": {
+    "Double value": [{ "json": { "n": 2 } }]
+  }
+}

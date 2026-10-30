@@ -25,4 +25,13 @@ export default defineConfig([
       '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
     },
   },
+  {
+    // The Code-node sandbox has neither Node builtins nor fetch, and Luxon must stay a global
+    // (see src/globals.d.ts) so esbuild doesn't bundle it into the generated jsCode.
+    files: ['src/nodes/**'],
+    rules: {
+      'no-restricted-imports': ['error', { paths: ['luxon'], patterns: ['node:*'] }],
+      'no-restricted-globals': ['error', 'process', 'fetch'],
+    },
+  },
 ]);
