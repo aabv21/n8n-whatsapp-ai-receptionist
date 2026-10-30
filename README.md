@@ -6,7 +6,7 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 
 ## Status
 
-In progress: local runtime, toolchain, workflow tooling/CI, the business content and system prompt, the platform workflows every other workflow relies on, and the first business tool, `check-availability`.
+In progress: local runtime, toolchain, workflow tooling/CI, the business content and system prompt, the platform workflows every other workflow relies on, and the business tools `check-availability` and `upsert-patient`.
 
 ### What works now
 
@@ -19,6 +19,7 @@ In progress: local runtime, toolchain, workflow tooling/CI, the business content
 - Business content the workflows load at runtime: `business/business.json` (the facts — address, hours, prices, payment methods, fixed replies), `business/knowledge-base.md` (FAQ prose), and `prompts/system-prompt.md` (the assistant's system prompt template, with `<<BUSINESS>>`, `<<KNOWLEDGE_BASE>>`, `<<NOW>>`, and `<<TRIAGE_NOTES>>` placeholders), all checked by `tests/content.test.ts`.
 - The four platform workflows every other workflow depends on: `load-context` (reads the business content above into one item), `error-handler` (emails the team when any other workflow fails), `notify-team` (alerts the team by email for a flagged conversation), and the token-protected `dev-harness`, which lets `node scripts/dev-call.ts <target> '<json>'` call any of these directly over HTTP without WhatsApp or the n8n editor.
 - `check-availability`: computes open appointment slots from the business's hours, minimum notice, and Google Calendar's busy events (`src/nodes/compute-free-slots.ts`, unit-tested). Before calling Calendar, a "Check date" step re-runs that same logic with no events, so an invalid, past, or closed date is rejected offline without an avoidable API call; only a valid, open date reaches Calendar. A Calendar failure alerts the team through `notify-team` and reports `calendar_unavailable`.
+- `upsert-patient`: validates `phone` and `status`, then appends or updates the matching row (by phone) in the Patients Google Sheet. It looks the row up first and merges in the new fields, so a call that only sends `status` doesn't blank out a `name` or `last_appointment` a previous call stored; cell values are written raw so `phone` round-trips as the exact string, never a reformatted number. A Sheets failure alerts the team through `notify-team` and reports `sheets_unavailable`. The dev harness also gained `find-patient` (a phone lookup that answers `{ "rows": [] }` for a patient with no row yet) and `cleanup` (deletes one phone prefix's test data from Calendar, Sheets, and Postgres — refusing, before touching anything, a prefix that isn't 8 or more digits — with `null` for any one of its four independent parts that failed).
 
 ## Quick start
 
@@ -39,9 +40,12 @@ node scripts/dev-call.ts load-context '{}'
 node scripts/dev-call.ts notify-team '{"reason":"other","phone":"570000000001","summary":"Plan test"}'
 node scripts/dev-call.ts check-availability '{"date":"<a Sunday>","phone":"570000000001"}'
 node scripts/dev-call.ts check-availability '{"date":"<a weekday>","phone":"570000000001"}'
+node scripts/dev-call.ts upsert-patient '{"phone":"570000000001","status":"inquiry"}'
+node scripts/dev-call.ts cleanup '{"phone_prefix":"57"}'
+node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'
 ```
 
-The `notify-team` call answers `{"ok":false,"reason":"email_failed"}` until a real Gmail credential exists, and the second `check-availability` call answers `{"ok":false,"reason":"calendar_unavailable"}` until a real Google Calendar credential exists — those are the expected offline results, not a bug. The Sunday call answers `{"ok":false,"reason":"closed"}` without needing Calendar at all. See `AGENTS.md` for the full command list.
+The `notify-team` call answers `{"ok":false,"reason":"email_failed"}` until a real Gmail credential exists, and the second `check-availability` call answers `{"ok":false,"reason":"calendar_unavailable"}` until a real Google Calendar credential exists — those are the expected offline results, not a bug. The Sunday call answers `{"ok":false,"reason":"closed"}` without needing Calendar at all. The `upsert-patient` call answers `{"ok":false,"reason":"sheets_unavailable"}` the same way, until a real Google Sheets credential exists. `cleanup '{"phone_prefix":"57"}'` is refused (`prefix_too_short`) before touching anything; `cleanup '{"phone_prefix":"5700000000"}'` runs its two Postgres deletes for real and answers with their counts, with `null` for the Calendar and Sheets parts until those credentials exist. See `AGENTS.md` for the full command list.
 
 ## License
 
