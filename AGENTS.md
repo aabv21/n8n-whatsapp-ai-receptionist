@@ -17,7 +17,8 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 - `src/nodes/` — one `run()` function per Code node, compiled into workflow JSON by `npm run build:workflows`; `src/globals.d.ts` declares the ambient `DateTime` those sources use.
 - `tests/` — Vitest tests; `tests/fixtures/` holds workflow and Code-node fixtures, `tests/helpers/run-generated.ts` runs a generated Code node's output the way n8n's sandbox does.
 - `tsconfig.json`, `eslint.config.ts`, `vitest.config.ts`, `package.json` — the TypeScript toolchain.
-- `business/`, `prompts/`, `workflows/`, `.n8n-import/` — created locally by the quick start and mounted into n8n; populated by later work, empty until then.
+- `business/business.json`, `business/knowledge-base.md` — the business facts and FAQ prose the workflows read at runtime; `prompts/system-prompt.md` — the assistant's system prompt template (placeholders `<<BUSINESS>>`, `<<KNOWLEDGE_BASE>>`, `<<NOW>>`, `<<TRIAGE_NOTES>>`), checked by `tests/content.test.ts`.
+- `workflows/`, `.n8n-import/` — created locally by the quick start and mounted into n8n; populated by later work, empty until then.
 
 ## Commands
 
