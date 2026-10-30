@@ -37,3 +37,8 @@ test('medical advice only adds a note', () => {
 });
 test('quiet message goes to the agent with no notes', () =>
   expect(decide(low)).toMatchObject({ route: 'agent', notes: [], flags: { triage_failed: false } }));
+test('no note claims the team was alerted', () => {
+  const notes = decide({ ...low, emergency: 0.9, asks_for_human: 0.9, medical_advice: 0.9 }).notes;
+  expect(notes).toHaveLength(3);
+  for (const note of notes) expect(note).not.toMatch(/alert/i);
+});

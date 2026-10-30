@@ -19,10 +19,14 @@ export const SIGNALS: readonly Signal[] = ['emergency', 'asks_for_human', 'compl
 
 const NOTES = {
   urgent:
-    'URGENT: The patient may have a dental emergency and the team has been alerted. Offer the first free slot today with check_availability; if today has none, offer the next available day.',
-  handoff: 'HANDOFF: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.',
+    'URGENT: The patient may have a dental emergency. Offer the first free slot today with check_availability; if today has none, offer the next available day.',
+  handoff: 'HANDOFF: A person needs to take over this conversation.',
   noMedicalAdvice: 'NO MEDICAL ADVICE: Do not give medical advice. Offer an initial evaluation instead.',
 } as const;
+
+/** Added to the prompt by build-system-prompt only once process-message's team alert has actually sent. */
+export const TEAM_ALERTED_NOTE =
+  'TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.';
 
 function isScore(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;

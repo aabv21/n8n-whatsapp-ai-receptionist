@@ -173,7 +173,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { last_contact: $now.setZone('America/Bogota').toFormat('yyyy-LL-dd'), phone: $('Receive patient update').item.json.phone, status: $('Receive patient update').item.json.status, name: $('Receive patient update').item.json.name ?? $json.name ?? '', service_of_interest: $('Receive patient update').item.json.service_of_interest ?? $json.service_of_interest ?? '', last_appointment: $('Receive patient update').item.json.last_appointment ?? $json.last_appointment ?? '' } }}",
+        "jsonOutput": "={{ { last_contact: $now.setZone('America/Bogota').toFormat('yyyy-LL-dd'), phone: $('Receive patient update').item.json.phone, status: $('Receive patient update').item.json.status === 'inquiry' && $json.status ? $json.status : $('Receive patient update').item.json.status, name: $('Receive patient update').item.json.name ?? $json.name ?? '', service_of_interest: $('Receive patient update').item.json.service_of_interest ?? $json.service_of_interest ?? '', last_appointment: $('Receive patient update').item.json.last_appointment ?? $json.last_appointment ?? '' } }}",
         "options": {}
       }
     },
@@ -438,7 +438,7 @@
       "parameters": {
         "width": 2220,
         "height": 160,
-        "content": "## Upsert patient\nValidates phone (\\d{8,15}) and status (inquiry|booked|handed_off) before touching Sheets. Looks up the existing row by phone first (Always Output Data, so a first-time patient yields an empty placeholder, not a stopped branch) and merges it with the new input, so a field the caller omits keeps its prior value instead of being blanked — Google Sheets' Append or Update writes an empty string for any mapped column whose value is undefined, so only columns we actually computed a value for are ever sent. Cell Format is RAW so phone is written and matched as the literal string, never reformatted into a number. Either Sheets call failing routes to notify-team (tool_failure); team_notified is set only when that alert actually sent."
+        "content": "## Upsert patient\nValidates phone (\\d{8,15}) and status (inquiry|booked|handed_off) before touching Sheets. Looks up the existing row by phone first (Always Output Data, so a first-time patient yields an empty placeholder, not a stopped branch) and merges it with the new input, so a field the caller omits keeps its prior value instead of being blanked — Google Sheets' Append or Update writes an empty string for any mapped column whose value is undefined, so only columns we actually computed a value for are ever sent. An incoming inquiry keeps a stored non-empty status, so the assistant's routine upsert never downgrades booked or handed_off. Cell Format is RAW so phone is written and matched as the literal string, never reformatted into a number. Either Sheets call failing routes to notify-team (tool_failure); team_notified is set only when that alert actually sent."
       }
     }
   ],

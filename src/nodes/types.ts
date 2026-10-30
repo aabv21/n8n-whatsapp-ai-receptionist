@@ -22,5 +22,6 @@ export interface Business {
     blocked: string;
     rate_limited: string;
     technical_issue: string;
+    technical_issue_retry: string;
   };
 }

@@ -216,7 +216,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT count(*)::int AS n FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2)",
+        "query": "SELECT count(*)::int AS n FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND body IS NOT NULL",
         "options": {
           "queryReplacement": "={{ $('When called').item.json.phone }},{{ $('Load context').item.json.config.limits.window_minutes }}"
         }
@@ -639,7 +639,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Alert the team').isExecuted && $('Alert the team').item.json.ok !== true ? [] : $('Triage message').item.json.notes,\n  now: $now.toISO()\n} }}",
+        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Triage message').item.json.notes,\n  team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true,\n  now: $now.toISO()\n} }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000013",
@@ -655,7 +655,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|TRIAGE_NOTES)>>/g;\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"TRIAGE_NOTES\", input.notes.length > 0 ? input.notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n\n  // src/nodes/decide-route.ts\n  var TEAM_ALERTED_NOTE = \"TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.\";\n\n  // src/nodes/build-system-prompt.ts\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|TRIAGE_NOTES)>>/g;\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"TRIAGE_NOTES\", notes.length > 0 ? notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       },
       "id": "90000000-0000-4000-8000-000000000014",
       "name": "Build system prompt",
@@ -1051,7 +1051,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Did the agent reply').item.json.output, route: $('Triage message').item.json.route, flags: $('Triage message').item.json.flags, tool_calls: $json.tool_calls } }}",
+        "jsonOutput": "={{ { reply: $('Did the agent reply').first().json.output, route: $('Triage message').first().json.route, flags: $('Triage message').first().json.flags, tool_calls: $json.tool_calls } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-00000000001e",
@@ -1075,7 +1075,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "reason": "tool_failure",
-            "phone": "={{ $('When called').item.json.phone }}",
+            "phone": "={{ $('When called').first().json.phone }}",
             "summary": "=Agent failed: {{ $json.error || 'it returned no reply text (see n8n execution ' + $execution.id + ')' }}"
           },
           "schema": [
@@ -1121,7 +1121,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.technical_issue, route: 'fallback', flags: $('Triage message').item.json.flags, tool_calls: [] } }}",
+        "jsonOutput": "={{ { reply: $json.ok === true ? $('Load context').first().json.business.replies.technical_issue : $('Load context').first().json.business.replies.technical_issue_retry, route: 'fallback', flags: $('Triage message').first().json.flags, tool_calls: [] } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000020",
@@ -1138,7 +1138,7 @@
         "operation": "executeQuery",
         "query": "UPDATE inbound_messages SET route = $2 WHERE message_id = $1",
         "options": {
-          "queryReplacement": "={{ $('When called').item.json.message_id }},{{ $json.route }}"
+          "queryReplacement": "={{ $('When called').first().json.message_id }},{{ $json.route }}"
         }
       },
       "id": "90000000-0000-4000-8000-000000000021",
@@ -1176,7 +1176,7 @@
       "parameters": {
         "width": 3360,
         "height": 220,
-        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
+        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
       },
       "id": "90000000-0000-4000-8000-000000000023",
       "name": "Sticky Note",
@@ -1191,7 +1191,7 @@
       "parameters": {
         "width": 2080,
         "height": 220,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. If the team alert failed, the agent gets no triage notes, since they say the team was alerted. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply technical_issue as route fallback."
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
       },
       "id": "90000000-0000-4000-8000-000000000024",
       "name": "Sticky Note1",
