@@ -791,38 +791,6 @@
       }
     },
     {
-      "id": "40000000-0000-4000-8000-000000000015",
-      "name": "Count deleted events",
-      "type": "n8n-nodes-base.aggregate",
-      "typeVersion": 1,
-      "position": [
-        1640,
-        1340
-      ],
-      "alwaysOutputData": true,
-      "parameters": {
-        "aggregate": "aggregateAllItemData",
-        "destinationFieldName": "events",
-        "include": "allFields",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000016",
-      "name": "Events part failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1400,
-        1500
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"events\": null\n}",
-        "options": {}
-      }
-    },
-    {
       "id": "40000000-0000-4000-8000-000000000017",
       "name": "List all patient rows",
       "type": "n8n-nodes-base.googleSheets",
@@ -953,38 +921,6 @@
           "id": "cmbCredGSheets01",
           "name": "Google Sheets"
         }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000001b",
-      "name": "Count deleted rows",
-      "type": "n8n-nodes-base.aggregate",
-      "typeVersion": 1,
-      "position": [
-        1880,
-        1700
-      ],
-      "alwaysOutputData": true,
-      "parameters": {
-        "aggregate": "aggregateAllItemData",
-        "destinationFieldName": "rows",
-        "include": "allFields",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000001c",
-      "name": "Rows part failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1640,
-        1860
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"rows\": null\n}",
-        "options": {}
       }
     },
     {
@@ -1127,7 +1063,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { ok: $json.events !== null && $json.rows !== null && $json.messages !== null && $json.memories !== null, deleted: { events: Array.isArray($json.events) ? $json.events.length : null, rows: Array.isArray($json.rows) ? $json.rows.length : null, messages: $json.messages, memories: $json.memories } } }}",
+        "jsonOutput": "={{ { ok: $json.events !== null && $json.rows !== null && $json.messages !== null && $json.memories !== null, deleted: { events: $json.events, rows: $json.rows, messages: $json.messages, memories: $json.memories } } }}",
         "options": {}
       }
     },
@@ -1158,7 +1094,191 @@
       "parameters": {
         "width": 2440,
         "height": 1120,
-        "content": "## cleanup\nRuling P6: a phone_prefix must match ^\\d{8,}$ (digits only, 8+) or the request is refused with prefix_too_short before anything runs — refused means nothing is deleted. Each of the four parts (Calendar events, Sheets rows, inbound_messages, n8n_chat_histories) has its own On Error continue, so one failing part doesn't block the others; a failed part reports null and ok is true only when all four succeeded. Calendar and Sheets match the prefix with a literal, case-sensitive substring/startsWith check in a Filter node (never a SQL/regex pattern built from the prefix), and the two Postgres deletes use starts_with($1) — never LIKE, which a prefix like \"________\" would turn into a wildcard that deletes every row. Sheets rows are sorted by row_number descending before deleting one at a time, so deleting a lower row first can't shift the row numbers of the ones still queued."
+        "content": "## cleanup\nRuling P6: a phone_prefix must match ^\\d{8,}$ (digits only, 8+) or the request is refused with prefix_too_short before anything runs — refused means nothing is deleted. Each of the four parts (Calendar events, Sheets rows, inbound_messages, n8n_chat_histories) has its own On Error continue, so one failing part doesn't block the others; a failed part reports null and ok is true only when all four succeeded. Calendar and Sheets match the prefix with a literal, case-sensitive substring/startsWith check in a Filter node (never a SQL/regex pattern built from the prefix), and the two Postgres deletes use starts_with($1) — never LIKE, which a prefix like \"________\" would turn into a wildcard that deletes every row. Sheets rows are sorted by row_number descending before deleting one at a time, so deleting a lower row first can't shift the row numbers of the ones still queued. For the Calendar and Sheets parts, a delete node's success and error outputs both feed one Aggregate (Always Output Data, so zero matches still counts as a success with 0), tagged ok:true/ok:false; a Code node (count-cleanup-outcomes) then collapses that to a single count, or null the moment any one outcome failed — so exactly one item reaches the merge chain per part, never a race between a count and a null landing on the same input."
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000027",
+      "name": "Tag search failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1400,
+        1500
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000028",
+      "name": "Tag event deleted",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1640,
+        1300
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000029",
+      "name": "Tag event delete failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1640,
+        1420
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-00000000002a",
+      "name": "Collect event outcomes",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1880,
+        1400
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "outcomes",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-00000000002b",
+      "name": "Count event outcomes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2120,
+        1400
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression. Generated from src/nodes/count-cleanup-outcomes.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/count-cleanup-outcomes.ts\n  var count_cleanup_outcomes_exports = {};\n  __export(count_cleanup_outcomes_exports, {\n    run: () => run\n  });\n  function run(input) {\n    if (input.outcomes.some((outcome) => !outcome.ok)) return { count: null };\n    return { count: input.outcomes.length };\n  }\n  return __toCommonJS(count_cleanup_outcomes_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-00000000002c",
+      "name": "Shape events outcome",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2360,
+        1400
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { events: $json.count } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-00000000002d",
+      "name": "Tag sheets search failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1400,
+        1860
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-00000000002e",
+      "name": "Tag row deleted",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1880,
+        1660
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-00000000002f",
+      "name": "Tag row delete failed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1880,
+        1780
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000030",
+      "name": "Collect row outcomes",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        1760
+      ],
+      "alwaysOutputData": true,
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "outcomes",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000031",
+      "name": "Count row outcomes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        1760
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression. Generated from src/nodes/count-cleanup-outcomes.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/count-cleanup-outcomes.ts\n  var count_cleanup_outcomes_exports = {};\n  __export(count_cleanup_outcomes_exports, {\n    run: () => run\n  });\n  function run(input) {\n    if (input.outcomes.some((outcome) => !outcome.ok)) return { count: null };\n    return { count: input.outcomes.length };\n  }\n  return __toCommonJS(count_cleanup_outcomes_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000032",
+      "name": "Shape rows outcome",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2600,
+        1760
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { rows: $json.count } }}",
+        "options": {}
       }
     }
   ],
@@ -1388,7 +1508,7 @@
         ],
         [
           {
-            "node": "Events part failed",
+            "node": "Tag search failed",
             "type": "main",
             "index": 0
           }
@@ -1410,36 +1530,14 @@
       "main": [
         [
           {
-            "node": "Count deleted events",
+            "node": "Tag event deleted",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Events part failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Count deleted events": {
-      "main": [
-        [
-          {
-            "node": "Combine events and rows",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Events part failed": {
-      "main": [
-        [
-          {
-            "node": "Combine events and rows",
+            "node": "Tag event delete failed",
             "type": "main",
             "index": 0
           }
@@ -1457,7 +1555,7 @@
         ],
         [
           {
-            "node": "Rows part failed",
+            "node": "Tag sheets search failed",
             "type": "main",
             "index": 0
           }
@@ -1490,38 +1588,16 @@
       "main": [
         [
           {
-            "node": "Count deleted rows",
+            "node": "Tag row deleted",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Rows part failed",
+            "node": "Tag row delete failed",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "Count deleted rows": {
-      "main": [
-        [
-          {
-            "node": "Combine events and rows",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Rows part failed": {
-      "main": [
-        [
-          {
-            "node": "Combine events and rows",
-            "type": "main",
-            "index": 1
           }
         ]
       ]
@@ -1624,6 +1700,138 @@
             "node": "Respond with result",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag search failed": {
+      "main": [
+        [
+          {
+            "node": "Collect event outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag event deleted": {
+      "main": [
+        [
+          {
+            "node": "Collect event outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag event delete failed": {
+      "main": [
+        [
+          {
+            "node": "Collect event outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect event outcomes": {
+      "main": [
+        [
+          {
+            "node": "Count event outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count event outcomes": {
+      "main": [
+        [
+          {
+            "node": "Shape events outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape events outcome": {
+      "main": [
+        [
+          {
+            "node": "Combine events and rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag sheets search failed": {
+      "main": [
+        [
+          {
+            "node": "Collect row outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag row deleted": {
+      "main": [
+        [
+          {
+            "node": "Collect row outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag row delete failed": {
+      "main": [
+        [
+          {
+            "node": "Collect row outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect row outcomes": {
+      "main": [
+        [
+          {
+            "node": "Count row outcomes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count row outcomes": {
+      "main": [
+        [
+          {
+            "node": "Shape rows outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape rows outcome": {
+      "main": [
+        [
+          {
+            "node": "Combine events and rows",
+            "type": "main",
+            "index": 1
           }
         ]
       ]

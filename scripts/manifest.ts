@@ -151,4 +151,20 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     source: 'src/nodes/collect-tool-calls.ts',
     why: 'tool observations may or may not be JSON, and parsing them needs try/catch',
   },
+  {
+    // A delete node's success and error outputs feeding the same merge input race (n8n's internal
+    // ordering decides which item arrives), so a failed delete could be reported as a success.
+    // Both of cleanup's per-item delete parts route every outcome through this one decision point
+    // instead, so exactly one item (a count, or null if any outcome failed) reaches the merge.
+    file: 'dev-harness.json',
+    node: 'Count event outcomes',
+    source: 'src/nodes/count-cleanup-outcomes.ts',
+    why: 'counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression',
+  },
+  {
+    file: 'dev-harness.json',
+    node: 'Count row outcomes',
+    source: 'src/nodes/count-cleanup-outcomes.ts',
+    why: 'counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression',
+  },
 ];
