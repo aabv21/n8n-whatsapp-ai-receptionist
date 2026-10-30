@@ -2,7 +2,7 @@ import { cpSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { buildWorkflows } from '../scripts/build-workflows.ts';
+import { buildWorkflows, hardenAgainstFrozenDefineProperty } from '../scripts/build-workflows.ts';
 import { checkWorkflow } from '../scripts/check-workflows.ts';
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials } from '../scripts/import-workflows.ts';
@@ -86,6 +86,15 @@ test('only trigger credentials hold back publishing', () => {
 test('a missing directory lists no files', () => expect(listJsonFiles('tests/fixtures/does-not-exist')).toEqual([]));
 test('generated code runs like a Code node', async () =>
   expect(runGenerated(await built(), { n: 2 })).toEqual([{ json: { n: 4 } }]));
+test('generated code still exports run when Object.defineProperty is frozen, like the real n8n Task Runner sandbox', async () => {
+  // @n8n/task-runner's createVmExecutableCode runs Code-node JS after `Object.defineProperty = ()
+  // => ({})`. esbuild's own export plumbing calls that function, so without
+  // hardenAgainstFrozenDefineProperty, __node.run silently comes back undefined there.
+  const hardened = `Object.defineProperty = () => ({});\n${await built()}`;
+  expect(runGenerated(hardened, { n: 2 })).toEqual([{ json: { n: 4 } }]);
+});
+test('hardenAgainstFrozenDefineProperty rejects a bundle without the expected esbuild helper', () =>
+  expect(() => hardenAgainstFrozenDefineProperty('var x = 1;')).toThrow(/esbuild output didn't contain/));
 test('generated code carries the header and footer', async () => {
   const lines = (await built()).trimEnd().split('\n');
   expect(lines[0]).toBe('// Why Code: fixture. Generated from tests/fixtures/nodes/double-value.ts by npm run build:workflows; edit the source.');
