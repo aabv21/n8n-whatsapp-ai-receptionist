@@ -1,0 +1,499 @@
+{
+  "id": "cmbCheckAvail001",
+  "name": "Check availability",
+  "description": null,
+  "nodes": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "name": "Receive check request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        320
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "date",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000002",
+      "name": "Load context",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        100,
+        320
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbLoadContext01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "schema": [],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        }
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000003",
+      "name": "Prepare date check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        340,
+        320
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { date: $('Receive check request').item.json.date, now: $now.toISO(), events: [], business: $json.business } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000004",
+      "name": "Check date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        320
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: reuses the date/hours checks from compute-free-slots so an invalid, past, or closed date is rejected before the Calendar call. Generated from src/nodes/compute-free-slots.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/compute-free-slots.ts\n  var compute_free_slots_exports = {};\n  __export(compute_free_slots_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/compute-free-slots.ts\n  function eventWindow(event, zone) {\n    const { start, end } = event;\n    if (start?.dateTime && end?.dateTime) {\n      return {\n        start: DateTime.fromISO(start.dateTime, { setZone: true }).setZone(zone),\n        end: DateTime.fromISO(end.dateTime, { setZone: true }).setZone(zone)\n      };\n    }\n    if (start?.date && end?.date) {\n      return {\n        start: DateTime.fromISO(start.date, { zone }).startOf(\"day\"),\n        end: DateTime.fromISO(end.date, { zone }).startOf(\"day\")\n      };\n    }\n    return null;\n  }\n  function overlaps(slot, event) {\n    return slot.start < event.end && event.start < slot.end;\n  }\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: slot time is always a valid DateTime\");\n    return value;\n  }\n  function run(input) {\n    const { business } = input;\n    const zone = business.timezone;\n    const day = DateTime.fromISO(input.date, { zone });\n    if (!day.isValid) return { ok: false, reason: \"invalid_date\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (day < now.startOf(\"day\")) return { ok: false, reason: \"past_date\" };\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const grid = [];\n    for (let start = window.open; start.plus({ minutes: business.appointment_minutes }) <= window.close; start = start.plus({ minutes: business.appointment_minutes })) {\n      grid.push(start);\n    }\n    const busyWindows = input.events.map((event) => eventWindow(event, zone)).filter((w) => w !== null);\n    const earliest = now.plus({ minutes: business.min_notice_minutes });\n    const slots = grid.filter((start) => start >= earliest).map((start) => ({ start, end: start.plus({ minutes: business.appointment_minutes }) })).filter((slot) => !busyWindows.some((event) => overlaps(slot, event))).slice(0, business.max_slots_offered).map((slot) => ({ start: toISOString(slot.start), end: toISOString(slot.end), label: slot.start.toFormat(\"HH:mm\") }));\n    if (slots.length === 0) return { ok: false, reason: \"no_slots\" };\n    return { ok: true, date: input.date, slots };\n  }\n  return __toCommonJS(compute_free_slots_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000005",
+      "name": "Decide whether to call Calendar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        820,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "50000000-0001-4000-8000-0000000a0101",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === false && $json.reason !== 'no_slots' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000006",
+      "name": "Return check result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1060,
+        140
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000007",
+      "name": "Get busy events",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1060,
+        500
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ DateTime.fromISO($('Receive check request').item.json.date, { zone: $('Load context').item.json.business.timezone }).startOf('day').toISO() }}",
+        "timeMax": "={{ DateTime.fromISO($('Receive check request').item.json.date, { zone: $('Load context').item.json.business.timezone }).endOf('day').toISO() }}",
+        "options": {
+          "recurringEventHandling": "expand"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000008",
+      "name": "Aggregate events",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        500
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "events",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "50000000-0000-4000-8000-000000000009",
+      "name": "Prepare full compute",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1540,
+        500
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { date: $('Receive check request').item.json.date, now: $now.toISO(), events: $json.events, business: $('Load context').item.json.business } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5000000a-0000-4000-8000-00000000000a",
+      "name": "Compute free slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        500
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: slot arithmetic over opening hours and busy events needs loops no native node expresses. Generated from src/nodes/compute-free-slots.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/compute-free-slots.ts\n  var compute_free_slots_exports = {};\n  __export(compute_free_slots_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/compute-free-slots.ts\n  function eventWindow(event, zone) {\n    const { start, end } = event;\n    if (start?.dateTime && end?.dateTime) {\n      return {\n        start: DateTime.fromISO(start.dateTime, { setZone: true }).setZone(zone),\n        end: DateTime.fromISO(end.dateTime, { setZone: true }).setZone(zone)\n      };\n    }\n    if (start?.date && end?.date) {\n      return {\n        start: DateTime.fromISO(start.date, { zone }).startOf(\"day\"),\n        end: DateTime.fromISO(end.date, { zone }).startOf(\"day\")\n      };\n    }\n    return null;\n  }\n  function overlaps(slot, event) {\n    return slot.start < event.end && event.start < slot.end;\n  }\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: slot time is always a valid DateTime\");\n    return value;\n  }\n  function run(input) {\n    const { business } = input;\n    const zone = business.timezone;\n    const day = DateTime.fromISO(input.date, { zone });\n    if (!day.isValid) return { ok: false, reason: \"invalid_date\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (day < now.startOf(\"day\")) return { ok: false, reason: \"past_date\" };\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const grid = [];\n    for (let start = window.open; start.plus({ minutes: business.appointment_minutes }) <= window.close; start = start.plus({ minutes: business.appointment_minutes })) {\n      grid.push(start);\n    }\n    const busyWindows = input.events.map((event) => eventWindow(event, zone)).filter((w) => w !== null);\n    const earliest = now.plus({ minutes: business.min_notice_minutes });\n    const slots = grid.filter((start) => start >= earliest).map((start) => ({ start, end: start.plus({ minutes: business.appointment_minutes }) })).filter((slot) => !busyWindows.some((event) => overlaps(slot, event))).slice(0, business.max_slots_offered).map((slot) => ({ start: toISOString(slot.start), end: toISOString(slot.end), label: slot.start.toFormat(\"HH:mm\") }));\n    if (slots.length === 0) return { ok: false, reason: \"no_slots\" };\n    return { ok: true, date: input.date, slots };\n  }\n  return __toCommonJS(compute_free_slots_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "5000000b-0000-4000-8000-00000000000b",
+      "name": "Notify calendar failure",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1300,
+        700
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "tool_failure",
+            "phone": "={{ $('Receive check request').item.json.phone }}",
+            "summary": "=check_availability: {{ $json.error }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "5000000c-0000-4000-8000-00000000000c",
+      "name": "Did the alert send",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1540,
+        700
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "50000000-0001-4000-8000-0000000a0102",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5000000d-0000-4000-8000-00000000000d",
+      "name": "Return failure with alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1780,
+        620
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"calendar_unavailable\",\n  \"team_notified\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5000000e-0000-4000-8000-00000000000e",
+      "name": "Return failure without alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1780,
+        780
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"calendar_unavailable\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "5000000f-0000-4000-8000-00000000000f",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -60
+      ],
+      "parameters": {
+        "width": 2220,
+        "height": 160,
+        "content": "## Check availability\nRuling P5: \"Check date\" runs the same compute-free-slots source with events: [] before touching Calendar, so invalid_date, past_date, and closed return right away — checkable offline, and avoiding a false calendar_unavailable. Only a valid, open date reaches Calendar. Its Get Many has Always Output Data on, so an empty day still yields one item; Aggregate turns that into events (compute-free-slots ignores an eventless placeholder item). Recurring Event Handling is \"All Occurrences\" (singleEvents on the wire) so a recurring block comes back as that day's own occurrence, not its unexpanded master event. On a Calendar failure, notify-team alerts the team; team_notified is set only when that alert actually sent."
+      }
+    }
+  ],
+  "connections": {
+    "Receive check request": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Prepare date check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare date check": {
+      "main": [
+        [
+          {
+            "node": "Check date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check date": {
+      "main": [
+        [
+          {
+            "node": "Decide whether to call Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide whether to call Calendar": {
+      "main": [
+        [
+          {
+            "node": "Return check result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get busy events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get busy events": {
+      "main": [
+        [
+          {
+            "node": "Aggregate events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate events": {
+      "main": [
+        [
+          {
+            "node": "Prepare full compute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare full compute": {
+      "main": [
+        [
+          {
+            "node": "Compute free slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify calendar failure": {
+      "main": [
+        [
+          {
+            "node": "Did the alert send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did the alert send": {
+      "main": [
+        [
+          {
+            "node": "Return failure with alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return failure without alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

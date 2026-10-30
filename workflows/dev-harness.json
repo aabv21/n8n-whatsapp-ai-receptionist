@@ -111,6 +111,30 @@
                 ]
               },
               "renameOutput": true
+            },
+            {
+              "outputKey": "check-availability",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40000000-0001-4000-8000-0000000a0104",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.body.target }}",
+                    "rightValue": "check-availability"
+                  }
+                ]
+              },
+              "renameOutput": true
             }
           ]
         },
@@ -208,6 +232,52 @@
               "id": "recent_messages",
               "displayName": "recent_messages",
               "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000009",
+      "name": "Call check-availability",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        400,
+        840
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbCheckAvail001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $json.body.input.date }}",
+            "phone": "={{ $json.body.input.phone }}"
+          },
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
               "required": false,
               "display": true,
               "removed": false
@@ -320,6 +390,13 @@
         ],
         [
           {
+            "node": "Call check-availability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Respond unknown target",
             "type": "main",
             "index": 0
@@ -339,6 +416,17 @@
       ]
     },
     "Call notify-team": {
+      "main": [
+        [
+          {
+            "node": "Respond with result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call check-availability": {
       "main": [
         [
           {
