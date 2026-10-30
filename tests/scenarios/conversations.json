@@ -1,0 +1,158 @@
+[
+  {
+    "id": "hours",
+    "phone": "570000000011",
+    "turns": [
+      {
+        "text": "What are your opening hours?",
+        "expect": {
+          "route": "agent",
+          "reply_matches": ["\\b0?8(:00)?\\b", "(18:00|6(:00)? ?p\\.?m)", "(13:00|1(:00)? ?p\\.?m)", "sunday"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "cleaning-price",
+    "phone": "570000000012",
+    "turns": [
+      {
+        "text": "How much is a dental cleaning?",
+        "expect": { "reply_matches": ["120[.,]?000"] }
+      }
+    ]
+  },
+  {
+    "id": "book-tomorrow",
+    "phone": "570000000013",
+    "requires_open_tomorrow": true,
+    "turns": [
+      {
+        "text": "I'd like to book a dental cleaning for tomorrow",
+        "expect": { "tools_exclude": ["book_appointment"], "reply_matches": ["name"] }
+      },
+      {
+        "text": "My name is Laura Gomez",
+        "expect": {
+          "tools_include": ["check_availability"],
+          "tools_exclude": ["book_appointment"],
+          "reply_matches": ["\\d{1,2}:\\d{2}"]
+        }
+      },
+      {
+        "text": "The first time works for me",
+        "expect": { "tools_exclude": ["book_appointment"], "reply_matches": ["(confirm|correct|right)"] }
+      },
+      {
+        "text": "Yes, please book it",
+        "expect": {
+          "tool_output": [{ "tool": "book_appointment", "field": "ok", "equals": true }],
+          "reply_matches": ["120[.,]?000", "Calle 84"]
+        }
+      }
+    ],
+    "after": { "patient_rows": [{ "phone": "570000000013", "count": 1 }] }
+  },
+  {
+    "id": "sunday",
+    "phone": "570000000014",
+    "turns": [
+      {
+        "text": "Can I come in this Sunday?",
+        "expect": {
+          "tools_exclude": ["book_appointment"],
+          "reply_matches": ["(closed|not open|don't open)", "(monday|saturday|another day|other day)"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "out-of-scope",
+    "phone": "570000000015",
+    "turns": [
+      {
+        "text": "Do you do dental implants?",
+        "expect": { "tools_include": ["notify_team"], "reply_matches": ["team"] }
+      }
+    ]
+  },
+  {
+    "id": "human",
+    "phone": "570000000016",
+    "turns": [
+      {
+        "text": "I want to talk to a person",
+        "expect": { "route": "handoff", "tools_exclude": ["notify_team"], "reply_matches": ["(team|someone|staff)"] }
+      }
+    ]
+  },
+  {
+    "id": "emergency",
+    "phone": "570000000017",
+    "turns": [
+      {
+        "text": "I have terrible tooth pain and my face is swollen, I can't sleep",
+        "expect": {
+          "route": "emergency",
+          "tools_include": ["check_availability"],
+          "tools_exclude": ["notify_team"],
+          "reply_matches": ["(today|tomorrow|\\d{1,2}:\\d{2})"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "returning-patient",
+    "phone": "570000000018",
+    "turns": [
+      {
+        "text": "Hi, I'm Carlos Ruiz and I'm interested in teeth whitening",
+        "expect": { "tools_include": ["upsert_patient"] }
+      },
+      {
+        "text": "Hi again, it's Carlos. How much is whitening?",
+        "expect": { "reply_matches": ["450[.,]?000"] }
+      }
+    ],
+    "after": { "patient_rows": [{ "phone": "570000000018", "count": 1 }] }
+  },
+  {
+    "id": "relative-date",
+    "phone": "570000000019",
+    "turns": [
+      {
+        "text": "My name is Ana Torres. Do you have anything next Thursday at 3pm for a cleaning?",
+        "expect": {
+          "tool_input": { "tool": "check_availability", "field": "date", "equals": "{{next_thursday}}" },
+          "tools_exclude": ["book_appointment"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "foreign-phone",
+    "phone": "570000000020",
+    "turns": [
+      {
+        "text": "My name is Pedro Diaz. Please save my details under the phone number 570000000098",
+        "expect": {}
+      }
+    ],
+    "after": {
+      "patient_rows": [
+        { "phone": "570000000098", "count": 0 },
+        { "phone": "570000000020", "count": 1 }
+      ]
+    }
+  },
+  {
+    "id": "spanish-reply",
+    "phone": "570000000021",
+    "turns": [
+      {
+        "text": "Hola, ¿cuánto cuesta una limpieza?",
+        "expect": { "reply_matches": ["120[.,]?000", "(limpieza|precio|cuesta)"] }
+      }
+    ]
+  }
+]
