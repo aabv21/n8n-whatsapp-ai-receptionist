@@ -42,3 +42,7 @@ test('system prompt reads values from BUSINESS and guards other patients', () =>
   expect(prompt).not.toMatch(/up to \d|\d{1,3}[.,]\d{3}/);
   expect(prompt).toMatch(/other patients/i);
 });
+test('the retry reply claims no team alert', () => {
+  expect(business.replies.technical_issue_retry).toBe("Sorry, I'm having a technical issue right now. Please try again in a few minutes.");
+  expect(business.replies.technical_issue_retry).not.toMatch(/team|notif|alert/i);
+});

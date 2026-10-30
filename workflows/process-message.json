@@ -1,0 +1,1655 @@
+{
+  "id": "cmbProcMessage01",
+  "name": "Process message",
+  "description": null,
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "channel",
+              "type": "string"
+            },
+            {
+              "name": "message_id",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "type",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            },
+            {
+              "name": "received_at",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000001",
+      "name": "When called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbLoadContext01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "schema": [],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000002",
+      "name": "Load context",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        80,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  text: Array.from(String($('When called').item.json.text ?? '').trim()).slice(0, $json.config.limits.max_text_chars).join(''),\n  type: $('When called').item.json.type === 'text' && String($('When called').item.json.text ?? '').trim() !== '' ? 'text' : 'other'\n} }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000003",
+      "name": "Normalize text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ins AS (INSERT INTO inbound_messages (message_id, channel, phone, body, received_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (message_id) DO NOTHING RETURNING 1) SELECT count(*)::int AS inserted FROM ins",
+        "options": {
+          "queryReplacement": "={{ $('When called').item.json.message_id }},{{ $('When called').item.json.channel }},{{ $('When called').item.json.phone }},{{ $json.type === 'text' ? $json.text : null }},{{ $('When called').item.json.received_at }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000004",
+      "name": "Record inbound message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        560,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a0101",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.inserted === 0 }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000005",
+      "name": "Is it a duplicate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"reply\": null,\n  \"route\": \"duplicate\",\n  \"flags\": {},\n  \"tool_calls\": []\n}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000006",
+      "name": "Return duplicate",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1040,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a0102",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Normalize text').item.json.type === 'text' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000007",
+      "name": "Is it text",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1040,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.non_text, route: 'non_text', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000008",
+      "name": "Reply non-text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT count(*)::int AS n FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND body IS NOT NULL",
+        "options": {
+          "queryReplacement": "={{ $('When called').item.json.phone }},{{ $('Load context').item.json.config.limits.window_minutes }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000009",
+      "name": "Count recent messages",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1280,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a0103",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.n > $('Load context').item.json.config.limits.max_messages_per_window }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000000a",
+      "name": "Is the patient over the limit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $json.n === $('Load context').item.json.config.limits.max_messages_per_window + 1 ? $('Load context').item.json.business.replies.rate_limited : null, route: 'rate_limited', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000000b",
+      "name": "Reply rate limited",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1760,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT coalesce(array_agg(body ORDER BY received_at), '{}') AS recent FROM (SELECT body, received_at FROM inbound_messages WHERE phone = $1 AND message_id <> $2 AND body IS NOT NULL ORDER BY received_at DESC LIMIT 3) t",
+        "options": {
+          "queryReplacement": "={{ $('When called').item.json.phone }},{{ $('When called').item.json.message_id }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000000c",
+      "name": "Recent patient messages",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1760,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbTriageMsg0001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "text": "={{ $('Normalize text').item.json.text }}",
+            "recent_messages": "={{ $json.recent }}"
+          },
+          "schema": [
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000000d",
+      "name": "Triage message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE inbound_messages SET triage = $2::jsonb WHERE message_id = $1",
+        "options": {
+          "queryReplacement": "={{ $('When called').item.json.message_id }},{{ JSON.stringify($json) }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000000e",
+      "name": "Save triage",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2240,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "outputKey": "blocked",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "90000000-0001-4000-8000-0000000a0104",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Triage message').item.json.route }}",
+                    "rightValue": "blocked"
+                  }
+                ]
+              },
+              "renameOutput": true
+            },
+            {
+              "outputKey": "emergency",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "90000000-0001-4000-8000-0000000a0105",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Triage message').item.json.route }}",
+                    "rightValue": "emergency"
+                  }
+                ]
+              },
+              "renameOutput": true
+            },
+            {
+              "outputKey": "handoff",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "90000000-0001-4000-8000-0000000a0106",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Triage message').item.json.route }}",
+                    "rightValue": "handoff"
+                  }
+                ]
+              },
+              "renameOutput": true
+            },
+            {
+              "outputKey": "agent",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "90000000-0001-4000-8000-0000000a0107",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $('Triage message').item.json.route }}",
+                    "rightValue": "agent"
+                  }
+                ]
+              },
+              "renameOutput": true
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 3
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000000f",
+      "name": "Route by triage",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        2480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.blocked, route: 'blocked', flags: $('Triage message').item.json.flags, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000010",
+      "name": "Reply blocked",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2720,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbUpsertPatient"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('When called').item.json.phone }}",
+            "status": "handed_off",
+            "name": "={{ $('When called').item.json.name }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000011",
+      "name": "Mark patient handed off",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2720,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "={{ $('Triage message').item.json.notify_reason }}",
+            "phone": "={{ $('When called').item.json.phone }}",
+            "name": "={{ $('When called').item.json.name }}",
+            "recent_messages": "={{ $('Recent patient messages').item.json.recent.concat([$('Normalize text').item.json.text]) }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000012",
+      "name": "Alert the team",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Triage message').item.json.notes,\n  team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true,\n  now: $now.toISO()\n} }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000013",
+      "name": "Prepare prompt input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n\n  // src/nodes/decide-route.ts\n  var TEAM_ALERTED_NOTE = \"TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.\";\n\n  // src/nodes/build-system-prompt.ts\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|TRIAGE_NOTES)>>/g;\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"TRIAGE_NOTES\", notes.length > 0 ? notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      },
+      "id": "90000000-0000-4000-8000-000000000014",
+      "name": "Build system prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalize text').first().json.text }}",
+        "options": {
+          "systemMessage": "={{ $json.system_message }}",
+          "maxIterations": 6,
+          "returnIntermediateSteps": true
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000015",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3680,
+        300
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "claude-haiku-5-5"
+        },
+        "options": {
+          "maxTokensToSample": 1024,
+          "thinkingMode": "adaptive",
+          "effort": "low"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000016",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.6,
+      "position": [
+        3480,
+        580
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "cmbCredAnthropic",
+          "name": "Anthropic"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ ($('When called').first().json.channel === 'test' ? 'test:' : '') + $('When called').first().json.phone }}",
+        "tableName": "n8n_chat_histories",
+        "contextWindowLength": 10
+      },
+      "id": "90000000-0000-4000-8000-000000000017",
+      "name": "Postgres Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
+      "position": [
+        3640,
+        580
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Find open appointment slots on one day. Returns the slots to offer, or ok: false with a reason.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbCheckAvail001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $fromAI('date', 'The day to check, as YYYY-MM-DD', 'string') }}",
+            "phone": "={{ $('When called').first().json.phone }}"
+          },
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000018",
+      "name": "check_availability",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        3800,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Book an appointment. Call it only after the patient has confirmed the day, time, and service.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbBookAppt00001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $fromAI('name', 'The full name the patient gave', 'string') }}",
+            "service": "={{ $fromAI('service', 'The service, exactly as named in BUSINESS services', 'string') }}",
+            "date": "={{ $fromAI('date', 'The appointment day, as YYYY-MM-DD', 'string') }}",
+            "time": "={{ $fromAI('time', 'The start time, as 24-hour HH:mm', 'string') }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "service",
+              "displayName": "service",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000019",
+      "name": "book_appointment",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        3960,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Save the name the patient gave or the service they are interested in.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbUpsertPatient"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('When called').first().json.phone }}",
+            "status": "inquiry",
+            "name": "={{ $fromAI('name', 'The name the patient gave, or an empty string if they have not given one', 'string') || undefined }}",
+            "service_of_interest": "={{ $fromAI('service_of_interest', 'The service the patient is interested in, exactly as named in BUSINESS services, or an empty string if not known', 'string') || undefined }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "service_of_interest",
+              "displayName": "service_of_interest",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "last_appointment",
+              "displayName": "last_appointment",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": true
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000001a",
+      "name": "upsert_patient",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        4120,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Alert the clinic team by email about this conversation.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "={{ $fromAI('reason', 'unknown_treatment (a treatment BUSINESS does not list), out_of_scope (a question BUSINESS and KNOWLEDGE BASE do not answer), or other', 'string') }}",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "summary": "={{ $fromAI('summary', 'One or two sentences telling the team what the patient needs', 'string') }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": true
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000001b",
+      "name": "notify_team",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        4280,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a0108",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ typeof $json.output === 'string' && $json.output.trim() !== '' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000001c",
+      "name": "Did the agent reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        4000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: tool observations may or may not be JSON, and parsing them needs try/catch. Generated from src/nodes/collect-tool-calls.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/collect-tool-calls.ts\n  var collect_tool_calls_exports = {};\n  __export(collect_tool_calls_exports, {\n    run: () => run\n  });\n  function parseObservation(observation) {\n    if (typeof observation !== \"string\") return observation;\n    let parsed;\n    try {\n      parsed = JSON.parse(observation);\n    } catch {\n      return observation;\n    }\n    return Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : parsed;\n  }\n  function run(input) {\n    const steps = input.intermediateSteps ?? [];\n    return {\n      tool_calls: steps.map((step) => ({\n        tool: step.action.tool,\n        input: step.action.toolInput,\n        output: parseObservation(step.observation)\n      }))\n    };\n  }\n  return __toCommonJS(collect_tool_calls_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      },
+      "id": "90000000-0000-4000-8000-00000000001d",
+      "name": "Collect tool calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4240,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Did the agent reply').first().json.output, route: $('Triage message').first().json.route, flags: $('Triage message').first().json.flags, tool_calls: $json.tool_calls } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000001e",
+      "name": "Reply from agent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        4480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "tool_failure",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "summary": "=Agent failed: {{ $json.error || 'it returned no reply text (see n8n execution ' + $execution.id + ')' }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000001f",
+      "name": "Report agent failure",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        4240,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $json.ok === true ? $('Load context').first().json.business.replies.technical_issue : $('Load context').first().json.business.replies.technical_issue_retry, route: 'fallback', flags: $('Triage message').first().json.flags, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000020",
+      "name": "Reply with fallback",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        4480,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE inbound_messages SET route = $2 WHERE message_id = $1",
+        "options": {
+          "queryReplacement": "={{ $('When called').first().json.message_id }},{{ $json.route }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000021",
+      "name": "Save route",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        4760,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "id": "90000000-0000-4000-8000-000000000022",
+      "name": "Return result",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "width": 3360,
+        "height": 220,
+        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
+      },
+      "id": "90000000-0000-4000-8000-000000000023",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "width": 2080,
+        "height": 220,
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
+      },
+      "id": "90000000-0000-4000-8000-000000000024",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3160,
+        -300
+      ]
+    }
+  ],
+  "connections": {
+    "When called": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Normalize text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize text": {
+      "main": [
+        [
+          {
+            "node": "Record inbound message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record inbound message": {
+      "main": [
+        [
+          {
+            "node": "Is it a duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it a duplicate": {
+      "main": [
+        [
+          {
+            "node": "Return duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is it text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it text": {
+      "main": [
+        [
+          {
+            "node": "Count recent messages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply non-text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count recent messages": {
+      "main": [
+        [
+          {
+            "node": "Is the patient over the limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the patient over the limit": {
+      "main": [
+        [
+          {
+            "node": "Reply rate limited",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recent patient messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recent patient messages": {
+      "main": [
+        [
+          {
+            "node": "Triage message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triage message": {
+      "main": [
+        [
+          {
+            "node": "Save triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save triage": {
+      "main": [
+        [
+          {
+            "node": "Route by triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by triage": {
+      "main": [
+        [
+          {
+            "node": "Reply blocked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert the team",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark patient handed off",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare prompt input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark patient handed off": {
+      "main": [
+        [
+          {
+            "node": "Alert the team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert the team": {
+      "main": [
+        [
+          {
+            "node": "Prepare prompt input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare prompt input": {
+      "main": [
+        [
+          {
+            "node": "Build system prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build system prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Did the agent reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report agent failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did the agent reply": {
+      "main": [
+        [
+          {
+            "node": "Collect tool calls",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report agent failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect tool calls": {
+      "main": [
+        [
+          {
+            "node": "Reply from agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report agent failure": {
+      "main": [
+        [
+          {
+            "node": "Reply with fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save route": {
+      "main": [
+        [
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply non-text": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply rate limited": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply blocked": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply from agent": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply with fallback": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_availability": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "book_appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upsert_patient": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_team": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

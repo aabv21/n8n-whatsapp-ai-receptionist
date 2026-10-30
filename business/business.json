@@ -29,6 +29,7 @@
     "non_text": "Thanks for your message! I can only read text for now. Please type your question and I'll help right away.",
     "blocked": "I can only help with questions about Cumbident's services, prices, and appointments.",
     "rate_limited": "You've sent a lot of messages in a short time. Please wait a few minutes and try again.",
-    "technical_issue": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon."
+    "technical_issue": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon.",
+    "technical_issue_retry": "Sorry, I'm having a technical issue right now. Please try again in a few minutes."
   }
 }
