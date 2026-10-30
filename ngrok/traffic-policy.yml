@@ -1,0 +1,21 @@
+on_http_request:
+  # req.url.raw_path is un-normalized (keeps percent-encoding literal), unlike
+  # req.url.path which ngrok decodes first — checked here so an encoded trick
+  # can't slip past as something that merely looks safe once decoded.
+  - name: Refuse unsafe path encodings
+    expressions:
+      - 'req.url.raw_path.contains("%") || req.url.raw_path.contains("\\") || req.url.raw_path.contains("//") || req.url.raw_path.contains("/./") || req.url.raw_path.contains("/../")'
+    actions:
+      - type: deny
+        config:
+          status_code: 404
+  # Allowlist: only n8n's webhook-trigger shape (/webhook/<36-char-id>/webhook)
+  # gets through. This also covers the old dev-harness path (/webhook/dev),
+  # which never matches this shape, so it no longer needs its own rule.
+  - name: Forward webhook trigger paths only
+    expressions:
+      - '!req.url.raw_path.matches("^/webhook/[0-9a-f-]{36}/webhook$")'
+    actions:
+      - type: deny
+        config:
+          status_code: 404
