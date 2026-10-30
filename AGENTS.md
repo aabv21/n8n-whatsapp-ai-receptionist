@@ -18,7 +18,8 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 - `tests/` — Vitest tests; `tests/fixtures/` holds workflow and Code-node fixtures, `tests/helpers/run-generated.ts` runs a generated Code node's output the way n8n's sandbox does.
 - `tsconfig.json`, `eslint.config.ts`, `vitest.config.ts`, `package.json` — the TypeScript toolchain.
 - `business/business.json`, `business/knowledge-base.md` — the business facts and FAQ prose the workflows read at runtime; `prompts/system-prompt.md` — the assistant's system prompt template (placeholders `<<BUSINESS>>`, `<<KNOWLEDGE_BASE>>`, `<<NOW>>`, `<<TRIAGE_NOTES>>`), checked by `tests/content.test.ts`.
-- `workflows/`, `.n8n-import/` — created locally by the quick start and mounted into n8n; populated by later work, empty until then.
+- `workflows/` — the n8n workflow JSON, mounted read-only into n8n and imported by `npm run setup`. The four platform workflows (`load-context`, `error-handler`, `notify-team`, `dev-harness`) are in place; later tasks add the business sub-workflows and the WhatsApp entry point.
+- `.n8n-import/` — created locally by the quick start; a scratch directory n8n's CLI reads credentials and workflows from, and the export tooling writes to. It's a live bind mount: never `rm -rf` it. If it breaks, `docker compose up -d --force-recreate n8n` recovers it without touching the named volumes.
 
 ## Commands
 
@@ -33,8 +34,17 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 - `npm run check` — hygiene checks on every file in `workflows/`: pinned data, a literal email/phone/long id/secret, an unknown credential id, a hand-written or undocumented Code node, a missing required setting, an external-service node without retry on fail, and a Postgres query built from an expression instead of `$n` parameters.
 - `npm run setup` — imports credentials (`scripts/setup-credentials.ts`) then publishes workflows (`scripts/import-workflows.ts`) into the local n8n instance. Skips a credential whose `.env` values are blank, or a Google Calendar/Sheets/Gmail credential that already exists (pass `--force` to overwrite one deliberately — it carries an interactive Google sign-in that `import:credentials` would otherwise wipe out). Skips a workflow not yet in `workflows/`, and holds back one whose trigger needs a credential that isn't available yet.
 - `npm run export` — writes n8n's canonical form of every known workflow back to `workflows/` and regenerates their Code nodes; run this after editing a workflow in the n8n UI, and commit the result.
-- `node scripts/dev-call.ts <target> '<json>'` — calls the dev-harness webhook (`POST {N8N_URL}/webhook/dev`) directly, for exercising a sub-workflow without WhatsApp.
+- `node scripts/dev-call.ts <target> '<json>'` — calls the dev-harness webhook (`POST {N8N_URL}/webhook/dev`) directly, for exercising a sub-workflow without WhatsApp. For example, `node scripts/dev-call.ts load-context '{}'` or `node scripts/dev-call.ts notify-team '{"reason":"other","phone":"570000000001"}'`. An unknown target answers `404 {"error":"unknown_target"}`; a request to the webhook without the `X-Dev-Token` header answers `403` (checked against n8n `2.45.6`).
 - n8n's `import:workflow`, `export:workflow`, `import:credentials`, `export:credentials`, and `publish:workflow` CLI commands need no owner account, `--userId`, or `--projectId` (checked against `2.45.6`). `publish:workflow` only takes effect after an n8n restart; `npm run setup` restarts n8n itself, but only when it actually published something, then waits for `/healthz`.
+
+## Changing a workflow
+
+1. Design the nodes and expressions against n8n's own node reference and real-world examples, especially for a node you haven't configured by hand before.
+2. Edit the JSON in `workflows/` (fixed IDs and credential IDs come from `scripts/manifest.ts`), then run `npm run build:workflows` to regenerate any Code node it touches.
+3. Validate the workflow JSON with an n8n-aware validation tool until it reports no errors.
+4. Run `npm run setup` to import and publish it against the local n8n instance.
+5. Run `npm run export` to write n8n's canonical form back to `workflows/` and regenerate Code nodes again. Commit that exported output, not your hand-edited JSON — the two can differ in server-assigned detail, and the exported form is what actually runs.
+6. Run the full gate below before committing.
 
 ## Conventions
 
@@ -43,6 +53,7 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 - CLIs call external programs with `execFile` or `spawn` and an argument array, never a shell string, and guard their entry point with `if (process.argv[1] === fileURLToPath(import.meta.url))` so tests can import their functions without side effects.
 - Comments only where intent isn't obvious. A deliberate simplification gets one `NOTE:` line naming its ceiling and upgrade path. A deliberate lint or ShellCheck exception gets a one-line disable comment naming the reason.
 - n8n workflow node names are actions (e.g. "Record inbound message"), and sticky notes label each section.
+- Every node that calls an external service (Gmail, Google Calendar, Google Sheets, HTTP Request, Postgres, WhatsApp) sets Retry On Fail with 3 tries and a 1000 ms wait, unless a task says otherwise; `npm run check` enforces it. A node whose failure should be visible to the caller (rather than failing the whole run) sets `onError: "continueErrorOutput"` and wires its error output to a response that reports the failure, instead of swallowing it.
 - No Code node is hand-written: each is `export function run(input) { ... }` in `src/nodes/<name>.ts` — pure, no I/O, no clock — compiled by `npm run build:workflows`; `npm run check` rejects any Code node not listed in `scripts/manifest.ts`'s `CODE_NODES`. Those sources use the ambient `DateTime` global (`src/globals.d.ts`) instead of importing Luxon, since the Code-node sandbox provides it but has no `require`; ESLint enforces that by banning `node:*` imports, `luxon`, `process`, and `fetch` in `src/nodes/**`.
 
 ## Guardrails
@@ -54,6 +65,8 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 - n8n is pinned to `2.45.6`; never move to an unstable `3.x` tag before one is stable. Dependabot's automated updates for `n8nio/n8n` exclude minor and major bumps, because beta and stable releases share plain semver tags.
 - Point tooling only at this repo's local n8n instance (`http://localhost:5678`), never another instance.
 - No script prints credential data — `setup-credentials.ts` detects which credentials already exist in n8n from a CLI export, never a decrypted one, and only ever logs a credential's name, never its `data`.
+- Any email sent to the team (e.g. `notify-team`, the error handler) is plain text, never HTML — so text a patient typed can't inject markup into a staff inbox.
+- `scripts/export-workflows.ts`'s `normalizeWorkflow` strips fields n8n sets on export that reflect this instance's own history rather than the workflow's source (pinned data, timestamps, `active`, `versionCounter`, …). Importing and exporting the same workflows twice in a row must produce no diff; if n8n starts emitting a new such field, add it to that drop list and to its test.
 
 ## Definition of done
 
