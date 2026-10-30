@@ -1,0 +1,688 @@
+{
+  "id": "cmbBookAppt00001",
+  "name": "Book appointment",
+  "description": null,
+  "nodes": [
+    {
+      "id": "70000000-0000-4000-8000-000000000001",
+      "name": "Receive booking request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        320
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "phone",
+              "type": "string"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "service",
+              "type": "string"
+            },
+            {
+              "name": "date",
+              "type": "string"
+            },
+            {
+              "name": "time",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000002",
+      "name": "Load context",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        100,
+        320
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbLoadContext01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "schema": [],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        }
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000003",
+      "name": "Prepare booking check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        340,
+        320
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { phone: $('Receive booking request').item.json.phone, name: $('Receive booking request').item.json.name, service: $('Receive booking request').item.json.service, date: $('Receive booking request').item.json.date, time: $('Receive booking request').item.json.time, now: $now.toISO(), business: $json.business } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000004",
+      "name": "Validate booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        320
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: ordered checks of service, date, hours and notice must yield one result. Generated from src/nodes/validate-booking.ts by npm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/validate-booking.ts\n  var validate_booking_exports = {};\n  __export(validate_booking_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/validate-booking.ts\n  var TIME_RE = /^\\d{2}:\\d{2}$/;\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: booking time is always a valid DateTime\");\n    return value;\n  }\n  function run(input) {\n    const { business } = input;\n    const zone = business.timezone;\n    const phone = input.phone.trim();\n    const name = input.name.trim();\n    const service = input.service.trim();\n    const date = input.date.trim();\n    const time = input.time.trim();\n    if (!phone || !name || !service || !date || !time) return { ok: false, reason: \"missing_field\" };\n    const match = business.services.find((s) => s.name.toLowerCase() === service.toLowerCase());\n    if (!match) return { ok: false, reason: \"invalid_service\" };\n    if (!TIME_RE.test(time)) return { ok: false, reason: \"invalid_datetime\" };\n    const hour = Number(time.slice(0, 2));\n    const minute = Number(time.slice(3, 5));\n    if (hour > 23 || minute > 59) return { ok: false, reason: \"invalid_datetime\" };\n    const day = DateTime.fromISO(date, { zone });\n    if (!day.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const start = atTime(day, time);\n    if (!start.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const end = start.plus({ minutes: business.appointment_minutes });\n    if (start < window.open || end > window.close) return { ok: false, reason: \"outside_hours\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (start < now) return { ok: false, reason: \"past\" };\n    if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: \"too_soon\" };\n    return {\n      ok: true,\n      start: toISOString(start),\n      end: toISOString(end),\n      service: match.name,\n      price_cop: match.price_cop,\n      summary: `Appointment: ${match.name} - ${name}`,\n      description: `Phone: ${phone}\nService: ${match.name}\nBooked by the WhatsApp assistant`\n    };\n  }\n  return __toCommonJS(validate_booking_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000005",
+      "name": "Decide whether to call Calendar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        820,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "70000000-0001-4000-8000-0000000a0101",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === false }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000006",
+      "name": "Return validation result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1060,
+        140
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000007",
+      "name": "Recheck slot availability",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1060,
+        500
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Validate booking').item.json.start }}",
+        "timeMax": "={{ $('Validate booking').item.json.end }}",
+        "options": {
+          "recurringEventHandling": "expand"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000008",
+      "name": "Aggregate busy events",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        500
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "events",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000009",
+      "name": "Is the slot already taken",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1540,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "70000000-0001-4000-8000-0000000a0102",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.events.some(e => e.id) }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7000000a-0000-4000-8000-00000000000a",
+      "name": "Return slot taken",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1780,
+        380
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"slot_taken\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7000000b-0000-4000-8000-00000000000b",
+      "name": "Create calendar event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1780,
+        580
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+        },
+        "start": "={{ $('Validate booking').item.json.start }}",
+        "end": "={{ $('Validate booking').item.json.end }}",
+        "additionalFields": {
+          "summary": "={{ $('Validate booking').item.json.summary }}",
+          "description": "={{ $('Validate booking').item.json.description }}"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "id": "7000000c-0000-4000-8000-00000000000c",
+      "name": "Call upsert-patient",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2020,
+        580
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbUpsertPatient"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('Receive booking request').item.json.phone }}",
+            "status": "booked",
+            "name": "={{ $('Receive booking request').item.json.name }}",
+            "service_of_interest": "={{ $('Validate booking').item.json.service }}",
+            "last_appointment": "={{ $('Validate booking').item.json.start }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "service_of_interest",
+              "displayName": "service_of_interest",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "last_appointment",
+              "displayName": "last_appointment",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "7000000d-0000-4000-8000-00000000000d",
+      "name": "Return booking success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2260,
+        580
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { ok: true, event_id: $('Create calendar event').item.json.id, start: $('Validate booking').item.json.start, end: $('Validate booking').item.json.end, service: $('Validate booking').item.json.service, price_cop: $('Validate booking').item.json.price_cop } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "7000000e-0000-4000-8000-00000000000e",
+      "name": "Notify calendar failure",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1300,
+        760
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "tool_failure",
+            "phone": "={{ $('Receive booking request').item.json.phone }}",
+            "summary": "=book_appointment: {{ $json.error }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "7000000f-0000-4000-8000-00000000000f",
+      "name": "Did the alert send",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1540,
+        760
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "70000000-0001-4000-8000-0000000a0103",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "70000010-0000-4000-8000-000000000010",
+      "name": "Return failure with alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1780,
+        680
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"calendar_unavailable\",\n  \"team_notified\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000011-0000-4000-8000-000000000011",
+      "name": "Return failure without alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1780,
+        840
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"calendar_unavailable\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000012-0000-4000-8000-000000000012",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -60
+      ],
+      "parameters": {
+        "width": 2460,
+        "height": 160,
+        "content": "## Book appointment\nValidate booking (generated from src/nodes/validate-booking.ts) runs the ordered service/datetime/hours/notice checks before anything touches Calendar; an ok:false result returns immediately. Only then does Recheck slot availability query Calendar for exactly [start, end), with Recurring Event Handling \"expand\" so a recurring hold is expanded to its real occurrence; Always Output Data keeps an empty result from stopping the branch. Any returned item (a real event has an id; an empty placeholder doesn't) means the slot was taken between the first check and now, so it returns slot_taken without creating anything. Only a still-free slot reaches Create calendar event, which uses Validate booking's own summary/description/start/end verbatim. A successful create upserts the patient as booked (last_appointment = start) and returns ok:true with the new event_id; either Calendar call's failure alerts the team through notify-team and reports calendar_unavailable, with team_notified set only when that alert actually sent."
+      }
+    }
+  ],
+  "connections": {
+    "Receive booking request": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Prepare booking check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare booking check": {
+      "main": [
+        [
+          {
+            "node": "Validate booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate booking": {
+      "main": [
+        [
+          {
+            "node": "Decide whether to call Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide whether to call Calendar": {
+      "main": [
+        [
+          {
+            "node": "Return validation result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recheck slot availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck slot availability": {
+      "main": [
+        [
+          {
+            "node": "Aggregate busy events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate busy events": {
+      "main": [
+        [
+          {
+            "node": "Is the slot already taken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the slot already taken": {
+      "main": [
+        [
+          {
+            "node": "Return slot taken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create calendar event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create calendar event": {
+      "main": [
+        [
+          {
+            "node": "Call upsert-patient",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call upsert-patient": {
+      "main": [
+        [
+          {
+            "node": "Return booking success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify calendar failure": {
+      "main": [
+        [
+          {
+            "node": "Did the alert send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did the alert send": {
+      "main": [
+        [
+          {
+            "node": "Return failure with alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return failure without alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

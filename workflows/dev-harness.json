@@ -207,6 +207,30 @@
                 ]
               },
               "renameOutput": true
+            },
+            {
+              "outputKey": "book-appointment",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40000000-0001-4000-8000-0000000a0108",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.body.target }}",
+                    "rightValue": "book-appointment"
+                  }
+                ]
+              },
+              "renameOutput": true
             }
           ]
         },
@@ -485,6 +509,79 @@
             {
               "id": "last_appointment",
               "displayName": "last_appointment",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000033",
+      "name": "Call book-appointment",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        400,
+        1900
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbBookAppt00001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.body.input.phone }}",
+            "name": "={{ $json.body.input.name }}",
+            "service": "={{ $json.body.input.service }}",
+            "date": "={{ $json.body.input.date }}",
+            "time": "={{ $json.body.input.time }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "service",
+              "displayName": "service",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
               "type": "string",
               "required": false,
               "display": true,
@@ -1347,6 +1444,13 @@
         ],
         [
           {
+            "node": "Call book-appointment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Respond unknown target",
             "type": "main",
             "index": 0
@@ -1388,6 +1492,17 @@
       ]
     },
     "Call upsert-patient": {
+      "main": [
+        [
+          {
+            "node": "Respond with result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call book-appointment": {
       "main": [
         [
           {
