@@ -114,6 +114,14 @@ export const CREDENTIALS: readonly CredentialEntry[] = [
 
 export const CODE_NODES: readonly CodeNodeEntry[] = [
   {
+    // Ruling P5: runs the same slot computation with events: [] before calling Google Calendar, so
+    // a closed, past, or invalid date short-circuits without an avoidable (and offline-unreachable) API call.
+    file: 'check-availability.json',
+    node: 'Check date',
+    source: 'src/nodes/compute-free-slots.ts',
+    why: 'reuses the date/hours checks from compute-free-slots so an invalid, past, or closed date is rejected before the Calendar call',
+  },
+  {
     file: 'check-availability.json',
     node: 'Compute free slots',
     source: 'src/nodes/compute-free-slots.ts',
