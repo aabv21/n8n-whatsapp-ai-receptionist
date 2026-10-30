@@ -231,6 +231,30 @@
                 ]
               },
               "renameOutput": true
+            },
+            {
+              "outputKey": "triage-message",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40000000-0001-4000-8000-0000000a0109",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.body.target }}",
+                    "rightValue": "triage-message"
+                  }
+                ]
+              },
+              "renameOutput": true
             }
           ]
         },
@@ -583,6 +607,52 @@
               "id": "time",
               "displayName": "time",
               "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000034",
+      "name": "Call triage-message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        400,
+        2140
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbTriageMsg0001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "text": "={{ $json.body.input.text }}",
+            "recent_messages": "={{ $json.body.input.recent_messages }}"
+          },
+          "schema": [
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
               "required": false,
               "display": true,
               "removed": false
@@ -1451,6 +1521,13 @@
         ],
         [
           {
+            "node": "Call triage-message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Respond unknown target",
             "type": "main",
             "index": 0
@@ -1503,6 +1580,17 @@
       ]
     },
     "Call book-appointment": {
+      "main": [
+        [
+          {
+            "node": "Respond with result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call triage-message": {
       "main": [
         [
           {
