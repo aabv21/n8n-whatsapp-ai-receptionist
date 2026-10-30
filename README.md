@@ -6,7 +6,7 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 
 ## Status
 
-In progress: local runtime, toolchain, and workflow tooling/CI.
+In progress: local runtime, toolchain, workflow tooling/CI, and the business content and system prompt.
 
 ### What works now
 
@@ -16,6 +16,7 @@ In progress: local runtime, toolchain, and workflow tooling/CI.
 - Workflow tooling: a manifest of fixed workflow and credential IDs, hygiene checks that reject pinned data, literal secrets, and hand-written Code nodes, and a Code-node build that compiles `src/nodes/*.ts` into Code-node JavaScript with esbuild.
 - Scripts to set up credentials and import, export, and publish workflows against the local n8n instance, plus a dev-harness client for calling a sub-workflow directly during offline testing.
 - A GitHub Actions pipeline: the full quality gate, ShellCheck, gitleaks, `npm audit`, actionlint, zizmor, and a CodeQL scan (turns on once the repo is public).
+- Business content the workflows will load at runtime: `business/business.json` (the facts — address, hours, prices, payment methods, fixed replies), `business/knowledge-base.md` (FAQ prose), and `prompts/system-prompt.md` (the assistant's system prompt template, with `<<BUSINESS>>`, `<<KNOWLEDGE_BASE>>`, `<<NOW>>`, and `<<TRIAGE_NOTES>>` placeholders), all checked by `tests/content.test.ts`.
 
 ## Quick start
 

@@ -1,0 +1,34 @@
+{
+  "name": "Cumbident",
+  "description": "Dental studio in Barranquilla, Colombia",
+  "address": "Calle 84 # 45-20, Office 302, Barranquilla, Colombia",
+  "timezone": "America/Bogota",
+  "currency": "COP",
+  "hours": {
+    "mon": ["08:00", "18:00"],
+    "tue": ["08:00", "18:00"],
+    "wed": ["08:00", "18:00"],
+    "thu": ["08:00", "18:00"],
+    "fri": ["08:00", "18:00"],
+    "sat": ["08:00", "13:00"],
+    "sun": null
+  },
+  "appointment_minutes": 45,
+  "max_slots_offered": 3,
+  "min_notice_minutes": 60,
+  "payment_methods": ["Cash", "Card", "Bank transfer", "Nequi"],
+  "services": [
+    { "name": "Initial evaluation", "price_cop": 50000 },
+    { "name": "Dental cleaning", "price_cop": 120000 },
+    { "name": "Teeth whitening", "price_cop": 450000 },
+    { "name": "Composite filling (per tooth)", "price_cop": 150000 },
+    { "name": "Orthodontic evaluation", "price_cop": 80000 },
+    { "name": "Dental emergency", "price_cop": 100000 }
+  ],
+  "replies": {
+    "non_text": "Thanks for your message! I can only read text for now. Please type your question and I'll help right away.",
+    "blocked": "I can only help with questions about Cumbident's services, prices, and appointments.",
+    "rate_limited": "You've sent a lot of messages in a short time. Please wait a few minutes and try again.",
+    "technical_issue": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon."
+  }
+}
