@@ -1,0 +1,25 @@
+{
+  "google": {
+    "calendar_id": "REPLACE_ME",
+    "patients_sheet_id": "REPLACE_ME",
+    "patients_tab": "Patients"
+  },
+  "team_email": "team@example.com",
+  "triage": {
+    "model": "jev-1.14.0",
+    "timeout_ms": 3000,
+    "thresholds": {
+      "emergency": 0.6,
+      "asks_for_human": 0.7,
+      "complaint": 0.7,
+      "medical_advice": 0.7,
+      "manipulation": 0.85
+    }
+  },
+  "limits": {
+    "max_messages_per_window": 20,
+    "window_minutes": 10,
+    "retention_days": 30,
+    "max_text_chars": 2000
+  }
+}

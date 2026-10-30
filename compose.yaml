@@ -1,0 +1,72 @@
+name: cumbident-whatsapp
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_DB_USER: ${N8N_DB_USER}
+      N8N_DB_PASSWORD: ${N8N_DB_PASSWORD}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db/schema.sql:/schema/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d postgres"]
+      interval: 5s
+      retries: 10
+
+  n8n:
+    image: n8nio/n8n:2.45.6
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:5678:5678
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${N8N_DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      N8N_EDITOR_BASE_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: America/Bogota
+      TZ: America/Bogota
+      N8N_RESTRICT_FILE_ACCESS_TO: /files
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./business:/files/business:ro
+      - ./prompts:/files/prompts:ro
+      - ./config:/files/config:ro
+      - ./workflows:/workflows:ro
+      - ./.n8n-import:/import
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz"]
+      interval: 5s
+      retries: 10
+
+  ngrok:
+    profiles: [tunnel]
+    image: ngrok/ngrok:3.39.13-alpine
+    command: http n8n:5678 --url=${NGROK_DOMAIN} --traffic-policy-file /etc/ngrok/traffic-policy.yml
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    volumes:
+      - ./ngrok/traffic-policy.yml:/etc/ngrok/traffic-policy.yml:ro
+    depends_on:
+      n8n:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  n8n_data:
