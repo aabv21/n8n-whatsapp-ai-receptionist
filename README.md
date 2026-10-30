@@ -6,18 +6,19 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 
 ## Status
 
-In progress: local runtime, toolchain, workflow tooling/CI, the business content and system prompt, and the platform workflows every other workflow relies on.
+In progress: local runtime, toolchain, workflow tooling/CI, the business content and system prompt, the platform workflows every other workflow relies on, and the first business tool, `check-availability`.
 
 ### What works now
 
 - A strict TypeScript toolchain: `typecheck`, `lint`, and `test` scripts.
 - The local runtime: Postgres and n8n in Docker Compose, with separate, least-privilege database roles for n8n and the application.
 - An optional `tunnel` profile that exposes n8n through ngrok, restricted to forwarding webhook traffic only.
-- Workflow tooling: a manifest of fixed workflow and credential IDs, hygiene checks that reject pinned data, literal secrets, and hand-written Code nodes, and a Code-node build that compiles `src/nodes/*.ts` into Code-node JavaScript with esbuild.
+- Workflow tooling: a manifest of fixed workflow and credential IDs, hygiene checks that reject pinned data, literal secrets, and hand-written Code nodes, and a Code-node build that compiles `src/nodes/*.ts` into Code-node JavaScript with esbuild — hardened so a node's exports survive n8n's Code-node sandbox, which runs generated code with `Object.defineProperty` disabled.
 - Scripts to set up credentials and import, export, and publish workflows against the local n8n instance, plus a dev-harness client for calling a sub-workflow directly during offline testing.
 - A GitHub Actions pipeline: the full quality gate, ShellCheck, gitleaks, `npm audit`, actionlint, zizmor, and a CodeQL scan (turns on once the repo is public).
 - Business content the workflows load at runtime: `business/business.json` (the facts — address, hours, prices, payment methods, fixed replies), `business/knowledge-base.md` (FAQ prose), and `prompts/system-prompt.md` (the assistant's system prompt template, with `<<BUSINESS>>`, `<<KNOWLEDGE_BASE>>`, `<<NOW>>`, and `<<TRIAGE_NOTES>>` placeholders), all checked by `tests/content.test.ts`.
 - The four platform workflows every other workflow depends on: `load-context` (reads the business content above into one item), `error-handler` (emails the team when any other workflow fails), `notify-team` (alerts the team by email for a flagged conversation), and the token-protected `dev-harness`, which lets `node scripts/dev-call.ts <target> '<json>'` call any of these directly over HTTP without WhatsApp or the n8n editor.
+- `check-availability`: computes open appointment slots from the business's hours, minimum notice, and Google Calendar's busy events (`src/nodes/compute-free-slots.ts`, unit-tested). Before calling Calendar, a "Check date" step re-runs that same logic with no events, so an invalid, past, or closed date is rejected offline without an avoidable API call; only a valid, open date reaches Calendar. A Calendar failure alerts the team through `notify-team` and reports `calendar_unavailable`.
 
 ## Quick start
 
@@ -36,9 +37,11 @@ Once n8n is up, `npm run setup` imports whichever credentials already have their
 ```bash
 node scripts/dev-call.ts load-context '{}'
 node scripts/dev-call.ts notify-team '{"reason":"other","phone":"570000000001","summary":"Plan test"}'
+node scripts/dev-call.ts check-availability '{"date":"<a Sunday>","phone":"570000000001"}'
+node scripts/dev-call.ts check-availability '{"date":"<a weekday>","phone":"570000000001"}'
 ```
 
-The second call answers `{"ok":false,"reason":"email_failed"}` until a real Gmail credential exists — that's the expected offline result, not a bug. See `AGENTS.md` for the full command list.
+The `notify-team` call answers `{"ok":false,"reason":"email_failed"}` until a real Gmail credential exists, and the second `check-availability` call answers `{"ok":false,"reason":"calendar_unavailable"}` until a real Google Calendar credential exists — those are the expected offline results, not a bug. The Sunday call answers `{"ok":false,"reason":"closed"}` without needing Calendar at all. See `AGENTS.md` for the full command list.
 
 ## License
 

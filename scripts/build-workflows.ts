@@ -11,6 +11,26 @@ export function wrapBundle(bundle: string, entry: Pick<CodeNodeEntry, 'source' |
   return `${header}\n${bundle.trim()}\n${footer}\n`;
 }
 
+// n8n's Code-node Task Runner sandbox runs generated code after `Object.defineProperty = () =>
+// ({})` (@n8n/task-runner's createVmExecutableCode freezes builtins this way). esbuild's IIFE
+// output attaches every named export through that same function (`__defProp(target, name, {
+// get: ... })`), so under that sandbox each export silently never lands and `__node.run` comes
+// back undefined. Swapping esbuild's own `__defProp` helper for a plain assignment sidesteps
+// `Object.defineProperty` entirely; a plain function export needs no live binding or descriptor.
+// NOTE: this patches esbuild's current codegen for this exact helper, pinned by esbuild's version
+// in package.json. If a future esbuild renames or restructures it, the guard below throws instead
+// of silently shipping a broken Code node; the fix is to update the needle/replacement together.
+const ESBUILD_DEFINE_PROP = 'var __defProp = Object.defineProperty;';
+const HARDENED_DEFINE_PROP =
+  'var __defProp = (obj, key, desc) => { obj[key] = desc && "get" in desc ? desc.get() : desc.value; return obj; };';
+
+export function hardenAgainstFrozenDefineProperty(bundle: string): string {
+  if (!bundle.includes(ESBUILD_DEFINE_PROP)) {
+    throw new Error("esbuild output didn't contain the expected __defProp assignment; esbuild's codegen may have changed");
+  }
+  return bundle.replace(ESBUILD_DEFINE_PROP, HARDENED_DEFINE_PROP);
+}
+
 export async function bundleSource(source: string): Promise<string> {
   const result = await build({
     entryPoints: [source],
@@ -26,7 +46,7 @@ export async function bundleSource(source: string): Promise<string> {
   });
   const [output] = result.outputFiles;
   if (!output) throw new Error(`esbuild produced no output for ${source}`);
-  return output.text;
+  return hardenAgainstFrozenDefineProperty(output.text);
 }
 
 export async function buildWorkflows(opts: {
