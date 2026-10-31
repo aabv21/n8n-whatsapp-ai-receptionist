@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "WhatsApp Message Lifecycle",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1600,
+      890
+    ]
+  },
+  "participants": [
+    {
+      "id": "meta",
+      "type": "external",
+      "label": "WhatsApp",
+      "brand": "whatsapp"
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "whatsapp-entry"
+    },
+    {
+      "id": "process",
+      "type": "backend",
+      "label": "process-message"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "brand": "postgresql"
+    },
+    {
+      "id": "jev",
+      "type": "backend",
+      "label": "triage-message · Jev"
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "AI Agent"
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Tool workflows"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 229,
+      "label": "1 Signature check"
+    },
+    {
+      "from": 235,
+      "to": 269,
+      "label": "2 Normalize"
+    },
+    {
+      "from": 275,
+      "to": 344,
+      "label": "3 Record and dedupe"
+    },
+    {
+      "from": 350,
+      "to": 419,
+      "label": "4 Rate limit"
+    },
+    {
+      "from": 425,
+      "to": 494,
+      "label": "5 Triage"
+    },
+    {
+      "from": 500,
+      "to": 534,
+      "label": "6 Route"
+    },
+    {
+      "from": 540,
+      "to": 679,
+      "label": "7 Agent with tool calls"
+    },
+    {
+      "from": 685,
+      "to": 754,
+      "label": "8 Reply"
+    },
+    {
+      "from": 760,
+      "to": 794,
+      "label": "9 Mark replied"
+    }
+  ],
+  "messages": [
+    {
+      "from": "meta",
+      "to": "entry",
+      "y": 177,
+      "label": "signed POST",
+      "variant": "security",
+      "note": "HMAC-SHA256 mismatch: no run"
+    },
+    {
+      "from": "entry",
+      "to": "meta",
+      "y": 212,
+      "label": "200 once the run starts",
+      "variant": "return"
+    },
+    {
+      "from": "entry",
+      "to": "process",
+      "y": 252,
+      "label": "messages[0], one run per change",
+      "variant": "emphasis",
+      "note": "reactions and system messages stop"
+    },
+    {
+      "from": "process",
+      "to": "db",
+      "y": 292,
+      "label": "INSERT … ON CONFLICT DO NOTHING"
+    },
+    {
+      "from": "db",
+      "to": "process",
+      "y": 327,
+      "label": "0 rows: duplicate, no reply",
+      "variant": "return"
+    },
+    {
+      "from": "process",
+      "to": "db",
+      "y": 367,
+      "label": "count text in window"
+    },
+    {
+      "from": "db",
+      "to": "process",
+      "y": 402,
+      "label": "over limit: one notice only",
+      "variant": "return"
+    },
+    {
+      "from": "process",
+      "to": "jev",
+      "y": 442,
+      "label": "5 yes/no questions"
+    },
+    {
+      "from": "jev",
+      "to": "process",
+      "y": 477,
+      "label": "route + notes (fails open)",
+      "variant": "return",
+      "note": "Jev failure: route agent"
+    },
+    {
+      "from": "process",
+      "to": "tools",
+      "y": 517,
+      "label": "emergency, handoff: alert team",
+      "note": "blocked: fixed reply"
+    },
+    {
+      "from": "process",
+      "to": "agent",
+      "y": 557,
+      "label": "text + prompt + notes",
+      "variant": "emphasis"
+    },
+    {
+      "from": "agent",
+      "to": "tools",
+      "y": 592,
+      "label": "tool call, phone from workflow"
+    },
+    {
+      "from": "tools",
+      "to": "agent",
+      "y": 627,
+      "label": "result",
+      "variant": "return"
+    },
+    {
+      "from": "agent",
+      "to": "process",
+      "y": 662,
+      "label": "reply text",
+      "variant": "return",
+      "note": "failure: alert + fallback reply"
+    },
+    {
+      "from": "process",
+      "to": "entry",
+      "y": 702,
+      "label": "reply, route, tool_calls",
+      "variant": "return"
+    },
+    {
+      "from": "entry",
+      "to": "meta",
+      "y": 737,
+      "label": "send reply (3 tries)",
+      "variant": "emphasis",
+      "note": "3 tries, 2000 ms apart"
+    },
+    {
+      "from": "entry",
+      "to": "db",
+      "y": 777,
+      "label": "set replied_at"
+    }
+  ]
+}
