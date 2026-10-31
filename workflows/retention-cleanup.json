@@ -65,13 +65,61 @@
       }
     },
     {
+      "id": "b0000000-0000-4000-8000-000000000007",
+      "name": "Check retention days",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        380,
+        250
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "b0000000-0001-4000-8000-0000000a0101",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ Number.isInteger($('Load context').item.json.config.limits.retention_days) && $('Load context').item.json.config.limits.retention_days >= 1 }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000008",
+      "name": "Refuse invalid retention_days",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        640,
+        420
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "config.limits.retention_days must be an integer of 1 or more"
+      }
+    },
+    {
       "id": "b0000000-0000-4000-8000-000000000004",
       "name": "Delete expired chat memory",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        380,
-        250
+        640,
+        140
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -97,8 +145,8 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        660,
-        250
+        900,
+        140
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -129,8 +177,8 @@
       ],
       "parameters": {
         "width": 1300,
-        "height": 220,
-        "content": "## Retention cleanup\nRuns daily at 03:00 America/Bogota; an Execute Workflow Trigger lets the dev harness's `retention` target run it too, with no input. Both triggers feed the same Load context step, which supplies `config.limits.retention_days`. Chat memory is deleted first: an n8n_chat_histories row is judged by whether inbound_messages still has a row for that session's phone (bare for WhatsApp, `test:`-prefixed for the test channel) inside the retention window, so memory is pruned while the messages it's judged against are still there; inbound_messages itself is pruned last, by received_at. Both deletes set Always Output Data, because a bare DELETE with no RETURNING clause reports zero rows affected as zero items, which would otherwise stop the branch and leave an Execute Workflow Trigger caller with nothing returned."
+        "height": 320,
+        "content": "## Retention cleanup\nRuns daily at 03:00 America/Bogota; an Execute Workflow Trigger lets the dev harness's `retention` target run it too, with no input. Both triggers feed the same Load context step, which supplies `config.limits.retention_days`. Check retention days refuses to run either delete unless that value is an integer of 1 or more, into a Stop and Error that fails the run into the error workflow — a missing, null, zero, or negative value would otherwise make the interval below NULL or non-positive, which admits every row instead of none and wipes both tables. Chat memory is deleted first: an n8n_chat_histories row is judged by whether inbound_messages still has a row for that session's phone (bare for WhatsApp, `test:`-prefixed for the test channel) inside the retention window, so memory is pruned while the messages it's judged against are still there; inbound_messages itself is pruned last, by received_at. Both deletes set Always Output Data, because a bare DELETE with no RETURNING clause reports zero rows affected as zero items, which would otherwise stop the branch and leave an Execute Workflow Trigger caller with nothing returned."
       }
     }
   ],
@@ -161,7 +209,25 @@
       "main": [
         [
           {
+            "node": "Check retention days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check retention days": {
+      "main": [
+        [
+          {
             "node": "Delete expired chat memory",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse invalid retention_days",
             "type": "main",
             "index": 0
           }
