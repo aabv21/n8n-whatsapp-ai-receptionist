@@ -4,9 +4,13 @@
 
 An n8n WhatsApp assistant that answers a dental studio's questions, books appointments in Google Calendar, and hands patients to staff when needed.
 
+![System architecture: WhatsApp reaches n8n through a one-path ngrok tunnel, and n8n's workflows call Postgres, Google, Anthropic, and TypeSafe](docs/diagrams/architecture.svg)
+
+The [architecture doc](docs/architecture.md) follows a message from webhook to reply, lists what each failure does, and explains the design decisions.
+
 ## Status
 
-In progress: local runtime, toolchain, workflow tooling/CI, the business content and system prompt, the platform workflows every other workflow relies on, the business tools `check-availability`, `upsert-patient`, and `book-appointment`, Jev-based message triage, `process-message` (the core every patient message runs through), a conversation-scenario eval suite that drives it through scripted, multi-turn conversations, `whatsapp-entry`, the WhatsApp webhook entry point in front of it, `retention-cleanup`, a daily job that prunes old messages and chat memory from Postgres, and an optional queue-mode Compose override that moves executions onto separate worker containers.
+In progress: local runtime, toolchain, workflow tooling/CI, the business content and system prompt, the platform workflows every other workflow relies on, the business tools `check-availability`, `upsert-patient`, and `book-appointment`, Jev-based message triage, `process-message` (the core every patient message runs through), a conversation-scenario eval suite that drives it through scripted, multi-turn conversations, `whatsapp-entry`, the WhatsApp webhook entry point in front of it, `retention-cleanup`, a daily job that prunes old messages and chat memory from Postgres, an optional queue-mode Compose override that moves executions onto separate worker containers, and the architecture doc with its system and message-lifecycle diagrams.
 
 ### What works now
 
@@ -27,6 +31,7 @@ In progress: local runtime, toolchain, workflow tooling/CI, the business content
 - `whatsapp-entry`: the thin entry point between Meta's webhook and `process-message`. The WhatsApp Trigger (subscribed to `messages` only, with status updates — sent/delivered/read/failed — turned off so none of them start an execution) delivers one item per change; `process-message` runs once per change (`mode: each`), not merged into a single run per batch. "Is there a message" also stops a reaction (a thumbs-up added or removed) or a system message (e.g. a changed number) the same way it stops an item with no `messages` array at all — no reply, nothing recorded. A real message is normalized into `process-message`'s contract — `channel: 'whatsapp'`, the Unix-seconds `timestamp` converted to an ISO string with Luxon, `name` `null` when WhatsApp sent no `contacts` block, `text: ''` and `type: 'other'` for anything but plain text — reading only `messages[0]` even when a single change's `messages` array carries more. `process-message`'s reply, when not `null`, goes out through a WhatsApp send (3 tries, 2000 ms apart — a fixed exception to this project's usual 1000 ms wait); only a send that actually succeeds marks the message's `replied_at`, which means WhatsApp accepted the send, not that the patient's device delivered or read it. An unexpected failure — a Postgres outage or an unexpected error — reaches no patient reply and instead fails into the error workflow, which emails the team. The tunnel's traffic policy allows through only this trigger's own fixed webhook path, so Meta's GET verification (which carries `hub.*` query parameters, excluded from the path ngrok matches against) and its POST deliveries both reach n8n, and nothing else does.
 - `retention-cleanup`: a daily job, 03:00 America/Bogota, that deletes old data from Postgres so the database doesn't grow without bound. It loads `config.limits.retention_days` through `load-context`, then deletes chat memory before messages: an `n8n_chat_histories` row is kept only while `inbound_messages` still has a row for that session's phone (bare for WhatsApp, `test:`-prefixed for the test channel) inside the retention window, so memory is judged against messages that are still there when it runs; `inbound_messages` itself is pruned last, by `received_at`. Both deletes set Always Output Data, since a bare `DELETE` with no `RETURNING` clause would otherwise report zero rows affected as zero items and stop the run. Alongside its Schedule Trigger, an Execute Workflow Trigger lets the dev harness's `retention` target run the same job on demand; needing only Postgres, it's the one dev-harness call that always runs for real rather than reporting a missing-credential failure.
 - An optional queue-mode override, `compose.queue.yaml`: adds Redis and one or more `n8n-worker` containers so executions run off the main process. `n8n-worker` extends `compose.yaml`'s own `n8n` service, so it keeps the same encryption key, database settings, and read-only `/files` mounts the main process has, and `ports: !reset []` keeps it from publishing a host port, so it scales past one replica without a conflict. See "When you'd need queue mode" below.
+- `docs/architecture.md`: the components, the message lifecycle, the data model, a failure-modes table, scaling and security notes, and the design decisions, each one stating what it chose over what. Its two diagrams, the system architecture and the message sequence, come from `docs/diagrams/*.json` through archify, and `AGENTS.md` shows how to regenerate them.
 
 ## Quick start
 
@@ -62,10 +67,9 @@ The `notify-team` call answers `{"ok":false,"reason":"email_failed"}` until a re
 
 ## When you'd need queue mode
 
-The default stack runs n8n as a single process that both receives WhatsApp webhooks and runs every execution itself — enough for this demo's traffic. Reach for `compose.queue.yaml` instead when:
+The default stack runs n8n as a single process that both receives WhatsApp webhooks and runs every execution, enough for this demo's traffic. Reach for `compose.queue.yaml` when:
 
-- **Throughput** grows past what one process can run at a time, so messages start queuing up behind each other instead of running in parallel.
-- **Long agent runs block the main process.** A slow Anthropic call ties up the main process's one execution slot, delaying its own responsiveness to new webhooks and the editor UI while it waits.
+- **One process runs short of CPU or memory**: executions already run concurrently, so that process's CPU and memory are the limit; see the architecture doc's [scaling section](docs/architecture.md#scaling-limits-and-what-to-change).
 - **Horizontal scaling** is worth it: worker count (`--scale n8n-worker=N`) grows independently of the main instance, which keeps receiving webhooks throughout.
 
 The trade-off is cost: a Redis container plus one or more worker containers to run, monitor, and keep healthy — overhead this demo's own traffic doesn't justify today.
