@@ -279,6 +279,30 @@
                 ]
               },
               "renameOutput": true
+            },
+            {
+              "outputKey": "retention",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40000000-0001-4000-8000-0000000a010b",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.body.target }}",
+                    "rightValue": "retention"
+                  }
+                ]
+              },
+              "renameOutput": true
             }
           ]
         },
@@ -1562,6 +1586,32 @@
         400,
         2380
       ]
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000036",
+      "name": "Call retention",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        400,
+        2600
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbRetentionJob1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "schema": [],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        }
+      }
     }
   ],
   "connections": {
@@ -1644,6 +1694,13 @@
         [
           {
             "node": "Call process-message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call retention",
             "type": "main",
             "index": 0
           }
@@ -2162,6 +2219,17 @@
       ]
     },
     "Call process-message": {
+      "main": [
+        [
+          {
+            "node": "Respond with result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call retention": {
       "main": [
         [
           {
