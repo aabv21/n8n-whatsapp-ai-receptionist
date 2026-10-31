@@ -8,7 +8,9 @@
         "updates": [
           "messages"
         ],
-        "options": {}
+        "options": {
+          "messageStatusUpdates": []
+        }
       },
       "id": "a0000000-0000-4000-8000-000000000001",
       "name": "Receive WhatsApp message",
@@ -44,7 +46,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ Array.isArray($json.messages) && $json.messages.length > 0 }}",
+              "leftValue": "={{ Array.isArray($json.messages) && $json.messages.length > 0 && !['reaction', 'system'].includes($json.messages[0].type) }}",
               "rightValue": ""
             }
           ]
@@ -78,6 +80,7 @@
     {
       "parameters": {
         "source": "database",
+        "mode": "each",
         "workflowId": {
           "__rl": true,
           "mode": "id",
@@ -256,8 +259,8 @@
     {
       "parameters": {
         "width": 1760,
-        "height": 300,
-        "content": "## WhatsApp entry\nMeta's webhook delivers one item per change; a status callback (sent/delivered/read/failed) carries no messages array and stops at \"Is there a message\". A real message is normalized into process-message's contract: channel 'whatsapp', the Unix-seconds timestamp converted to an ISO string with Luxon, name null when WhatsApp sent no contacts block, text '' and type 'other' for anything but a plain text message. process-message then does everything else: recording, deduping, rate-limiting, triage, routing, and the reply. A null reply (a duplicate or a rate-limited silence) sends nothing and leaves replied_at NULL; only a real reply reaches WhatsApp send, and only a send that actually succeeds reaches \"Mark replied\". \"Send WhatsApp reply\" retries 3 times with a 2000 ms wait, not this project's 1000 ms default \u2014 Meta's Cloud API is slower and more rate-limit-prone than Postgres or Google, so a longer backoff avoids retrying into the same throttling window.\nNOTE: when process-message throws unexpectedly, there is no patient reply \u2014 the execution fails into the error workflow, which emails the team. Ceiling: no reply during a Postgres or n8n outage. Upgrade: an error output that alerts and sends technical_issue_retry.\nNOTE: only messages[0] is processed. Ceiling: a batched webhook's extra messages are skipped. Upgrade: Split Out on messages."
+        "height": 380,
+        "content": "## WhatsApp entry\nThe trigger's \"Receive Message Status Updates\" option is set to receive none, so a status callback (sent/delivered/read/failed) never starts an execution at all. Meta can still batch several changes into one webhook call; \"Process message\" runs in mode each, so every change gets its own process-message run instead of one run silently reading just the first. \"Is there a message\" stops a reaction (a thumbs-up added or removed) or a system message (e.g. a changed number) the same way it stops an item with no messages array — no reply, nothing recorded. A real message is normalized into process-message's contract: channel 'whatsapp', the Unix-seconds timestamp converted to an ISO string with Luxon, name null when WhatsApp sent no contacts block, text '' and type 'other' for anything but a plain text message. process-message then does everything else: recording, deduping, rate-limiting, triage, routing, and the reply. A null reply (a duplicate or a rate-limited silence) sends nothing and leaves replied_at NULL; only a real reply reaches WhatsApp send, and only a send that actually succeeds reaches \"Mark replied\" — replied_at means WhatsApp send was accepted by Meta, not that the patient's device delivered or read it. \"Send WhatsApp reply\" uses 3 tries, 2000 ms apart — a fixed exception to this project's usual 1000 ms wait.\nNOTE: when process-message throws unexpectedly, there is no patient reply — the execution fails into the error workflow, which emails the team. Ceiling: no reply during a Postgres or n8n outage. Upgrade: an error output that alerts and sends technical_issue_retry.\nNOTE: only messages[0] is processed. Ceiling: a batched webhook's extra messages are skipped. Upgrade: Split Out on messages."
       },
       "id": "a0000000-0000-4000-8000-000000000008",
       "name": "Sticky Note",

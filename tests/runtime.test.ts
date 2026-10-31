@@ -6,7 +6,7 @@ const compose = readFileSync('compose.yaml', 'utf8');
 const envExample = readFileSync('.env.example', 'utf8');
 const policy = readFileSync('ngrok/traffic-policy.yml', 'utf8');
 const config: unknown = JSON.parse(readFileSync('config/config.example.json', 'utf8'));
-const whatsappTrigger = readWorkflow('workflows/whatsapp-entry.json').nodes.find((n) => typeof n.webhookId === 'string');
+const whatsappTrigger = readWorkflow('workflows/whatsapp-entry.json').nodes.find((n) => n.type === 'n8n-nodes-base.whatsAppTrigger');
 const triggerWebhookId = typeof whatsappTrigger?.webhookId === 'string' ? whatsappTrigger.webhookId : '';
 const service = (name: string): string =>
   compose.split(/^ {2}(?=[a-z][\w-]*:$)/m).find((block) => block.startsWith(`${name}:`)) ?? '';
@@ -24,7 +24,7 @@ test('n8n never sees the Postgres superuser', () => {
   expect(service('n8n')).toContain('DB_POSTGRESDB_USER: ${N8N_DB_USER}');
   expect(service('n8n')).not.toMatch(/POSTGRES_(USER|PASSWORD)/);
 });
-test('the tunnel forwards webhooks only', () => {
+test('the tunnel policy pins the WhatsApp trigger path and denies unsafe encodings', () => {
   expect(triggerWebhookId).not.toBe('');
   expect(policy).toContain(`req.url.raw_path.matches("^/webhook/${triggerWebhookId}/webhook$")`);
   expect(policy).toContain(`req.url.raw_path.contains("%")`);
