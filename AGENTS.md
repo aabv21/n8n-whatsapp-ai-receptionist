@@ -9,6 +9,7 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 ## Repo map
 
 - `compose.yaml`, `.env.example` — the local runtime: Postgres and n8n in Docker Compose, plus an optional ngrok tunnel.
+- `compose.queue.yaml` — an optional override that adds Redis and `n8n-worker` containers for queue mode; see Commands.
 - `db/schema.sql`, `db/init/` — the application database schema and the one-time role/database bootstrap script.
 - `ngrok/traffic-policy.yml` — the tunnel's traffic policy: forwards only the WhatsApp Trigger's own fixed webhook path (`workflows/whatsapp-entry.json`'s `webhookId`), denying every other path, including other webhook-shaped ones.
 - `config/config.example.json` — the config template; a developer's own `config/config.json` is gitignored.
@@ -30,6 +31,8 @@ This repo builds a WhatsApp AI receptionist for Cumbident, a fictional dental st
 - `docker compose up -d --wait` — start Postgres and n8n, and wait for both to report healthy.
 - `docker compose --profile tunnel up -d --wait` — also start the ngrok tunnel (needs `NGROK_AUTHTOKEN` and `NGROK_DOMAIN`).
 - `docker compose down` — stop the stack. Add `-v` to also drop the named volumes (destructive: wipes the database and n8n's data).
+- `docker compose -f compose.yaml -f compose.queue.yaml up -d --wait --scale n8n-worker=2` — switch to queue mode: adds Redis and the given number of `n8n-worker` containers, which run executions instead of the main process. `n8n-worker` extends `compose.yaml`'s own `n8n` service (same encryption key, database settings, and read-only `/files` mounts), with its published port reset so it scales past one replica without a conflict.
+- `docker compose -f compose.yaml -f compose.queue.yaml down && docker compose up -d --wait` — return to the regular, single-process stack. Plain `down`, with no `-v`, keeps the named volumes.
 - `npm run build:workflows` — bundles each `src/nodes/*.ts` with esbuild into its Code node's `jsCode`, in the workflow file `scripts/manifest.ts`'s `CODE_NODES` names. Add `--check` to fail (exit 1) if the committed JSON doesn't match the source, without writing — that's what CI runs. After an esbuild update, run this and commit the regenerated JSON.
 - `npm run check` — hygiene checks on every file in `workflows/`: pinned data, a literal email/phone/long id/secret, an unknown credential id, a hand-written or undocumented Code node, a missing required setting, an external-service node without retry on fail, and a Postgres query built from an expression instead of `$n` parameters.
 - `npm run setup` — imports credentials (`scripts/setup-credentials.ts`) then publishes workflows (`scripts/import-workflows.ts`) into the local n8n instance. Skips a credential whose `.env` values are blank, or a Google Calendar/Sheets/Gmail credential that already exists (pass `--force` to overwrite one deliberately — it carries an interactive Google sign-in that `import:credentials` would otherwise wipe out). Skips a workflow not yet in `workflows/`, and holds back one whose trigger needs a credential that isn't available yet.
