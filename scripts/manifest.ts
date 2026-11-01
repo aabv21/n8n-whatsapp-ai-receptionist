@@ -20,13 +20,14 @@ export interface CodeNodeEntry {
 }
 
 export const ERROR_WORKFLOW_ID = 'cmbErrorHandler1';
+export const LOAD_CONTEXT_ID = 'cmbLoadContext01';
 
 /** `env[key]` widened past `noUncheckedIndexedAccess`; callers only reach here once the key is known to be set. */
 // eslint-disable-next-line security/detect-object-injection -- key is always one of this entry's own fixed `env` names
 const readEnv = (env: Readonly<Record<string, string>>, key: string): string => env[key] ?? '';
 
 export const WORKFLOWS: readonly WorkflowEntry[] = [
-  { id: 'cmbLoadContext01', name: 'Load context', file: 'load-context.json' },
+  { id: LOAD_CONTEXT_ID, name: 'Load context', file: 'load-context.json' },
   { id: ERROR_WORKFLOW_ID, name: 'Error handler', file: 'error-handler.json' },
   { id: 'cmbNotifyTeam001', name: 'Notify team', file: 'notify-team.json' },
   { id: 'cmbDevHarness001', name: 'Dev harness', file: 'dev-harness.json' },

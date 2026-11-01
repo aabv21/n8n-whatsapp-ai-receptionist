@@ -7,7 +7,7 @@ import { checkWorkflow } from '../scripts/check-workflows.ts';
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
-import { CREDENTIALS } from '../scripts/manifest.ts';
+import { CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
 import { buildCredentials, skipExisting } from '../scripts/setup-credentials.ts';
 import { runGenerated } from './helpers/run-generated.ts';
 
@@ -47,6 +47,16 @@ test('the error handler is exempt from the errorWorkflow rule', () => {
   const wf = fx('clean');
   delete wf.settings.errorWorkflow;
   expect(checkWorkflow({ ...wf, id: 'cmbErrorHandler1' }, opts)).toEqual([]);
+});
+test('the context loader is exempt from the errorWorkflow rule', () => {
+  const wf = fx('clean');
+  delete wf.settings.errorWorkflow;
+  expect(checkWorkflow({ ...wf, id: LOAD_CONTEXT_ID }, opts)).toEqual([]);
+});
+test('a workflow that is neither the error handler nor the context loader still needs an errorWorkflow', () => {
+  const wf = fx('clean');
+  delete wf.settings.errorWorkflow;
+  expect(errors(wf)).toMatch(/errorWorkflow must be cmbErrorHandler1/);
 });
 test('explicit null counts as missing', () =>
   expect(errors({ ...fx('clean'), connections: null } as unknown as Workflow)).toMatch(/missing connections/));
