@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from './lib/workflow.ts';
-import { CODE_NODES, CREDENTIALS, ERROR_WORKFLOW_ID } from './manifest.ts';
+import { CODE_NODES, CREDENTIALS, ERROR_WORKFLOW_ID, LOAD_CONTEXT_ID } from './manifest.ts';
 
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const PHONE_RE = /\d{10,}/;
@@ -43,7 +43,9 @@ export function checkWorkflow(
     if (s.executionOrder !== 'v1') errors.push('settings.executionOrder must be v1');
     if (s.timezone !== 'America/Bogota') errors.push('settings.timezone must be America/Bogota');
     if (s.callerPolicy !== 'workflowsFromSameOwner') errors.push('settings.callerPolicy must be workflowsFromSameOwner');
-    if (wf.id !== ERROR_WORKFLOW_ID && s.errorWorkflow !== ERROR_WORKFLOW_ID) {
+    // load-context is exempt too: the error handler calls it, so naming the handler as its error workflow would loop.
+    const exempt = wf.id === ERROR_WORKFLOW_ID || wf.id === LOAD_CONTEXT_ID;
+    if (!exempt && s.errorWorkflow !== ERROR_WORKFLOW_ID) {
       errors.push(`settings.errorWorkflow must be ${ERROR_WORKFLOW_ID}`);
     }
   }

@@ -334,8 +334,7 @@
   "settings": {
     "executionOrder": "v1",
     "timezone": "America/Bogota",
-    "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": "cmbErrorHandler1"
+    "callerPolicy": "workflowsFromSameOwner"
   },
   "meta": null,
   "nodeGroups": [],
