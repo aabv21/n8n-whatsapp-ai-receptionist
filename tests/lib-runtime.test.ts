@@ -24,6 +24,14 @@ describe('execFileWithInput', () => {
       stderr: 'err\n',
     });
   });
+
+  it('rejects instead of crashing when the child exits before reading all of stdin (EPIPE)', async () => {
+    // A command that exits immediately without reading stdin at all, fed far more input than a
+    // pipe buffer holds: the write raises EPIPE. Without the `stdin.on('error', ...)` handler,
+    // Node treats that as an unhandled stream error and crashes the process instead of letting
+    // this promise reject.
+    await expect(execFileWithInput('sh', ['-c', 'exit 0'], 'x'.repeat(10_000_000))).rejects.toThrow();
+  });
 });
 
 describe('isWebhookLive', () => {

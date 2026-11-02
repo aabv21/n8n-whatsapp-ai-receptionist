@@ -19,7 +19,7 @@ In progress: local runtime, toolchain, workflow tooling/CI, the business content
 - An optional `tunnel` profile that exposes n8n through ngrok, restricted to forwarding only the WhatsApp Trigger's own fixed webhook path, not any webhook-shaped one.
 - Workflow tooling: a manifest of fixed workflow and credential IDs, hygiene checks that reject pinned data, literal secrets, and hand-written Code nodes, and a Code-node build that compiles `src/nodes/*.ts` into Code-node JavaScript with esbuild — hardened so a node's exports survive n8n's Code-node sandbox, which runs generated code with `Object.defineProperty` disabled.
 - Scripts to set up credentials and import, export, and publish workflows against the local n8n instance, plus a dev-harness client for calling a sub-workflow directly during offline testing.
-- A GitHub Actions pipeline: the full quality gate, ShellCheck, gitleaks, `pnpm audit`, actionlint, zizmor, a CodeQL scan (turns on once the repo is public), and an `n8n` job that boots the real stack with a generated `.env` and proves two workflows execute end to end through the dev harness, with no WhatsApp, Google, Anthropic, or TypeSafe credential: `retention`'s Postgres-only path, and `check-availability` rejecting a fixed past date through its own generated Code node (`Check date`, from `src/nodes/compute-free-slots.ts`) before any Calendar call.
+- A GitHub Actions pipeline: the full quality gate, ShellCheck, gitleaks, `pnpm audit`, actionlint, zizmor, a CodeQL scan (turns on once the repo is public), and an `n8n` job that boots the real stack with a generated `.env` and proves two workflows execute end to end through the dev harness, with no WhatsApp, Google, Anthropic, or TypeSafe credential: `retention`'s Postgres-only path, and `check-availability` rejecting a fixed past date through its own generated Code node (`Check date`, from `src/nodes/compute-free-slots.ts`) before any Calendar call. CI doesn't run `pnpm run scenarios` (needs real TypeSafe, Anthropic, and Google credentials), the queue-mode stack, or any other harness target that needs a third-party credential — see AGENTS.md's "The `n8n` job" section.
 - Supply-chain hardening: pnpm with a release-age gate, trust-policy enforcement, blocked exotic sub-dependencies, and build-script approval (`pnpm-workspace.yaml`); every Compose image pinned by digest; a Dependabot cooldown on every ecosystem — see AGENTS.md's "Supply-chain hardening" section.
 - Business content the workflows load at runtime: `business/business.json` (the facts — address, hours, prices, payment methods, fixed replies), `business/knowledge-base.md` (FAQ prose), and `prompts/system-prompt.md` (the assistant's system prompt template, with `<<BUSINESS>>`, `<<KNOWLEDGE_BASE>>`, `<<NOW>>`, and `<<TRIAGE_NOTES>>` placeholders), all checked by `tests/content.test.ts`.
 - The four platform workflows every other workflow depends on: `load-context` (reads the business content above into one item), `error-handler` (emails the team when any other workflow fails), `notify-team` (alerts the team by email for a flagged conversation), and the token-protected `dev-harness`, which lets `node scripts/dev-call.ts <target> '<json>'` call any of these directly over HTTP without WhatsApp or the n8n editor.
@@ -37,14 +37,14 @@ In progress: local runtime, toolchain, workflow tooling/CI, the business content
 ## Quick start
 
 ```bash
-cp .env.example .env
+node scripts/init-env.ts
 cp config/config.example.json config/config.json
 pnpm install --frozen-lockfile
 docker compose up -d --wait
 pnpm test
 ```
 
-Fill in the generated secrets in `.env` before bringing up the stack (see `.env.example` for what's required).
+`init-env.ts` writes `.env` from `.env.example`, filling only the local-stack secrets (`POSTGRES_PASSWORD`, `N8N_DB_PASSWORD`, `APP_DB_PASSWORD`, `N8N_ENCRYPTION_KEY`, `DEV_HARNESS_TOKEN`) with random hex. Every external credential (Google, WhatsApp, Anthropic, TypeSafe, ngrok) stays blank — fill those in by hand before the workflow that needs them will work for real.
 
 Once n8n is up, `pnpm run setup` imports whichever credentials already have their `.env` values filled and publishes the workflows in `workflows/`; a workflow whose trigger needs a credential that isn't filled in yet (Google, WhatsApp) is held back rather than published half-configured. With no Google credentials, try the platform workflows directly:
 

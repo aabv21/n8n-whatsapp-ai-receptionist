@@ -57,10 +57,18 @@ export function writeEnvFile(path: string, text: string): void {
 
 /**
  * Creates `path` at mode 0700 if it doesn't exist yet, and leaves it (and whatever it already
- * holds) alone otherwise. `setup-credentials.ts` already creates this directory itself
- * (`mkdirSync(IMPORT_DIR, { recursive: true })`, which defaults to 0755) the first time it runs,
- * so this is only a safety net for a CI job that wants the directory present, at the local
- * default mode, before anything else touches it.
+ * holds) alone otherwise. No credential data crosses this directory: `setup-credentials.ts`
+ * streams credentials into the `n8n` container over stdin and reads the existing-credentials
+ * export back over stdout, entirely inside the container's own `/tmp`. The directory now serves
+ * only `pnpm run export` (`export-workflows.ts` writes its output under `.n8n-import/export`,
+ * recreating that one subdirectory itself with `mkdirSync`, which defaults to 0755); this is a
+ * safety net so the directory itself exists, at the stricter local default mode, before anything
+ * else touches it.
+ *
+ * On Linux, the bind mount only works when the host uid matches n8n's container uid (1000),
+ * because n8n writes into a directory the host creates at 0700 — this function's own mode. A CI
+ * runner whose uid differs would create the directory but still be unable to read back what n8n
+ * writes into it; CI avoids the problem entirely by never using this bind mount for credentials.
  */
 export function ensureN8nImportDir(path: string): void {
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- path is the caller-provided .n8n-import path, not user input
