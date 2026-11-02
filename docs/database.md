@@ -219,7 +219,7 @@ These steps take a volume created before `db/migrations/` existed to the current
 | TRUNCATE is denied, for each granted table | `permission denied for table …` |
 | connecting to the n8n database is denied | `permission denied for database "n8n"` |
 | SET ROLE to the owner is denied | `permission denied to set role` |
-| no role attribute, membership, column grant, or TEMP on app beyond the grant list | Checked as the superuser: `app_runtime` holds none of `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, or `BYPASSRLS`; `pg_auth_members` lists it as a member of nothing; `has_any_column_privilege` finds no column privilege its table grants don't cover; and it has no `TEMP` on `app` |
+| no role attribute, membership, column grant, or TEMP/CREATE on app beyond the grant list | Checked as the superuser: `app_runtime` holds none of `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, or `BYPASSRLS`; `pg_auth_members` lists it as a member of nothing; `has_any_column_privilege` finds no column privilege its table grants don't cover; and it has no `TEMP` or `CREATE` on `app` |
 | table privileges are exactly the grant list | `app_runtime`'s privileges on every table and sequence in `public` equal `RUNTIME_GRANTS`: none missing, none extra |
 | every workflow Postgres statement runs | all ten statements run as `app_runtime`, inside one transaction it rolls back |
 | `schema_migrations` lists every file in `db/migrations` | every file is recorded |
@@ -234,7 +234,7 @@ CI's `n8n` job runs `check-db` after `pnpm run setup` on a fresh volume. Then `c
 To prove the check can fail, grant a forbidden privilege by hand as the superuser, then run it. Each of these makes `check-db` exit 1:
 
 - `GRANT TRUNCATE ON inbound_messages TO app_runtime` fails "TRUNCATE inbound_messages is denied" and "table privileges are exactly the grant list".
-- `ALTER ROLE app_runtime CREATEDB`, `GRANT INSERT (session_id) ON n8n_chat_histories TO app_runtime`, or `GRANT TEMP ON DATABASE app TO app_runtime` fails the role-attribute check. The table-privilege check misses all three.
+- `ALTER ROLE app_runtime CREATEDB`, `GRANT INSERT (session_id) ON n8n_chat_histories TO app_runtime`, `GRANT TEMP ON DATABASE app TO app_runtime`, or `GRANT CREATE ON DATABASE app TO app_runtime` fails the role-attribute check. The table-privilege check misses all four.
 - `GRANT app TO app_runtime` fails the role-attribute check and "SET ROLE to the owner is denied".
 
 Revoke each one afterward. `pnpm run db:migrate` also resets the attributes on its own.
