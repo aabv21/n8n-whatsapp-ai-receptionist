@@ -30,7 +30,15 @@ export function execFileWithInput(command: string, args: readonly string[], inpu
       }
       resolve({ stdout, stderr });
     });
-    if (input !== undefined) child.stdin?.end(input);
+    if (input !== undefined) {
+      // Writing more than the child reads before it exits raises EPIPE here. Node treats an
+      // unhandled stream 'error' as fatal and crashes the process, so this must reject through
+      // the callback above instead of being left to the default behavior.
+      child.stdin?.on('error', (err: Error) => {
+        reject(Object.assign(err, { stdout: '', stderr: '' }));
+      });
+      child.stdin?.end(input);
+    }
   });
 }
 
