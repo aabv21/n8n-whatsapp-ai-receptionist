@@ -1,15 +1,22 @@
 import { cpSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { buildWorkflows, hardenAgainstFrozenDefineProperty } from '../scripts/build-workflows.ts';
 import { checkWorkflow } from '../scripts/check-workflows.ts';
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
 import { CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
-import { buildCredentials, buildImportCall, IMPORT_SCRIPT, skipExisting } from '../scripts/setup-credentials.ts';
+import { buildCredentials, buildImportCall, EXPORT_SCRIPT, existingCredentialIds, IMPORT_SCRIPT, skipExisting } from '../scripts/setup-credentials.ts';
 import { runGenerated } from './helpers/run-generated.ts';
+
+const { composeMock } = vi.hoisted(() => ({ composeMock: vi.fn<(args: readonly string[], input?: string) => Promise<{ stdout: string; stderr: string }>>() }));
+vi.mock('../scripts/lib/runtime.ts', async (importOriginal) => ({ ...(await importOriginal<object>()), compose: composeMock }));
+
+afterEach(() => {
+  composeMock.mockReset();
+});
 
 const fx = (name: string): Workflow => readWorkflow(`tests/fixtures/workflows/${name}.json`);
 const opts = { credentialIds: new Set(CREDENTIALS.map((c) => c.id)), generatedNodes: new Set(['Double value']) };
@@ -151,4 +158,34 @@ test('the import script makes its own temp file, never touches .n8n-import, and 
   expect(IMPORT_SCRIPT).toContain('exit $status');
   expect(IMPORT_SCRIPT).not.toContain('.n8n-import');
   expect(IMPORT_SCRIPT).not.toContain('/import');
+});
+
+test('EXPORT_SCRIPT sets a strict umask, uses its own temp file, sends n8n\'s own output to stderr, and only cats on success', () => {
+  expect(EXPORT_SCRIPT).toContain('umask 077');
+  expect(EXPORT_SCRIPT).toContain('mktemp');
+  expect(EXPORT_SCRIPT).toContain('n8n export:credentials --all --output="$tmp" >&2');
+  expect(EXPORT_SCRIPT).toContain('cat "$tmp"');
+  expect(EXPORT_SCRIPT).toContain('rm -f "$tmp"');
+  expect(EXPORT_SCRIPT).toContain('exit $status');
+  expect(EXPORT_SCRIPT).not.toContain('.n8n-import');
+});
+
+test('existingCredentialIds runs EXPORT_SCRIPT and parses the ids from stdout, never a file', async () => {
+  composeMock.mockResolvedValue({ stdout: JSON.stringify([{ id: 'cmbCredAppDb0001' }, { id: 'cmbCredGCalendar' }]), stderr: 'Acquiring database migration lock...\nSuccessfully exported 2 credentials.' });
+  const ids = await existingCredentialIds();
+  expect(composeMock).toHaveBeenCalledWith(['exec', '-T', 'n8n', 'sh', '-c', EXPORT_SCRIPT]);
+  expect(ids).toEqual(new Set(['cmbCredAppDb0001', 'cmbCredGCalendar']));
+});
+
+test('existingCredentialIds returns an empty set when n8n reports no credentials yet, on either stream', async () => {
+  composeMock.mockRejectedValueOnce(Object.assign(new Error('exit 1'), { stdout: '', stderr: 'No credentials found' }));
+  expect(await existingCredentialIds()).toEqual(new Set());
+
+  composeMock.mockRejectedValueOnce(Object.assign(new Error('exit 1'), { stdout: 'No credentials found', stderr: '' }));
+  expect(await existingCredentialIds()).toEqual(new Set());
+});
+
+test('existingCredentialIds rethrows any other failure', async () => {
+  composeMock.mockRejectedValueOnce(Object.assign(new Error('exit 1'), { stdout: '', stderr: 'permission denied' }));
+  await expect(existingCredentialIds()).rejects.toThrow('exit 1');
 });
