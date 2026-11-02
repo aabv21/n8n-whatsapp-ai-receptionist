@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { compose, loadDotEnv } from './lib/runtime.ts';
 import { CREDENTIALS } from './manifest.ts';
@@ -15,9 +15,26 @@ export interface ImportableCredential {
 const PROTECTED_TYPES = new Set(['googleCalendarOAuth2Api', 'googleSheetsOAuth2Api', 'gmailOAuth2']);
 
 const IMPORT_DIR = '.n8n-import';
-const CREDENTIALS_FILE = `${IMPORT_DIR}/credentials.json`;
 const EXISTING_FILE_NAME = 'existing-credentials.json';
 const EXISTING_FILE = `${IMPORT_DIR}/${EXISTING_FILE_NAME}`;
+
+/**
+ * The import:credentials call used to write a decrypted `.n8n-import/credentials.json` on the
+ * host (mode 0600) and point the CLI at it inside the container. That works on macOS, where
+ * Docker Desktop's VM makes a bind-mounted file appear owned by whatever uid the reading
+ * process runs as — but on a Linux runner the file is written by the runner's own uid (1001)
+ * and stays owned by it inside the container too, where n8n runs as uid 1000 and can't read it.
+ * Streaming the JSON over stdin instead means the plaintext credential data never touches the
+ * host filesystem or the bind mount at all, so no uid can be wrong: `sh -c` inside the container
+ * sets a strict umask, makes its own temp file in the container's own `/tmp` (entirely separate
+ * from `.n8n-import/`), copies stdin into it, runs the import, and removes it either way.
+ */
+export const IMPORT_SCRIPT = 'umask 077; tmp="$(mktemp)"; cat > "$tmp"; n8n import:credentials --input="$tmp"; status=$?; rm -f "$tmp"; exit $status';
+
+/** The exact `compose()` call that imports `toImport`: the credential JSON travels only as `input`, never as an argument or a file. */
+export function buildImportCall(toImport: readonly ImportableCredential[]): { args: string[]; input: string } {
+  return { args: ['exec', '-T', 'n8n', 'sh', '-c', IMPORT_SCRIPT], input: JSON.stringify(toImport) };
+}
 
 export function buildCredentials(env: Readonly<Record<string, string | undefined>>): {
   credentials: ImportableCredential[];
@@ -99,13 +116,8 @@ async function main(): Promise<void> {
   const { toImport, alreadyExists } = skipExisting(credentials, existingIds, force);
 
   if (toImport.length > 0) {
-    writeFileSync(CREDENTIALS_FILE, JSON.stringify(toImport, null, 2), { mode: 0o600 });
-    chmodSync(CREDENTIALS_FILE, 0o600);
-    try {
-      await compose(['exec', '-T', 'n8n', 'n8n', 'import:credentials', '--input=/import/credentials.json']);
-    } finally {
-      rmSync(CREDENTIALS_FILE, { force: true });
-    }
+    const { args, input } = buildImportCall(toImport);
+    await compose(args, input);
   }
 
   for (const { id, missing } of skipped) {

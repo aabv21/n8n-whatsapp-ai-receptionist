@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compose, loadDotEnv, waitForHealthy } from './lib/runtime.ts';
+import { compose, loadDotEnv, waitForHealthy, waitForWebhookLive } from './lib/runtime.ts';
 import { listJsonFiles, readWorkflow, type Workflow } from './lib/workflow.ts';
-import { CREDENTIALS, WORKFLOWS } from './manifest.ts';
+import { CREDENTIALS, WORKFLOWS, type WorkflowEntry } from './manifest.ts';
 import { buildCredentials } from './setup-credentials.ts';
 
 /**
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   const available = new Set(credentials.map((c) => c.id));
   const credentialNames = new Map(CREDENTIALS.map((c) => [c.id, c.name]));
 
-  let publishedCount = 0;
+  const published: WorkflowEntry[] = [];
   const failures: string[] = [];
   for (const entry of WORKFLOWS) {
     const path = join(WORKFLOWS_DIR, entry.file);
@@ -60,17 +60,33 @@ async function main(): Promise<void> {
 
     try {
       await compose(['exec', '-T', 'n8n', 'n8n', 'publish:workflow', `--id=${entry.id}`]);
-      publishedCount += 1;
+      published.push(entry);
     } catch (err) {
       failures.push(`publish failed for ${entry.file}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  if (publishedCount > 0) {
+  if (published.length > 0) {
     await compose(['restart', 'n8n']);
     const n8nUrl = process.env.N8N_URL;
     const healthy = n8nUrl ? await waitForHealthy(n8nUrl, 90_000) : false;
-    if (!healthy) failures.push('n8n did not become healthy after restart');
+    if (!healthy) {
+      failures.push('n8n did not become healthy after restart');
+    } else {
+      // /healthz reports healthy well before the publication reconciler registers the webhook
+      // route for the version just published (10 s by default). This fixed wait is longer than
+      // that default interval, not a guarantee against a slower one; the poll below is the real
+      // proof, and this wait just keeps the common case from spending its whole budget on it.
+      await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
+
+      if (n8nUrl) {
+        for (const entry of published) {
+          if (!entry.webhookPath) continue;
+          const live = await waitForWebhookLive(n8nUrl, entry.webhookPath, 60_000);
+          if (!live) failures.push(`webhook for ${entry.file} never came up (still 404 after the wait)`);
+        }
+      }
+    }
   }
 
   for (const failure of failures) console.error(failure);
