@@ -1,11 +1,15 @@
 version: 2
 updates:
+  # npm ecosystem also reads the pnpm lockfile.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 7
     ignore:
       # NOTE: @types/node follows the Node LTS major (24), not npm's latest; bumping it ahead of
       # the runtime would type-check against APIs this project's Node doesn't have. Move it by
@@ -29,6 +33,6 @@ updates:
     ignore:
       # NOTE: n8n publishes beta and stable releases under the same plain semver tag scheme (no
       # -beta suffix), so Dependabot can't tell them apart from the tag alone. Patch bumps still
-      # come through; minor/major bumps to n8nio/n8n are reviewed and pinned by hand (R21).
+      # come through; minor/major bumps to n8nio/n8n are reviewed and pinned by hand.
       - dependency-name: n8nio/n8n
         update-types: ['version-update:semver-minor', 'version-update:semver-major']

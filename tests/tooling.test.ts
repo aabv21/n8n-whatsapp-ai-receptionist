@@ -107,7 +107,7 @@ test('hardenAgainstFrozenDefineProperty rejects a bundle without the expected es
   expect(() => hardenAgainstFrozenDefineProperty('var x = 1;')).toThrow(/esbuild output didn't contain/));
 test('generated code carries the header and footer', async () => {
   const lines = (await built()).trimEnd().split('\n');
-  expect(lines[0]).toBe('// Why Code: fixture. Generated from tests/fixtures/nodes/double-value.ts by npm run build:workflows; edit the source.');
+  expect(lines[0]).toBe('// Why Code: fixture. Generated from tests/fixtures/nodes/double-value.ts by pnpm run build:workflows; edit the source.');
   expect(lines.at(-1)).toBe('return [{ json: __node.run($input.first().json) }];');
 });
 test('check mode reports a stale node and write mode fixes it', async () => {
