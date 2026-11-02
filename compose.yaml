@@ -2,7 +2,7 @@ name: cumbident-whatsapp
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:266d3c257594e195b309ae9d1805e54c788f1d7b375f56bf6c367aac6c917e7b
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -21,7 +21,7 @@ services:
       retries: 10
 
   n8n:
-    image: n8nio/n8n:2.45.6
+    image: n8nio/n8n:2.45.6@sha256:45edf89655fd66dd55ea9336c1791ad14777599fdbf6c5aec6db583ede99a40b
     restart: unless-stopped
     ports:
       - 127.0.0.1:5678:5678
@@ -57,7 +57,7 @@ services:
 
   ngrok:
     profiles: [tunnel]
-    image: ngrok/ngrok:3.39.13-alpine
+    image: ngrok/ngrok:3.39.13-alpine@sha256:a51a7637a70be573615b01852af0419c4ab9dc857601b3d61ea2a082be3ec0d3
     command: http n8n:5678 --url=${NGROK_DOMAIN} --traffic-policy-file /etc/ngrok/traffic-policy.yml
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}

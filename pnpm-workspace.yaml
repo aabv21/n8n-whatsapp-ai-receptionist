@@ -1,0 +1,16 @@
+packages:
+  - "."
+
+# Supply-chain hardening. Every value is written explicitly, even where it equals pnpm's own
+# default, so the effective config doesn't silently drift if a future pnpm major changes a
+# default. See AGENTS.md's "Supply-chain hardening" section for what each setting does.
+minimumReleaseAge: 4320 # minutes (3 days); blocks installing a package version published more recently
+minimumReleaseAgeExclude: [] # override pnpm's own default n8n exclusions; nothing is exempt from the age gate
+trustPolicy: no-downgrade # installs fail if a package's trust evidence regresses from an earlier release
+blockExoticSubdeps: true # only direct dependencies may resolve from a git/tarball URL
+strictDepBuilds: true # a dependency's unapproved build script fails the install instead of running or skipping silently
+dangerouslyAllowAllBuilds: false # never bypass the allowBuilds approval model
+engineStrict: true # a dependency whose engines range excludes this Node fails the install
+
+allowBuilds:
+  esbuild: true # postinstall re-links its optionalDependencies platform binary over the bin/esbuild shim
