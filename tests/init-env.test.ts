@@ -5,16 +5,17 @@ import { describe, expect, it } from 'vitest';
 import { ensureN8nImportDir, fillSecrets, writeEnvFile } from '../scripts/init-env.ts';
 
 const example = ['# Postgres', 'POSTGRES_USER=postgres', 'POSTGRES_PASSWORD=', 'N8N_DB_PASSWORD=', 'APP_DB_PASSWORD=',
-  'N8N_ENCRYPTION_KEY=', 'DEV_HARNESS_TOKEN=', 'ANTHROPIC_API_KEY=', 'GOOGLE_OAUTH_CLIENT_SECRET=',
-  'WHATSAPP_ACCESS_TOKEN=', 'N8N_URL=http://localhost:5678', ''].join('\n');
+  'APP_RUNTIME_DB_USER=app_runtime', 'APP_RUNTIME_DB_PASSWORD=', 'N8N_ENCRYPTION_KEY=', 'DEV_HARNESS_TOKEN=', 'ANTHROPIC_API_KEY=',
+  'GOOGLE_OAUTH_CLIENT_SECRET=', 'WHATSAPP_ACCESS_TOKEN=', 'N8N_URL=http://localhost:5678', ''].join('\n');
 
 describe('fillSecrets', () => {
   it('fills only the stack/dev-harness names, keeps every other blank and preset value as-is', () => {
     let n = 0;
     const next = (): string => `hex${String(++n)}`;
     expect(fillSecrets(example, next)).toBe(['# Postgres', 'POSTGRES_USER=postgres', 'POSTGRES_PASSWORD=hex1', 'N8N_DB_PASSWORD=hex2',
-      'APP_DB_PASSWORD=hex3', 'N8N_ENCRYPTION_KEY=hex4', 'DEV_HARNESS_TOKEN=hex5', 'ANTHROPIC_API_KEY=', 'GOOGLE_OAUTH_CLIENT_SECRET=',
-      'WHATSAPP_ACCESS_TOKEN=', 'N8N_URL=http://localhost:5678', ''].join('\n'));
+      'APP_DB_PASSWORD=hex3', 'APP_RUNTIME_DB_USER=app_runtime', 'APP_RUNTIME_DB_PASSWORD=hex4', 'N8N_ENCRYPTION_KEY=hex5',
+      'DEV_HARNESS_TOKEN=hex6', 'ANTHROPIC_API_KEY=', 'GOOGLE_OAUTH_CLIENT_SECRET=', 'WHATSAPP_ACCESS_TOKEN=',
+      'N8N_URL=http://localhost:5678', ''].join('\n'));
   });
 });
 

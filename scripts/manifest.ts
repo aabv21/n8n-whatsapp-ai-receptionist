@@ -44,8 +44,26 @@ export const WORKFLOWS: readonly WorkflowEntry[] = [
 
 export const CREDENTIALS: readonly CredentialEntry[] = [
   {
+    // Every Postgres node: the runtime role, with DML on the app's tables and no DDL.
     id: 'cmbCredAppDb0001',
     name: 'App DB',
+    type: 'postgres',
+    env: ['APP_RUNTIME_DB_USER', 'APP_RUNTIME_DB_PASSWORD'],
+    data: (env) => ({
+      host: 'postgres',
+      port: 5432,
+      database: 'app',
+      user: readEnv(env, 'APP_RUNTIME_DB_USER'),
+      password: readEnv(env, 'APP_RUNTIME_DB_PASSWORD'),
+      ssl: 'disable',
+    }),
+  },
+  {
+    // Only the Postgres Chat Memory node: it runs CREATE TABLE IF NOT EXISTS on every execution,
+    // which Postgres refuses without CREATE on the schema, so it connects as the owner role
+    // (docs/database.md).
+    id: 'cmbCredChatMemDb',
+    name: 'App DB (chat memory)',
     type: 'postgres',
     env: ['APP_DB_USER', 'APP_DB_PASSWORD'],
     data: (env) => ({
