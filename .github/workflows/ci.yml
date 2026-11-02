@@ -71,3 +71,45 @@ jobs:
           zizmor --format=plain .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  n8n:
+    name: n8n
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/init-env.ts
+      - run: cp config/config.example.json config/config.json
+      - name: Make .n8n-import/ writable by both the runner and n8n's container user
+        # The runner user is uid 1001; n8n's own `node` user inside the container is uid 1000.
+        # Docker creates this bind-mount source directory before either side touches it, owned
+        # by whichever uid runs `docker compose up` (uid 1001 here). Credential data no longer
+        # crosses this mount at all (setup-credentials.ts streams it over stdin instead, since a
+        # file the runner wrote here would be unreadable by n8n's own uid on Linux — see that
+        # script's own comment) — what's left is `existingCredentialIds()`'s own detection export:
+        # n8n (uid 1000) writes `existing-credentials.json` into this directory, and the runner
+        # (uid 1001) then reads and deletes it, which needs write+execute on the directory for
+        # both uids. Creating it ourselves at 0777, before `up`, covers that. This runner is
+        # ephemeral and single-tenant (torn down after this one job), so a world-writable
+        # directory carries no real exposure here — it would on a shared or persistent host,
+        # which is why local setup keeps 0700.
+        run: mkdir -m 0777 -p .n8n-import
+      - run: docker compose up -d --wait postgres n8n
+      - run: pnpm run setup
+      - run: node scripts/check-dev-response.ts
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs n8n postgres
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

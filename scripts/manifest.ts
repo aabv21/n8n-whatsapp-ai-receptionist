@@ -2,6 +2,8 @@ export interface WorkflowEntry {
   id: string;
   name: string;
   file: string;
+  /** This workflow's live webhook path, when its trigger is a plain webhook — used to confirm a publish actually took effect. */
+  webhookPath?: string;
 }
 
 export interface CredentialEntry {
@@ -30,7 +32,7 @@ export const WORKFLOWS: readonly WorkflowEntry[] = [
   { id: LOAD_CONTEXT_ID, name: 'Load context', file: 'load-context.json' },
   { id: ERROR_WORKFLOW_ID, name: 'Error handler', file: 'error-handler.json' },
   { id: 'cmbNotifyTeam001', name: 'Notify team', file: 'notify-team.json' },
-  { id: 'cmbDevHarness001', name: 'Dev harness', file: 'dev-harness.json' },
+  { id: 'cmbDevHarness001', name: 'Dev harness', file: 'dev-harness.json', webhookPath: 'dev' },
   { id: 'cmbCheckAvail001', name: 'Check availability', file: 'check-availability.json' },
   { id: 'cmbUpsertPatient', name: 'Upsert patient', file: 'upsert-patient.json' },
   { id: 'cmbBookAppt00001', name: 'Book appointment', file: 'book-appointment.json' },

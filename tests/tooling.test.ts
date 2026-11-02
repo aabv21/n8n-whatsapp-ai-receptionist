@@ -8,7 +8,7 @@ import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
 import { CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
-import { buildCredentials, skipExisting } from '../scripts/setup-credentials.ts';
+import { buildCredentials, buildImportCall, IMPORT_SCRIPT, skipExisting } from '../scripts/setup-credentials.ts';
 import { runGenerated } from './helpers/run-generated.ts';
 
 const fx = (name: string): Workflow => readWorkflow(`tests/fixtures/workflows/${name}.json`);
@@ -128,4 +128,27 @@ test('an existing Google OAuth2 credential is skipped unless forced', () => {
     alreadyExists: [{ id: calendar.id, name: calendar.name }],
   });
   expect(skipExisting([calendar, appDb], existing, true)).toEqual({ toImport: [calendar, appDb], alreadyExists: [] });
+});
+
+// On a Linux CI runner the import step used to fail: a credentials.json file written by the
+// runner's own uid is unreadable by n8n's own, different uid inside the container. Streaming
+// the JSON over stdin instead means buildImportCall's `input` is the only place the decrypted
+// data appears — never a file argument, and never written to `.n8n-import/` at all.
+test('the import call carries credentials only as stdin input, never as a file argument', () => {
+  const appDb = { id: 'cmbCredAppDb0001', name: 'App DB', type: 'postgres', data: { password: 'secret' } };
+  const { args, input } = buildImportCall([appDb]);
+  expect(args).toEqual(['exec', '-T', 'n8n', 'sh', '-c', IMPORT_SCRIPT]);
+  expect(args.join(' ')).not.toContain('secret');
+  expect(args.join(' ')).not.toContain('.n8n-import');
+  expect(input).toBe(JSON.stringify([appDb]));
+});
+test('the import script makes its own temp file, never touches .n8n-import, and exits with the import status', () => {
+  expect(IMPORT_SCRIPT).toContain('umask 077');
+  expect(IMPORT_SCRIPT).toContain('mktemp');
+  expect(IMPORT_SCRIPT).toContain('cat > "$tmp"');
+  expect(IMPORT_SCRIPT).toContain('n8n import:credentials --input="$tmp"');
+  expect(IMPORT_SCRIPT).toContain('rm -f "$tmp"');
+  expect(IMPORT_SCRIPT).toContain('exit $status');
+  expect(IMPORT_SCRIPT).not.toContain('.n8n-import');
+  expect(IMPORT_SCRIPT).not.toContain('/import');
 });
