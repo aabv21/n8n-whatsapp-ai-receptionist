@@ -216,7 +216,8 @@
     "executionOrder": "v1",
     "timezone": "America/Bogota",
     "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": "cmbErrorHandler1"
+    "errorWorkflow": "cmbErrorHandler1",
+    "saveManualExecutions": false
   },
   "meta": null,
   "nodeGroups": [],

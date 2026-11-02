@@ -88,9 +88,22 @@ test('credentials use the fixed ids', () => {
   expect(credentials.find((c) => c.id === 'cmbCredTypeSafe1')?.data.value).toBe('Bearer typesafe_api_key-test');
 });
 test('credentials with missing env are skipped and named', () => {
-  const { credentials, skipped } = buildCredentials({ APP_DB_USER: 'u', APP_DB_PASSWORD: 'p' });
+  const { credentials, skipped } = buildCredentials({ APP_RUNTIME_DB_USER: 'u', APP_RUNTIME_DB_PASSWORD: 'p' });
   expect(credentials.map((c) => c.id)).toEqual(['cmbCredAppDb0001']);
   expect(skipped.find((s) => s.id === 'cmbCredAnthropic')?.missing).toContain('ANTHROPIC_API_KEY');
+});
+test('the app credential connects as the runtime role, and only the chat memory credential as the owner', () => {
+  const { credentials } = buildCredentials(fullEnv);
+  const user = (id: string): unknown => credentials.find((c) => c.id === id)?.data.user;
+  expect(user('cmbCredAppDb0001')).toBe('app_runtime_db_user-test');
+  expect(user('cmbCredChatMemDb')).toBe('app_db_user-test');
+  const postgresCredentials = credentials.filter((c) => c.type === 'postgres').map((c) => c.id).sort();
+  expect(postgresCredentials).toEqual(['cmbCredAppDb0001', 'cmbCredChatMemDb']);
+});
+test('only the Postgres Chat Memory node uses the owner credential', () => {
+  const owners = listJsonFiles('workflows').flatMap((path) =>
+    readWorkflow(path).nodes.filter((n) => n.credentials?.postgres?.id === 'cmbCredChatMemDb').map((n) => `${n.name} (${n.type})`));
+  expect(owners).toEqual(['Postgres Chat Memory (@n8n/n8n-nodes-langchain.memoryPostgresChat)']);
 });
 test('only trigger credentials hold back publishing', () => {
   const trigger = withNode({ name: 'On message', type: 'n8n-nodes-base.whatsAppTrigger', typeVersion: 1, parameters: {},

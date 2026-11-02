@@ -92,6 +92,7 @@ jobs:
       - run: cp config/config.example.json config/config.json
       - run: docker compose up -d --wait postgres n8n
       - run: pnpm run setup
+      - run: node scripts/check-db.ts
       - run: node scripts/check-dev-response.ts
       - name: Logs on failure
         if: failure()

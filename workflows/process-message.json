@@ -731,8 +731,8 @@
       ],
       "credentials": {
         "postgres": {
-          "id": "cmbCredAppDb0001",
-          "name": "App DB"
+          "id": "cmbCredChatMemDb",
+          "name": "App DB (chat memory)"
         }
       }
     },
@@ -1191,7 +1191,7 @@
       "parameters": {
         "width": 2080,
         "height": 220,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
       },
       "id": "90000000-0000-4000-8000-000000000024",
       "name": "Sticky Note1",
@@ -1642,7 +1642,8 @@
     "executionOrder": "v1",
     "timezone": "America/Bogota",
     "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": "cmbErrorHandler1"
+    "errorWorkflow": "cmbErrorHandler1",
+    "saveManualExecutions": false
   },
   "meta": null,
   "nodeGroups": [],

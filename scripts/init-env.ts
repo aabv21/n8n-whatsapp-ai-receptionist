@@ -7,14 +7,16 @@ const ENV_PATH = '.env';
 const N8N_IMPORT_DIR = '.n8n-import';
 
 // Names this repo's `.env.example` leaves blank that the local stack and the credential-free
-// dev-harness target (`retention`) still need a real value for: Postgres's three roles, n8n's
-// own encryption key, and the dev-harness header token. Everything else blank in the example
+// dev-harness target (`retention`) still need a real value for: the passwords of Postgres's
+// superuser, n8n's role, the app's owner role, and the app's runtime role, n8n's own encryption
+// key, and the dev-harness header token. Everything else blank in the example
 // (Google, WhatsApp, Anthropic, TypeSafe, ngrok) stays blank — generating those would make a
 // workflow that needs a real third-party credential look configured when it isn't.
 const GENERATED_NAMES = new Set([
   'POSTGRES_PASSWORD',
   'N8N_DB_PASSWORD',
   'APP_DB_PASSWORD',
+  'APP_RUNTIME_DB_PASSWORD',
   'N8N_ENCRYPTION_KEY',
   'DEV_HARNESS_TOKEN',
 ]);
