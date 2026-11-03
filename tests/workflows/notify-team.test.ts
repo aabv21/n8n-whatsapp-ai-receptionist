@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest';
 import { readWorkflow, type WorkflowNode } from '../../scripts/lib/workflow.ts';
+import { CODE_NODES } from '../../scripts/manifest.ts';
+import { runGenerated } from '../helpers/run-generated.ts';
 
 const wf = readWorkflow('workflows/notify-team.json');
 const node = (name: string): WorkflowNode | undefined => wf.nodes.find((n) => n.name === name);
@@ -95,8 +97,35 @@ test('the trigger takes message_id, and the email reads Compose alert by name, w
   expect(trigger.values.map((v) => v.name)).toContain('message_id');
   const send = node('Send alert email')?.parameters;
   expect([send?.sendTo, send?.subject, send?.message]).toEqual([
-    "={{ $('Compose alert').first().json.config.team_email }}",
+    "={{ $('Load context').first().json.config.team_email }}",
     "={{ $('Compose alert').first().json.subject }}",
     "={{ $('Compose alert').first().json.body }}",
   ]);
+});
+
+test('every alert, tool failures included, is composed by the generated Compose alert from the request and config.team_locale', () => {
+  expect(targets('Load context', 0)).toEqual(['Prepare alert']);
+  expect(targets('Prepare alert', 0)).toEqual(['Compose alert']);
+  expect(targets('Compose alert', 0)).toEqual(['Is it a tool failure']);
+  expect(CODE_NODES).toContainEqual(expect.objectContaining({ file: 'notify-team.json', node: 'Compose alert', source: 'src/nodes/compose-alert.ts' }));
+  const prepare = String(node('Prepare alert')?.parameters.jsonOutput);
+  for (const field of ['reason', 'phone', 'name', 'summary', 'recent_messages']) {
+    expect(prepare).toContain(`${field}: $('Receive alert request').item.json.${field}`);
+  }
+  expect(prepare).toContain('now: $now.toISO()');
+  expect(prepare).toContain('timezone: $json.business.timezone');
+  expect(prepare).toContain('team_locale: $json.config.team_locale');
+});
+
+test('the generated Compose alert writes a Spanish alert inside a sandbox that freezes Object.defineProperty', () => {
+  const jsCode = `Object.defineProperty = () => ({});\n${String(node('Compose alert')?.parameters.jsCode)}`;
+  const input = {
+    reason: 'emergency', phone: '570000000001', name: 'Laura Gomez', summary: 'Cara hinchada desde anoche',
+    recent_messages: ['Hola', 'Me duele mucho la muela'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es',
+  };
+  expect(runGenerated(jsCode, input)).toEqual([{ json: {
+    subject: '[Cumbident] Urgencia odontológica: Laura Gomez',
+    body: 'Motivo: Urgencia odontológica\nNombre: Laura Gomez\nTeléfono: https://wa.me/570000000001\nResumen: Cara hinchada desde anoche\n'
+      + 'Hora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nHola\nMe duele mucho la muela',
+  } }]);
 });

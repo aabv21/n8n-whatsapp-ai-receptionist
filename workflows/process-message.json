@@ -166,6 +166,36 @@
     },
     {
       "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { text: $('Normalize text').item.json.text, type: $('Normalize text').item.json.type, locale: $('Load context').item.json.config.locale } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000027",
+      "name": "Prepare language check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1040,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: scoring the message's Spanish and English signals word by word needs a loop and regular expressions, and the configured default is applied in the same step. Generated from src/nodes/resolve-language.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/resolve-language.ts\n  var resolve_language_exports = {};\n  __export(resolve_language_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/detect-language.ts\n  var SPANISH_WORDS = /* @__PURE__ */ new Set([\n    \"hola\",\n    \"buenas\",\n    \"buenos\",\n    \"dias\",\n    \"días\",\n    \"tardes\",\n    \"noches\",\n    \"gracias\",\n    \"favor\",\n    \"si\",\n    \"sí\",\n    \"claro\",\n    \"listo\",\n    \"vale\",\n    \"bueno\",\n    \"perfecto\",\n    \"chao\",\n    \"adios\",\n    \"adiós\",\n    \"el\",\n    \"la\",\n    \"los\",\n    \"las\",\n    \"un\",\n    \"una\",\n    \"de\",\n    \"del\",\n    \"al\",\n    \"en\",\n    \"y\",\n    \"o\",\n    \"que\",\n    \"qué\",\n    \"con\",\n    \"para\",\n    \"por\",\n    \"pero\",\n    \"porque\",\n    \"pues\",\n    \"como\",\n    \"cómo\",\n    \"cual\",\n    \"cuál\",\n    \"cuanto\",\n    \"cuánto\",\n    \"cuantos\",\n    \"cuántos\",\n    \"donde\",\n    \"dónde\",\n    \"cuando\",\n    \"cuándo\",\n    \"es\",\n    \"esta\",\n    \"está\",\n    \"este\",\n    \"esto\",\n    \"eso\",\n    \"estoy\",\n    \"soy\",\n    \"eres\",\n    \"hay\",\n    \"tiene\",\n    \"tienen\",\n    \"tengo\",\n    \"quiero\",\n    \"quisiera\",\n    \"necesito\",\n    \"puedo\",\n    \"puede\",\n    \"pueden\",\n    \"hacer\",\n    \"hablar\",\n    \"dime\",\n    \"llamo\",\n    \"mi\",\n    \"mis\",\n    \"tu\",\n    \"tus\",\n    \"su\",\n    \"lo\",\n    \"le\",\n    \"se\",\n    \"te\",\n    \"muy\",\n    \"mas\",\n    \"más\",\n    \"tambien\",\n    \"también\",\n    \"ya\",\n    \"ahora\",\n    \"aqui\",\n    \"aquí\",\n    \"nada\",\n    \"todo\",\n    \"todas\",\n    \"todos\",\n    \"otra\",\n    \"otro\",\n    \"sobre\",\n    \"usted\",\n    \"ustedes\",\n    \"nombre\",\n    \"cita\",\n    \"citas\",\n    \"precio\",\n    \"precios\",\n    \"cuesta\",\n    \"valor\",\n    \"horario\",\n    \"horarios\",\n    \"hora\",\n    \"horas\",\n    \"hoy\",\n    \"mañana\",\n    \"manana\",\n    \"semana\",\n    \"lunes\",\n    \"martes\",\n    \"miercoles\",\n    \"miércoles\",\n    \"jueves\",\n    \"viernes\",\n    \"sabado\",\n    \"sábado\",\n    \"domingo\",\n    \"dolor\",\n    \"duele\",\n    \"muela\",\n    \"muelas\",\n    \"diente\",\n    \"dientes\",\n    \"limpieza\",\n    \"blanqueamiento\",\n    \"ortodoncia\",\n    \"urgencia\",\n    \"consulta\",\n    \"persona\",\n    \"atienden\",\n    \"abren\",\n    \"parqueadero\",\n    \"niños\",\n    \"ninos\"\n  ]);\n  var ENGLISH_WORDS = /* @__PURE__ */ new Set([\n    \"hi\",\n    \"hello\",\n    \"hey\",\n    \"thanks\",\n    \"thank\",\n    \"please\",\n    \"yes\",\n    \"yeah\",\n    \"sure\",\n    \"bye\",\n    \"goodbye\",\n    \"the\",\n    \"an\",\n    \"and\",\n    \"or\",\n    \"to\",\n    \"for\",\n    \"of\",\n    \"with\",\n    \"in\",\n    \"on\",\n    \"at\",\n    \"from\",\n    \"about\",\n    \"if\",\n    \"is\",\n    \"are\",\n    \"am\",\n    \"was\",\n    \"be\",\n    \"will\",\n    \"can\",\n    \"could\",\n    \"would\",\n    \"do\",\n    \"does\",\n    \"did\",\n    \"have\",\n    \"has\",\n    \"get\",\n    \"got\",\n    \"want\",\n    \"like\",\n    \"need\",\n    \"help\",\n    \"talk\",\n    \"i\",\n    \"i'm\",\n    \"im\",\n    \"i'd\",\n    \"i'll\",\n    \"my\",\n    \"you\",\n    \"your\",\n    \"we\",\n    \"our\",\n    \"it\",\n    \"it's\",\n    \"this\",\n    \"that\",\n    \"there\",\n    \"their\",\n    \"not\",\n    \"don't\",\n    \"dont\",\n    \"can't\",\n    \"cant\",\n    \"just\",\n    \"also\",\n    \"any\",\n    \"what\",\n    \"when\",\n    \"where\",\n    \"which\",\n    \"who\",\n    \"how\",\n    \"much\",\n    \"good\",\n    \"great\",\n    \"next\",\n    \"time\",\n    \"name\",\n    \"person\",\n    \"someone\",\n    \"appointment\",\n    \"appointments\",\n    \"book\",\n    \"booking\",\n    \"price\",\n    \"prices\",\n    \"cost\",\n    \"costs\",\n    \"cleaning\",\n    \"whitening\",\n    \"filling\",\n    \"tooth\",\n    \"teeth\",\n    \"pain\",\n    \"hurts\",\n    \"swollen\",\n    \"emergency\",\n    \"hours\",\n    \"open\",\n    \"today\",\n    \"tomorrow\",\n    \"week\",\n    \"morning\",\n    \"afternoon\",\n    \"evening\",\n    \"monday\",\n    \"tuesday\",\n    \"wednesday\",\n    \"thursday\",\n    \"friday\",\n    \"saturday\",\n    \"sunday\"\n  ]);\n  var WORD_RE = /[\\p{L}']+/gu;\n  var SPANISH_LETTER_RE = /[áéíóúüñ]/;\n  var OPENING_MARK_WEIGHT = 2;\n  var MIN_SHARE = 0.6;\n  function detectLanguage(text) {\n    const normalized = text.normalize(\"NFC\").toLowerCase().replaceAll(\"’\", \"'\");\n    let spanish = 0;\n    let accentedOnly = 0;\n    let english = 0;\n    if (normalized.includes(\"¿\")) spanish += OPENING_MARK_WEIGHT;\n    if (normalized.includes(\"¡\")) spanish += OPENING_MARK_WEIGHT;\n    for (const match of normalized.matchAll(WORD_RE)) {\n      const word = match[0].replace(/^'+|'+$/g, \"\").replace(/'s$/, \"\");\n      if (ENGLISH_WORDS.has(word)) english += 1;\n      else if (SPANISH_WORDS.has(word)) spanish += 1;\n      else if (SPANISH_LETTER_RE.test(word)) accentedOnly += 1;\n    }\n    if (spanish > 0) spanish += accentedOnly;\n    const total = spanish + english;\n    if (total === 0) return null;\n    if (spanish > english && spanish / total >= MIN_SHARE) return \"es\";\n    if (english > spanish && english / total >= MIN_SHARE) return \"en\";\n    return null;\n  }\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function localeSetting(value, fallback) {\n    return value === void 0 || value === null ? fallback : normalizeLocale(value);\n  }\n\n  // src/nodes/resolve-language.ts\n  function defaultLang(locale) {\n    if (typeof locale !== \"object\" || locale === null || Array.isArray(locale)) return \"en\";\n    return localeSetting(locale.default, \"en\") ?? \"en\";\n  }\n  function run(input) {\n    const fallback = defaultLang(input.locale);\n    const detected = input.type === \"text\" ? detectLanguage(input.text) : null;\n    return detected === null ? { lang: fallback, lang_detected: false } : { lang: detected, lang_detected: true };\n  }\n  return __toCommonJS(resolve_language_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      },
+      "id": "90000000-0000-4000-8000-000000000028",
+      "name": "Resolve language",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        400
+      ]
+    },
+    {
+      "parameters": {
         "conditions": {
           "options": {
             "version": 2,
@@ -194,14 +224,14 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        1040,
+        1520,
         400
       ]
     },
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.non_text, route: 'non_text', flags: {}, tool_calls: [] } }}",
+        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.non_text[$('Resolve language').first().json.lang], route: 'non_text', flags: {}, tool_calls: [] } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000008",
@@ -209,7 +239,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1280,
+        1760,
         600
       ]
     },
@@ -226,7 +256,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        1280,
+        1760,
         300
       ],
       "retryOnFail": true,
@@ -269,14 +299,14 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        1520,
+        2000,
         300
       ]
     },
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $json.n === $('Load context').item.json.config.limits.max_messages_per_window + 1 ? $('Load context').item.json.business.replies.rate_limited : null, route: 'rate_limited', flags: {}, tool_calls: [] } }}",
+        "jsonOutput": "={{ { reply: $json.n === $('Load context').item.json.config.limits.max_messages_per_window + 1 ? $('Load context').item.json.business.replies.rate_limited[$('Resolve language').first().json.lang] : null, route: 'rate_limited', flags: {}, tool_calls: [] } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-00000000000b",
@@ -284,7 +314,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1760,
+        2240,
         600
       ]
     },
@@ -301,7 +331,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        1760,
+        2240,
         300
       ],
       "retryOnFail": true,
@@ -356,7 +386,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2000,
+        2480,
         300
       ]
     },
@@ -373,7 +403,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2240,
+        2720,
         300
       ],
       "retryOnFail": true,
@@ -498,14 +528,14 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.5,
       "position": [
-        2480,
+        2960,
         300
       ]
     },
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.blocked, route: 'blocked', flags: $('Triage message').item.json.flags, tool_calls: [] } }}",
+        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.blocked[$('Resolve language').first().json.lang], route: 'blocked', flags: $('Triage message').item.json.flags, tool_calls: [] } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000010",
@@ -513,7 +543,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2720,
+        3200,
         100
       ]
     },
@@ -567,7 +597,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2720,
+        3200,
         500
       ]
     },
@@ -640,14 +670,14 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2960,
+        3440,
         300
       ]
     },
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Triage message').item.json.notes,\n  team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true && $('Alert the team').first().json.suppressed !== true,\n  now: $now.toISO()\n} }}",
+        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Triage message').item.json.notes,\n  team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true && $('Alert the team').first().json.suppressed !== true,\n  now: $now.toISO(),\n  lang: $('Resolve language').first().json.lang,\n  lang_detected: $('Resolve language').first().json.lang_detected\n} }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000013",
@@ -655,7 +685,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3200,
+        3680,
         300
       ]
     },
@@ -663,14 +693,14 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n\n  // src/nodes/decide-route.ts\n  var TEAM_ALERTED_NOTE = \"TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.\";\n\n  // src/nodes/build-system-prompt.ts\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|TRIAGE_NOTES)>>/g;\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"TRIAGE_NOTES\", notes.length > 0 ? notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n\n  // src/nodes/decide-route.ts\n  var TEAM_ALERTED_NOTE = \"TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.\";\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/build-system-prompt.ts\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|LANGUAGE|TRIAGE_NOTES)>>/g;\n  var LANGUAGE_NAMES = { en: \"English\", es: \"Spanish\" };\n  function languageHint(input) {\n    const lang = normalizeLocale(input.lang);\n    if (lang !== null && input.lang_detected) {\n      return `The patient is writing in ${pick(LANGUAGE_NAMES, lang)}.`;\n    }\n    const fallback = pick(LANGUAGE_NAMES, lang ?? \"en\");\n    return `This message doesn't show which language the patient is writing in. If the conversation so far doesn't either, use ${fallback}, the clinic's default.`;\n  }\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"LANGUAGE\", languageHint(input)],\n      [\"TRIAGE_NOTES\", notes.length > 0 ? notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       },
       "id": "90000000-0000-4000-8000-000000000014",
       "name": "Build system prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3440,
+        3920,
         300
       ]
     },
@@ -689,7 +719,7 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        3680,
+        4160,
         300
       ],
       "onError": "continueErrorOutput"
@@ -712,7 +742,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.6,
       "position": [
-        3480,
+        3960,
         580
       ],
       "credentials": {
@@ -734,7 +764,7 @@
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.4,
       "position": [
-        3640,
+        4120,
         580
       ],
       "credentials": {
@@ -786,7 +816,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        3800,
+        4280,
         580
       ]
     },
@@ -803,7 +833,7 @@
           "value": {
             "phone": "={{ $('When called').first().json.phone }}",
             "name": "={{ $fromAI('name', 'The full name the patient gave', 'string') }}",
-            "service": "={{ $fromAI('service', 'The service, exactly as named in BUSINESS services', 'string') }}",
+            "service": "={{ $fromAI('service', 'The service, exactly its name in BUSINESS services, never a translated name', 'string') }}",
             "date": "={{ $fromAI('date', 'The appointment day, as YYYY-MM-DD', 'string') }}",
             "time": "={{ $fromAI('time', 'The start time, as 24-hour HH:mm', 'string') }}"
           },
@@ -859,7 +889,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        3960,
+        4440,
         580
       ]
     },
@@ -877,7 +907,7 @@
             "phone": "={{ $('When called').first().json.phone }}",
             "status": "inquiry",
             "name": "={{ $fromAI('name', 'The name the patient gave, or an empty string if they have not given one', 'string') || undefined }}",
-            "service_of_interest": "={{ $fromAI('service_of_interest', 'The service the patient is interested in, exactly as named in BUSINESS services, or an empty string if not known', 'string') || undefined }}"
+            "service_of_interest": "={{ $fromAI('service_of_interest', 'The service the patient is interested in, exactly its name in BUSINESS services, never a translated name, or an empty string if not known', 'string') || undefined }}"
           },
           "schema": [
             {
@@ -931,7 +961,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4120,
+        4600,
         580
       ]
     },
@@ -1012,7 +1042,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4280,
+        4760,
         580
       ]
     },
@@ -1046,7 +1076,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        4000,
+        4480,
         300
       ]
     },
@@ -1061,14 +1091,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4240,
+        4720,
         200
       ]
     },
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Did the agent reply').first().json.output, flags: $('Triage message').first().json.flags, tool_calls: $json.tool_calls, business: $('Load context').first().json.business } }}",
+        "jsonOutput": "={{ { reply: $('Did the agent reply').first().json.output, flags: $('Triage message').first().json.flags, tool_calls: $json.tool_calls, business: $('Load context').first().json.business, lang: $('Resolve language').first().json.lang } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000025",
@@ -1076,7 +1106,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4480,
+        4960,
         200
       ]
     },
@@ -1084,14 +1114,14 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n  function bookingConfirmations(business, toolCalls) {\n    const lines = [];\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const { ok, start, service } = output;\n      if (ok !== true || typeof start !== \"string\" || typeof service !== \"string\") continue;\n      const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone);\n      if (!at.isValid) continue;\n      lines.push(`Your appointment is booked: ${service} on ${at.toFormat(\"yyyy-LL-dd\")} at ${at.toFormat(\"HH:mm\")}.`);\n    }\n    return lines;\n  }\n  function run(input) {\n    const { reply, business } = input;\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = business.replies.medical_advice;\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = business.replies.price_check;\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = business.replies.price_check;\n    }\n    if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };\n    const confirmations = bookingConfirmations(business, input.tool_calls);\n    return {\n      reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join(\"\\n\")}` : replacement,\n      flags: { ...input.flags, reply_replaced: true }\n    };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/check-reply.ts\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n  var CONFIRMATIONS = {\n    en: {\n      locale: \"en-US\",\n      date: \"EEEE, MMMM d, yyyy\",\n      time: \"h:mm a\",\n      line: (service, date, time) => `Your appointment is booked: ${service} on ${date} at ${time}.`\n    },\n    es: {\n      locale: \"es-CO\",\n      date: \"EEEE d 'de' MMMM 'de' yyyy\",\n      time: \"H:mm\",\n      line: (service, date, time) => `Su cita quedó agendada: ${service}, el ${date} a las ${time}.`\n    }\n  };\n  function bookingConfirmations(business, toolCalls, lang) {\n    const format = pick(CONFIRMATIONS, lang);\n    const lines = [];\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const { ok, start, service } = output;\n      if (ok !== true || typeof start !== \"string\" || typeof service !== \"string\") continue;\n      const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);\n      if (!at.isValid) continue;\n      const listed = business.services.find((s) => s.name === service);\n      const shown = listed ? pick(listed.name_i18n, lang) : service;\n      lines.push(format.line(shown, at.toFormat(format.date), at.toFormat(format.time)));\n    }\n    return lines;\n  }\n  function run(input) {\n    const { reply, business } = input;\n    const lang = normalizeLocale(input.lang) ?? \"en\";\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.medical_advice, lang);\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.price_check, lang);\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = pick(business.replies.price_check, lang);\n    }\n    if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };\n    const confirmations = bookingConfirmations(business, input.tool_calls, lang);\n    return {\n      reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join(\"\\n\")}` : replacement,\n      flags: { ...input.flags, reply_replaced: true }\n    };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       },
       "id": "90000000-0000-4000-8000-000000000026",
       "name": "Check reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4720,
+        5200,
         200
       ]
     },
@@ -1106,7 +1136,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4960,
+        5440,
         200
       ]
     },
@@ -1161,14 +1191,14 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        4240,
+        4720,
         20
       ]
     },
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $json.ok === true ? $('Load context').first().json.business.replies.technical_issue : $('Load context').first().json.business.replies.technical_issue_retry, route: 'fallback', flags: $('Triage message').first().json.flags, tool_calls: [] } }}",
+        "jsonOutput": "={{ { reply: $json.ok === true ? $('Load context').first().json.business.replies.technical_issue[$('Resolve language').first().json.lang] : $('Load context').first().json.business.replies.technical_issue_retry[$('Resolve language').first().json.lang], route: 'fallback', flags: $('Triage message').first().json.flags, tool_calls: [] } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000020",
@@ -1176,7 +1206,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4480,
+        4960,
         20
       ]
     },
@@ -1193,7 +1223,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        5240,
+        5720,
         400
       ],
       "retryOnFail": true,
@@ -1215,15 +1245,15 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        5480,
+        5960,
         300
       ]
     },
     {
       "parameters": {
-        "width": 3360,
+        "width": 3840,
         "height": 220,
-        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
+        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
       },
       "id": "90000000-0000-4000-8000-000000000023",
       "name": "Sticky Note",
@@ -1238,14 +1268,14 @@
       "parameters": {
         "width": 2560,
         "height": 220,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back. Check reply (generated from src/nodes/check-reply.ts) then replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply, and one offering a discount or quoting a peso amount that isn't a listed price with the fixed price_check reply, setting flags.reply_replaced, and adds a fixed confirmation line for each booking this turn's book_appointment made, so a replacement never hides a booking; it's a pattern check, not a classifier. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt also gets the resolved language as a hint, worded so an undetected one never claims the patient wrote in the default. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back. Check reply (generated from src/nodes/check-reply.ts) then replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply in the patient's language, and one offering a discount or quoting a peso amount that isn't a listed price with the fixed price_check reply, setting flags.reply_replaced, and adds a fixed confirmation line for each booking this turn's book_appointment made, so a replacement never hides a booking; it's a pattern check, not a classifier. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
       },
       "id": "90000000-0000-4000-8000-000000000024",
       "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        3160,
+        3640,
         -300
       ]
     }
@@ -1304,6 +1334,28 @@
             "index": 0
           }
         ],
+        [
+          {
+            "node": "Prepare language check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare language check": {
+      "main": [
+        [
+          {
+            "node": "Resolve language",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve language": {
+      "main": [
         [
           {
             "node": "Is it text",

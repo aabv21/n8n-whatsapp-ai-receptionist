@@ -1,4 +1,5 @@
 import type { ToolCall } from './collect-tool-calls.ts';
+import { normalizeLocale, pick, type Lang } from './shared/locale.ts';
 import type { Business } from './types.ts';
 
 export interface ReplyCheckInput {
@@ -6,6 +7,8 @@ export interface ReplyCheckInput {
   flags: Record<string, boolean>;
   tool_calls: ToolCall[];
   business: Business;
+  /** The patient's language, from process-message's Resolve language; anything else falls back to English. */
+  lang: Lang;
 }
 
 export interface ReplyCheck {
@@ -97,21 +100,40 @@ function allowedPrices(business: Business, toolCalls: readonly ToolCall[]): Set<
   return prices;
 }
 
+/** The booking confirmation line, with its date and time written the way each language reads them. */
+const CONFIRMATIONS: Record<Lang, { locale: string; date: string; time: string; line: (service: string, date: string, time: string) => string }> = {
+  en: {
+    locale: 'en-US',
+    date: 'EEEE, MMMM d, yyyy',
+    time: 'h:mm a',
+    line: (service, date, time) => `Your appointment is booked: ${service} on ${date} at ${time}.`,
+  },
+  es: {
+    locale: 'es-CO',
+    date: "EEEE d 'de' MMMM 'de' yyyy",
+    time: 'H:mm',
+    line: (service, date, time) => `Su cita quedó agendada: ${service}, el ${date} a las ${time}.`,
+  },
+};
+
 /**
  * One fixed line per appointment a `book_appointment` call booked this turn, from that tool's own
- * result: its service, and its start's date and time in the business timezone. A result without a
- * readable start or service gets no line.
+ * result: its service, by its display name when the price list has one, and its start's date and
+ * time in the business timezone, in the patient's language. A result without a readable start or service gets no line.
  */
-function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[]): string[] {
+function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[], lang: Lang): string[] {
+  const format = pick(CONFIRMATIONS, lang);
   const lines: string[] = [];
   for (const call of toolCalls) {
     const output = call.output;
     if (call.tool !== 'book_appointment' || typeof output !== 'object' || output === null) continue;
     const { ok, start, service } = output as { ok?: unknown; start?: unknown; service?: unknown };
     if (ok !== true || typeof start !== 'string' || typeof service !== 'string') continue;
-    const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone);
+    const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);
     if (!at.isValid) continue;
-    lines.push(`Your appointment is booked: ${service} on ${at.toFormat('yyyy-LL-dd')} at ${at.toFormat('HH:mm')}.`);
+    const listed = business.services.find((s) => s.name === service);
+    const shown = listed ? pick(listed.name_i18n, lang) : service;
+    lines.push(format.line(shown, at.toFormat(format.date), at.toFormat(format.time)));
   }
   return lines;
 }
@@ -119,22 +141,24 @@ function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[]
 /**
  * Checks the agent's reply before it reaches the patient. A dose or a medicine is replaced with
  * the fixed `medical_advice` reply, and a discount or a peso amount that isn't a listed price
- * with the fixed `price_check` reply; either sets `flags.reply_replaced`. A replaced reply still
- * confirms any booking this turn made, so the patient never loses the news that it went through.
+ * with the fixed `price_check` reply, both in the patient's language; either sets
+ * `flags.reply_replaced`. A replaced reply still confirms any booking this turn made, so the
+ * patient never loses the news that it went through.
  */
 export function run(input: ReplyCheckInput): ReplyCheck {
   const { reply, business } = input;
+  const lang = normalizeLocale(input.lang) ?? 'en';
   let replacement: string | null = null;
   if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {
-    replacement = business.replies.medical_advice;
+    replacement = pick(business.replies.medical_advice, lang);
   } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {
-    replacement = business.replies.price_check;
+    replacement = pick(business.replies.price_check, lang);
   } else {
     const allowed = allowedPrices(business, input.tool_calls);
-    if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = business.replies.price_check;
+    if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = pick(business.replies.price_check, lang);
   }
   if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };
-  const confirmations = bookingConfirmations(business, input.tool_calls);
+  const confirmations = bookingConfirmations(business, input.tool_calls, lang);
   return {
     reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join('\n')}` : replacement,
     flags: { ...input.flags, reply_replaced: true },

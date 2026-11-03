@@ -158,17 +158,67 @@ test('every agent reply goes through the reply check before process-message retu
 test('the generated Check reply node replaces an unlisted price inside a sandbox that freezes Object.defineProperty', () => {
   const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
   const jsCode = `Object.defineProperty = () => ({});\n${String(node('Check reply')?.parameters.jsCode)}`;
-  const input = { reply: 'Te lo dejo en $225.000.', flags: { triage_failed: false }, tool_calls: [], business };
-  expect(runGenerated(jsCode, input)).toEqual([{ json: { reply: business.replies.price_check, flags: { triage_failed: false, reply_replaced: true } } }]);
+  const input = { reply: 'Te lo dejo en $225.000.', flags: { triage_failed: false }, tool_calls: [], business, lang: 'es' };
+  expect(runGenerated(jsCode, input)).toEqual([{ json: { reply: business.replies.price_check.es, flags: { triage_failed: false, reply_replaced: true } } }]);
 });
 
 test("the generated Check reply node keeps this turn's booking confirmation when it replaces a reply", () => {
   const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
   const jsCode = `Object.defineProperty = () => ({});\n${String(node('Check reply')?.parameters.jsCode)}`;
   const booking = { ok: true, event_id: 'evt-1', start: '2026-11-04T09:30:00.000-05:00', end: '2026-11-04T10:15:00.000-05:00', service: 'Dental cleaning', price_cop: 120000 };
-  const input = { reply: 'Listo. Toma ibuprofeno.', flags: {}, tool_calls: [{ tool: 'book_appointment', input: {}, output: booking }], business };
+  const input = { reply: 'Listo. Toma ibuprofeno.', flags: {}, tool_calls: [{ tool: 'book_appointment', input: {}, output: booking }], business, lang: 'es' };
   expect(runGenerated(jsCode, input)).toEqual([{ json: {
-    reply: `${business.replies.medical_advice}\n\nYour appointment is booked: Dental cleaning on 2026-11-04 at 09:30.`,
+    reply: `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Limpieza dental, el miércoles 4 de noviembre de 2026 a las 9:30.`,
     flags: { reply_replaced: true },
   } }]);
+  expect(runGenerated(jsCode, { ...input, lang: 'en' })).toEqual([{ json: {
+    reply: `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.`,
+    flags: { reply_replaced: true },
+  } }]);
+});
+
+test('a new message resolves its language right after the duplicate check, before any fixed reply', () => {
+  expect(branches('Is it a duplicate')[1]?.map((e) => e.node)).toEqual(['Prepare language check']);
+  expect(incomingEdges('Resolve language')).toEqual([['Prepare language check', 0]]);
+  expect(incomingEdges('Is it text')).toEqual([['Resolve language', 0]]);
+  expect(CODE_NODES).toContainEqual(expect.objectContaining({ file: 'process-message.json', node: 'Resolve language', source: 'src/nodes/resolve-language.ts' }));
+  expect(node('Prepare language check')?.parameters.jsonOutput).toBe(
+    "={{ { text: $('Normalize text').item.json.text, type: $('Normalize text').item.json.type, locale: $('Load context').item.json.config.locale } }}",
+  );
+});
+
+const LANG = "[$('Resolve language').first().json.lang]";
+
+test("every fixed reply is picked in the message's language", () => {
+  // Check reply, the one Code node that picks a fixed reply, is covered by its own source's tests.
+  const replyNodes = wf.nodes.filter((n) => n.type !== 'n8n-nodes-base.code' && JSON.stringify(n.parameters).includes('business.replies.'));
+  expect(replyNodes.map((n) => n.name).sort()).toEqual(['Reply blocked', 'Reply non-text', 'Reply rate limited', 'Reply with fallback']);
+  for (const reply of replyNodes) {
+    const output = String(reply.parameters.jsonOutput);
+    const picks = [...output.matchAll(/business\.replies\.\w+/g)];
+    expect(picks.length, reply.name).toBeGreaterThan(0);
+    for (const pick of picks) expect(output.startsWith(LANG, pick.index + pick[0].length), `${reply.name}: ${pick[0]}`).toBe(true);
+  }
+});
+
+test('the agent gets the language as a hint, and the reply check replaces in that language', () => {
+  const prompt = String(node('Prepare prompt input')?.parameters.jsonOutput);
+  expect(prompt).toContain("lang: $('Resolve language').first().json.lang,");
+  expect(prompt).toContain("lang_detected: $('Resolve language').first().json.lang_detected");
+  expect(String(node('Prepare reply check')?.parameters.jsonOutput)).toContain("lang: $('Resolve language').first().json.lang }");
+});
+
+test('the model is told to send a service by its canonical name, never a translated one', () => {
+  const canonical = 'exactly its name in BUSINESS services, never a translated name';
+  expect(String(inputsOf(node('book_appointment')).value.service)).toContain(canonical);
+  expect(String(inputsOf(node('upsert_patient')).value.service_of_interest)).toContain(canonical);
+});
+
+test('the generated Resolve language node detects Spanish and falls back to the default inside a sandbox that freezes Object.defineProperty', () => {
+  const jsCode = `Object.defineProperty = () => ({});\n${String(node('Resolve language')?.parameters.jsCode)}`;
+  const config = { locale: { default: 'es' } };
+  expect(runGenerated(jsCode, { text: 'Hola, ¿cuánto cuesta una limpieza?', type: 'text', ...config })).toEqual([{ json: { lang: 'es', lang_detected: true } }]);
+  expect(runGenerated(jsCode, { text: 'How much is a dental cleaning?', type: 'text', ...config })).toEqual([{ json: { lang: 'en', lang_detected: true } }]);
+  expect(runGenerated(jsCode, { text: '', type: 'other', ...config })).toEqual([{ json: { lang: 'es', lang_detected: false } }]);
+  expect(runGenerated(jsCode, { text: 'ok', type: 'text', locale: { default: 'fr' } })).toEqual([{ json: { lang: 'en', lang_detected: false } }]);
 });
