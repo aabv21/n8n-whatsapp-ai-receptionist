@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { readWorkflow, type WorkflowNode } from '../../scripts/lib/workflow.ts';
 import { CODE_NODES, WORKFLOWS } from '../../scripts/manifest.ts';
+import { run as decideRoute } from '../../src/nodes/decide-route.ts';
 import type { Business } from '../../src/nodes/types.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
 
@@ -71,6 +72,22 @@ test('a handoff marks the patient handed_off without sending a name, so the name
 test("both of process-message's alert calls pass the message_id from the trigger, so notify-team can record the alert", () => {
   expect(inputsOf(node('Alert the team')).value.message_id).toBe("={{ $('When called').item.json.message_id }}");
   expect(inputsOf(node('notify_team')).value.message_id).toBe("={{ $('When called').first().json.message_id }}");
+});
+
+test("a triage emergency alerts with triage's own reason, emergency, the one reason only an earlier emergency holds back", () => {
+  expect(branches('Route by triage')[1]?.map((e) => e.node)).toEqual(['Alert the team']);
+  expect(inputsOf(node('Alert the team')).value.reason).toBe("={{ $('Triage message').item.json.notify_reason }}");
+  const scores = { emergency: 0.9, asks_for_human: 0, complaint: 0, medical_advice: 0, manipulation: 0 };
+  const thresholds = { emergency: 0.6, asks_for_human: 0.7, complaint: 0.7, medical_advice: 0.7, manipulation: 0.85 };
+  expect(decideRoute({ scores, thresholds })).toMatchObject({ route: 'emergency', notify_reason: 'emergency' });
+});
+
+test('the prompt says the team was alerted only when the alert sent, not when the cooldown held it back', () => {
+  // A suppressed alert answers ok: true too, but this message never reached the team, so the
+  // agent is not told it did; it can still call notify_team, which reports the suppression.
+  expect(String(node('Prepare prompt input')?.parameters.jsonOutput)).toContain(
+    "team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true && $('Alert the team').first().json.suppressed !== true,",
+  );
 });
 
 // Each tool's model-filled fields, by $fromAI key. Every other field a tool sends must be fixed by
@@ -143,4 +160,15 @@ test('the generated Check reply node replaces an unlisted price inside a sandbox
   const jsCode = `Object.defineProperty = () => ({});\n${String(node('Check reply')?.parameters.jsCode)}`;
   const input = { reply: 'Te lo dejo en $225.000.', flags: { triage_failed: false }, tool_calls: [], business };
   expect(runGenerated(jsCode, input)).toEqual([{ json: { reply: business.replies.price_check, flags: { triage_failed: false, reply_replaced: true } } }]);
+});
+
+test("the generated Check reply node keeps this turn's booking confirmation when it replaces a reply", () => {
+  const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
+  const jsCode = `Object.defineProperty = () => ({});\n${String(node('Check reply')?.parameters.jsCode)}`;
+  const booking = { ok: true, event_id: 'evt-1', start: '2026-11-04T09:30:00.000-05:00', end: '2026-11-04T10:15:00.000-05:00', service: 'Dental cleaning', price_cop: 120000 };
+  const input = { reply: 'Listo. Toma ibuprofeno.', flags: {}, tool_calls: [{ tool: 'book_appointment', input: {}, output: booking }], business };
+  expect(runGenerated(jsCode, input)).toEqual([{ json: {
+    reply: `${business.replies.medical_advice}\n\nYour appointment is booked: Dental cleaning on 2026-11-04 at 09:30.`,
+    flags: { reply_replaced: true },
+  } }]);
 });

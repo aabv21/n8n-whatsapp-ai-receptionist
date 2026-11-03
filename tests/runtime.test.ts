@@ -34,6 +34,21 @@ test('the tunnel policy pins the WhatsApp trigger path and denies unsafe encodin
   expect(policy).toContain(`req.url.raw_path.contains("/../")`);
   expect(service('ngrok')).toContain('./ngrok/traffic-policy.yml:/etc/ngrok/traffic-policy.yml:ro');
 });
+test('n8n caps its payload size well above a real WhatsApp webhook but well below the default', () => {
+  expect(service('n8n')).toContain('N8N_PAYLOAD_SIZE_MAX: "2"');
+});
+test('the tunnel disables request inspection, since captured requests hold patient messages', () => {
+  expect(service('ngrok')).toContain('--inspect=false');
+});
+test("the tunnel policy rate-limits by client IP, after the deny rules, well above a small clinic's delivery rate", () => {
+  expect(policy).toContain('type: rate-limit');
+  expect(policy).toContain('algorithm: sliding_window');
+  expect(policy).toContain('capacity: 60');
+  expect(policy).toContain('rate: 60s');
+  expect(policy).toContain('- conn.client_ip');
+  // Only a request that passed both deny rules counts against the limit.
+  expect(policy.indexOf('type: rate-limit')).toBeGreaterThan(policy.lastIndexOf('type: deny'));
+});
 test('the webhook allowlist regex only accepts the WhatsApp trigger path', () => {
   const source = /\.matches\("([^"]+)"\)/.exec(policy)?.[1] ?? '';
   expect(source).toBe(`^/webhook/${triggerWebhookId}/webhook$`);

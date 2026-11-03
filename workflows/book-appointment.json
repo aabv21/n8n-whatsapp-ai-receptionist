@@ -77,7 +77,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { phone: $('Receive booking request').item.json.phone, name: $('Receive booking request').item.json.name, service: $('Receive booking request').item.json.service, date: $('Receive booking request').item.json.date, time: $('Receive booking request').item.json.time, now: $now.toISO(), upcoming_bookings: 0, limits: $json.config.limits, business: $json.business } }}",
+        "jsonOutput": "={{ { phone: $('Receive booking request').first().json.phone, name: $('Receive booking request').first().json.name, service: $('Receive booking request').first().json.service, date: $('Receive booking request').first().json.date, time: $('Receive booking request').first().json.time, now: $now.toISO(), upcoming_bookings: 0, limits: $json.config.limits, business: $json.business } }}",
         "options": {}
       }
     },
@@ -164,11 +164,11 @@
         "operation": "getAll",
         "calendar": {
           "mode": "id",
-          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
         },
         "returnAll": true,
         "timeMin": "={{ $now.toISO() }}",
-        "timeMax": "={{ $now.plus({ days: $('Load context').item.json.config.limits.max_booking_days_ahead }).toISO() }}",
+        "timeMax": "={{ $now.plus({ days: $('Load context').first().json.config.limits.max_booking_days_ahead }).toISO() }}",
         "options": {}
       },
       "credentials": {
@@ -205,7 +205,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { phone: $('Receive booking request').item.json.phone, name: $('Receive booking request').item.json.name, service: $('Receive booking request').item.json.service, date: $('Receive booking request').item.json.date, time: $('Receive booking request').item.json.time, now: $now.toISO(), upcoming_bookings: $json.events.filter((e) => (e.description ?? '').includes('Phone: ' + String($('Receive booking request').item.json.phone).trim() + '\\n')).length, limits: $('Load context').item.json.config.limits, business: $('Load context').item.json.business } }}",
+        "jsonOutput": "={{ { phone: $('Receive booking request').first().json.phone, name: $('Receive booking request').first().json.name, service: $('Receive booking request').first().json.service, date: $('Receive booking request').first().json.date, time: $('Receive booking request').first().json.time, now: $now.toISO(), upcoming_bookings: $json.events.filter((e) => (e.description ?? '').includes('Phone: ' + String($('Receive booking request').first().json.phone).trim() + '\\n')).length, limits: $('Load context').first().json.config.limits, business: $('Load context').first().json.business } }}",
         "options": {}
       }
     },
@@ -277,7 +277,7 @@
         "operation": "getAll",
         "calendar": {
           "mode": "id",
-          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
         },
         "returnAll": true,
         "timeMin": "={{ $('Validate booking').first().json.start }}",
@@ -376,7 +376,7 @@
         "operation": "create",
         "calendar": {
           "mode": "id",
-          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
         },
         "start": "={{ $('Validate booking').first().json.start }}",
         "end": "={{ $('Validate booking').first().json.end }}",
@@ -411,9 +411,9 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "phone": "={{ $('Receive booking request').item.json.phone }}",
+            "phone": "={{ $('Receive booking request').first().json.phone }}",
             "status": "booked",
-            "name": "={{ $('Receive booking request').item.json.name }}",
+            "name": "={{ $('Receive booking request').first().json.name }}",
             "service_of_interest": "={{ $('Validate booking').first().json.service }}",
             "last_appointment": "={{ $('Validate booking').first().json.start }}"
           },
@@ -476,7 +476,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { ok: true, event_id: $('Create calendar event').item.json.id, start: $('Validate booking').first().json.start, end: $('Validate booking').first().json.end, service: $('Validate booking').first().json.service, price_cop: $('Validate booking').first().json.price_cop } }}",
+        "jsonOutput": "={{ { ok: true, event_id: $('Create calendar event').first().json.id, start: $('Validate booking').first().json.start, end: $('Validate booking').first().json.end, service: $('Validate booking').first().json.service, price_cop: $('Validate booking').first().json.price_cop } }}",
         "options": {}
       }
     },
@@ -500,7 +500,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "reason": "tool_failure",
-            "phone": "={{ $('Receive booking request').item.json.phone }}",
+            "phone": "={{ $('Receive booking request').first().json.phone }}",
             "summary": "=book_appointment: {{ $json.error }}"
           },
           "schema": [

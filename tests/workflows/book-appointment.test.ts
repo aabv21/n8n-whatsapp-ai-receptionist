@@ -8,11 +8,11 @@ import { runGenerated } from '../helpers/run-generated.ts';
 const wf = readWorkflow('workflows/book-appointment.json');
 const recheckSlot = wf.nodes.find((n) => n.name === 'Recheck slot availability');
 
-test('no node reads Validate booking through item pairing', () => {
-  // One booking per call, so .first() is always the validated booking. `.item` would have to
-  // pair back through Aggregate upcoming bookings and Check booking limit, which n8n can't
-  // always resolve.
-  expect(JSON.stringify(wf)).not.toContain("$('Validate booking').item");
+test('no node reads another node through item pairing', () => {
+  // One booking request per call, so .first() is always the request, its context, and its
+  // validated booking. `.item` would have to pair back through Aggregate upcoming bookings and
+  // Check booking limit, which n8n can't always resolve.
+  expect(JSON.stringify(wf)).not.toContain("').item");
 });
 
 test('Recheck slot availability calls the Google Calendar node', () =>
@@ -73,7 +73,7 @@ test("a valid request reads the phone's upcoming bookings over the booking horiz
   expect(get?.type).toBe('n8n-nodes-base.googleCalendar');
   expect([get?.parameters.operation, get?.parameters.returnAll]).toEqual(['getAll', true]);
   expect(get?.parameters.timeMin).toBe('={{ $now.toISO() }}');
-  expect(get?.parameters.timeMax).toBe("={{ $now.plus({ days: $('Load context').item.json.config.limits.max_booking_days_ahead }).toISO() }}");
+  expect(get?.parameters.timeMax).toBe("={{ $now.plus({ days: $('Load context').first().json.config.limits.max_booking_days_ahead }).toISO() }}");
   // An empty calendar still continues, and a Calendar failure reports calendar_unavailable like the other Calendar calls.
   expect([get?.alwaysOutputData, get?.onError]).toEqual([true, 'continueErrorOutput']);
   expect(targets('Get upcoming bookings', 0)).toEqual(['Aggregate upcoming bookings']);
@@ -91,10 +91,10 @@ test("a valid request reads the phone's upcoming bookings over the booking horiz
 test('the limit check counts only events booked for this exact phone, as the description writes it', () => {
   const prepare = String(node('Prepare limit check')?.parameters.jsonOutput);
   expect(prepare).toContain(
-    "upcoming_bookings: $json.events.filter((e) => (e.description ?? '').includes('Phone: ' + String($('Receive booking request').item.json.phone).trim() + '\\n')).length",
+    "upcoming_bookings: $json.events.filter((e) => (e.description ?? '').includes('Phone: ' + String($('Receive booking request').first().json.phone).trim() + '\\n')).length",
   );
-  expect(prepare).toContain("limits: $('Load context').item.json.config.limits");
-  expect(prepare).toContain("business: $('Load context').item.json.business");
+  expect(prepare).toContain("limits: $('Load context').first().json.config.limits");
+  expect(prepare).toContain("business: $('Load context').first().json.business");
   expect(runGenerated(jsCode('Check booking limit'), { ...booking, upcoming_bookings: 3, limits }))
     .toEqual([{ json: { ok: false, reason: 'too_many_bookings' } }]);
   expect(runGenerated(jsCode('Check booking limit'), { ...booking, upcoming_bookings: 2, limits }))

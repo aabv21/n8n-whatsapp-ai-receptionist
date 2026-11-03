@@ -198,9 +198,9 @@
       "onError": "continueRegularOutput",
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->>'team_alerted' = 'true') AS alerted",
+        "query": "SELECT EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->>'team_alerted' = 'true' AND ($3::text IS DISTINCT FROM 'emergency' OR triage->>'alerted_reason' = 'emergency')) AS alerted",
         "options": {
-          "queryReplacement": "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }}"
+          "queryReplacement": "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }},{{ $('Receive alert request').first().json.reason }}"
         }
       },
       "credentials": {
@@ -288,9 +288,9 @@
       "onError": "continueRegularOutput",
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) || '{\"team_alerted\": true}' WHERE message_id = $1",
+        "query": "UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) || jsonb_build_object('team_alerted', true, 'alerted_reason', $2::text) WHERE message_id = $1",
         "options": {
-          "queryReplacement": "={{ $('Receive alert request').first().json.message_id }}"
+          "queryReplacement": "={{ $('Receive alert request').first().json.message_id }},{{ $('Receive alert request').first().json.reason }}"
         }
       },
       "credentials": {
@@ -357,7 +357,7 @@
       "parameters": {
         "width": 2560,
         "height": 200,
-        "content": "## Notify team\nComposes a plain-text alert (so patient-written text can't inject markup) and emails config.team_email. A per-phone cooldown keeps one phone from using up the Gmail daily quota that real emergencies rely on: unless the reason is tool_failure (a system failure the team must always hear about), Check alert cooldown asks whether any of this phone's inbound messages within config.limits.alert_cooldown_minutes is marked team_alerted, and if so returns { ok: true, suppressed: true } without sending — an alert did go out inside the window, so a caller that tells the patient the team knows stays truthful. Check alert cooldown setting first refuses an alert_cooldown_minutes that isn't an integer of 1 or more, into a Stop and Error the error workflow reports, instead of silently turning the cooldown off; tool_failure alerts skip it and still send. A cooldown check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id (callers without one mark nothing), and a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
+        "content": "## Notify team\nComposes a plain-text alert (so patient-written text can't inject markup) and emails config.team_email. A per-phone cooldown keeps one phone from using up the Gmail daily quota that real emergencies rely on: unless the reason is tool_failure (a system failure the team must always hear about), Check alert cooldown asks whether any of this phone's inbound messages within config.limits.alert_cooldown_minutes is marked team_alerted, and if so returns { ok: true, suppressed: true } without sending. An emergency is held back only by an earlier emergency, so an earlier alert of another kind, such as a question about an unlisted treatment, never keeps a dental emergency from the team; every other reason is held back by any earlier alert. Suppressed means an earlier alert reached the team inside the window, not this one, so a caller must not tell the patient this request was forwarded. Check alert cooldown setting first refuses an alert_cooldown_minutes that isn't an integer of 1 or more, into a Stop and Error the error workflow reports, instead of silently turning the cooldown off; tool_failure alerts skip it and still send. A cooldown check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id with team_alerted and the alert's reason as alerted_reason, which the cooldown reads back (callers without a message_id mark nothing), and a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
       }
     }
   ],

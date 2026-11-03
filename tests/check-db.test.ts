@@ -135,8 +135,9 @@ describe('workflow statements', () => {
     const order = PROBES.map(key);
     expect(order.indexOf('notify-team.json › Check alert cooldown')).toBeGreaterThan(order.indexOf('process-message.json › Record inbound message'));
     expect(order.indexOf('notify-team.json › Mark team alerted')).toBeGreaterThan(order.indexOf('process-message.json › Record inbound message'));
-    expect(PROBES.find((p) => key(p) === 'notify-team.json › Mark team alerted')?.params).toEqual(['check-db-probe']);
-    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60']);
+    // Both bind the reason as emergency, the value the cooldown compares and the mark stores.
+    expect(PROBES.find((p) => key(p) === 'notify-team.json › Mark team alerted')?.params).toEqual(['check-db-probe', 'emergency']);
+    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60', 'emergency']);
   });
 
   it('refuses a probe list that misses a statement', () => {
