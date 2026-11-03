@@ -5,3 +5,4 @@ config/*
 .n8n-import/
 node_modules/
 .DS_Store
+docs/diagrams/*.delivery.json

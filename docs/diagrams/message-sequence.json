@@ -3,11 +3,13 @@
   "diagram_type": "sequence",
   "meta": {
     "title": "WhatsApp Message Lifecycle",
+    "locale": "en",
+    "output": "docs/diagrams/message-sequence.html",
     "quality_profile": "showcase",
     "column_fit": "spread",
     "viewBox": [
-      1600,
-      890
+      1700,
+      1040
     ]
   },
   "participants": [
@@ -44,56 +46,66 @@
       "label": "AI Agent"
     },
     {
-      "id": "tools",
+      "id": "subwf",
       "type": "backend",
-      "label": "Tool workflows"
+      "label": "Sub-workflows"
+    },
+    {
+      "id": "cal",
+      "type": "external",
+      "label": "Google Calendar"
     }
   ],
   "segments": [
     {
-      "from": 160,
-      "to": 229,
+      "from": 162,
+      "to": 236,
       "label": "1 Signature check"
     },
     {
-      "from": 235,
-      "to": 269,
+      "from": 251,
+      "to": 281,
       "label": "2 Normalize"
     },
     {
-      "from": 275,
-      "to": 344,
+      "from": 287,
+      "to": 347,
       "label": "3 Record and dedupe"
     },
     {
-      "from": 350,
-      "to": 419,
-      "label": "4 Rate limit"
+      "from": 353,
+      "to": 427,
+      "label": "4 Language and rate limit"
     },
     {
-      "from": 425,
-      "to": 494,
+      "from": 433,
+      "to": 503,
       "label": "5 Triage"
     },
     {
-      "from": 500,
-      "to": 534,
+      "from": 509,
+      "to": 583,
       "label": "6 Route"
     },
     {
-      "from": 540,
-      "to": 679,
+      "from": 589,
+      "to": 807,
       "label": "7 Agent with tool calls"
     },
     {
-      "from": 685,
-      "to": 754,
-      "label": "8 Reply"
+      "from": 813,
+      "to": 853,
+      "label": "8 Reply check"
     },
     {
-      "from": 760,
-      "to": 794,
-      "label": "9 Mark replied"
+      "from": 859,
+      "to": 889,
+      "label": "9 Reply"
+    },
+    {
+      "from": 904,
+      "to": 934,
+      "label": "10 Mark replied"
     }
   ],
   "messages": [
@@ -108,89 +120,109 @@
     {
       "from": "entry",
       "to": "meta",
-      "y": 212,
+      "y": 221,
       "label": "200 once the run starts",
       "variant": "return"
     },
     {
       "from": "entry",
       "to": "process",
-      "y": 252,
+      "y": 266,
       "label": "messages[0], one run per change",
-      "variant": "emphasis",
-      "note": "reactions and system messages stop"
+      "variant": "emphasis"
     },
     {
       "from": "process",
       "to": "db",
-      "y": 292,
+      "y": 302,
       "label": "INSERT … ON CONFLICT DO NOTHING"
     },
     {
       "from": "db",
       "to": "process",
-      "y": 327,
+      "y": 332,
       "label": "0 rows: duplicate, no reply",
       "variant": "return"
     },
     {
       "from": "process",
       "to": "db",
-      "y": 367,
-      "label": "count text in window"
+      "y": 368,
+      "label": "count text in window",
+      "note": "Resolve language picks en or es"
     },
     {
       "from": "db",
       "to": "process",
-      "y": 402,
+      "y": 412,
       "label": "over limit: one notice only",
       "variant": "return"
     },
     {
       "from": "process",
       "to": "jev",
-      "y": 442,
+      "y": 448,
       "label": "5 yes/no questions"
     },
     {
       "from": "jev",
       "to": "process",
-      "y": 477,
+      "y": 478,
       "label": "route + notes (fails open)",
       "variant": "return",
       "note": "Jev failure: route agent"
     },
     {
       "from": "process",
-      "to": "tools",
-      "y": 517,
-      "label": "emergency, handoff: alert team",
-      "note": "blocked: fixed reply"
+      "to": "subwf",
+      "y": 524,
+      "label": "emergency, handoff: notify-team",
+      "note": "blocked: fixed reply, no agent"
+    },
+    {
+      "from": "subwf",
+      "to": "db",
+      "y": 568,
+      "label": "cooldown check, mark sent alert"
     },
     {
       "from": "process",
       "to": "agent",
-      "y": 557,
-      "label": "text + prompt + notes",
+      "y": 604,
+      "label": "prompt + language hint + notes",
       "variant": "emphasis"
     },
     {
       "from": "agent",
-      "to": "tools",
-      "y": 592,
-      "label": "tool call, phone from workflow"
+      "to": "subwf",
+      "y": 634,
+      "label": "book_appointment, phone from workflow"
     },
     {
-      "from": "tools",
+      "from": "subwf",
+      "to": "cal",
+      "y": 664,
+      "label": "count the phone's upcoming bookings",
+      "note": "only after Validate booking passes"
+    },
+    {
+      "from": "subwf",
+      "to": "cal",
+      "y": 708,
+      "label": "recheck [start, end), then create",
+      "note": "at the limit or slot taken: no event"
+    },
+    {
+      "from": "subwf",
       "to": "agent",
-      "y": 627,
+      "y": 752,
       "label": "result",
       "variant": "return"
     },
     {
       "from": "agent",
       "to": "process",
-      "y": 662,
+      "y": 782,
       "label": "reply text",
       "variant": "return",
       "note": "failure: alert + fallback reply"
@@ -198,22 +230,22 @@
     {
       "from": "process",
       "to": "entry",
-      "y": 702,
-      "label": "reply, route, tool_calls",
-      "variant": "return"
+      "y": 828,
+      "label": "checked reply, route, tool_calls",
+      "variant": "return",
+      "note": "dose or unlisted price: fixed reply"
     },
     {
       "from": "entry",
       "to": "meta",
-      "y": 737,
+      "y": 874,
       "label": "send reply (3 tries)",
-      "variant": "emphasis",
-      "note": "3 tries, 2000 ms apart"
+      "variant": "emphasis"
     },
     {
       "from": "entry",
       "to": "db",
-      "y": 777,
+      "y": 919,
       "label": "set replied_at"
     }
   ]

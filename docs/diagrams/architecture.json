@@ -3,6 +3,8 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Cumbident WhatsApp AI Receptionist",
+    "locale": "en",
+    "output": "docs/diagrams/architecture.html",
     "quality_profile": "showcase"
   },
   "layout": {
@@ -18,6 +20,30 @@
     ]
   },
   "components": [
+    {
+      "id": "triage",
+      "type": "backend",
+      "label": "triage-message",
+      "sublabel": "Jev, fails open",
+      "row": 0,
+      "col": 3,
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "typesafe",
+      "type": "external",
+      "label": "TypeSafe",
+      "sublabel": "jev-1.14.0",
+      "row": 0,
+      "col": 5,
+      "size": [
+        150,
+        64
+      ]
+    },
     {
       "id": "whatsapp",
       "type": "external",
@@ -59,7 +85,7 @@
       "id": "process",
       "type": "backend",
       "label": "process-message",
-      "sublabel": "dedupe · limit · route",
+      "sublabel": "dedupe · language · route",
       "row": 1,
       "col": 3,
       "size": [
@@ -93,12 +119,24 @@
       ]
     },
     {
+      "id": "retention",
+      "type": "backend",
+      "label": "retention-cleanup",
+      "sublabel": "daily at 03:00",
+      "row": 2,
+      "col": 2,
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
       "id": "notify",
       "type": "backend",
       "label": "notify-team",
       "sublabel": "+ error-handler",
-      "row": 0,
-      "col": 3,
+      "row": 2,
+      "col": 4,
       "size": [
         150,
         64
@@ -109,42 +147,6 @@
       "type": "external",
       "label": "Google",
       "sublabel": "Calendar · Sheets · Gmail",
-      "row": 0,
-      "col": 5,
-      "size": [
-        150,
-        64
-      ]
-    },
-    {
-      "id": "ops",
-      "type": "backend",
-      "label": "Other triggers",
-      "sublabel": "dev-harness · retention",
-      "row": 2,
-      "col": 2,
-      "size": [
-        150,
-        64
-      ]
-    },
-    {
-      "id": "triage",
-      "type": "backend",
-      "label": "triage-message",
-      "sublabel": "Jev, fails open",
-      "row": 2,
-      "col": 4,
-      "size": [
-        150,
-        64
-      ]
-    },
-    {
-      "id": "typesafe",
-      "type": "external",
-      "label": "TypeSafe",
-      "sublabel": "jev-1.14.0",
       "row": 2,
       "col": 5,
       "size": [
@@ -159,7 +161,7 @@
       "sublabel": "app + n8n databases",
       "brand": "postgresql",
       "row": 3,
-      "col": 2,
+      "col": 3,
       "size": [
         150,
         64
@@ -175,9 +177,9 @@
         "entry",
         "process",
         "agent",
-        "notify",
         "triage",
-        "ops",
+        "retention",
+        "notify",
         "postgres"
       ],
       "pad": 26
@@ -189,9 +191,9 @@
         "entry",
         "process",
         "agent",
-        "notify",
         "triage",
-        "ops"
+        "retention",
+        "notify"
       ],
       "pad": 12
     }
@@ -222,7 +224,7 @@
       "id": "to-agent",
       "from": "process",
       "to": "agent",
-      "label": "text + notes",
+      "label": "prompt + notes",
       "variant": "emphasis"
     },
     {
@@ -235,9 +237,7 @@
       "id": "triage-call",
       "from": "process",
       "to": "triage",
-      "label": "5 checks",
-      "fromSide": "right",
-      "toSide": "left"
+      "label": "5 checks"
     },
     {
       "id": "jev-call",
@@ -246,24 +246,26 @@
       "label": "2 tries"
     },
     {
+      "id": "tools",
+      "from": "agent",
+      "to": "google",
+      "label": "Calendar · Sheets",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
       "id": "alert",
       "from": "process",
       "to": "notify",
-      "label": "alerts"
+      "label": "alerts",
+      "fromSide": "bottom",
+      "toSide": "left"
     },
     {
       "id": "gmail",
       "from": "notify",
       "to": "google",
-      "label": "plain-text Gmail"
-    },
-    {
-      "id": "tools",
-      "from": "agent",
-      "to": "google",
-      "label": "Calendar · Sheets",
-      "fromSide": "top",
-      "toSide": "bottom"
+      "label": "Gmail"
     },
     {
       "id": "records",
@@ -271,14 +273,25 @@
       "to": "postgres",
       "label": "messages + memory",
       "fromSide": "bottom",
-      "toSide": "right",
-      "via": [
-        [
-          805,
-          594
-        ]
-      ],
-      "labelSegment": 1
+      "toSide": "top",
+      "labelDy": 210
+    },
+    {
+      "id": "cooldown",
+      "from": "notify",
+      "to": "postgres",
+      "label": "cooldown + mark",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "prune",
+      "from": "retention",
+      "to": "postgres",
+      "label": "daily prune",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
     },
     {
       "id": "mark-replied",
@@ -286,8 +299,8 @@
       "to": "postgres",
       "label": "replied_at",
       "fromSide": "left",
-      "toSide": "left",
-      "labelDy": 89
+      "toSide": "bottom",
+      "labelDy": 24
     },
     {
       "id": "reply",
@@ -297,25 +310,6 @@
       "variant": "dashed",
       "fromSide": "top",
       "toSide": "top"
-    },
-    {
-      "id": "prune",
-      "from": "ops",
-      "to": "postgres",
-      "label": "daily prune",
-      "variant": "dashed",
-      "fromSide": "bottom",
-      "toSide": "top",
-      "labelDy": 61
-    },
-    {
-      "id": "dev-calls",
-      "from": "ops",
-      "to": "process",
-      "label": "test calls",
-      "variant": "dashed",
-      "fromSide": "right",
-      "toSide": "left"
     }
   ],
   "cards": [
@@ -324,8 +318,8 @@
       "title": "Message path",
       "items": [
         "Meta signs every webhook; the tunnel forwards one path",
-        "One process-message run per change: dedupe, limit, triage, route",
-        "Tools take the phone from the workflow, never from the model"
+        "One process-message run per change: dedupe, language, limit, triage, route",
+        "Check reply swaps a dose or an unlisted price for a fixed reply"
       ]
     },
     {
@@ -333,17 +327,17 @@
       "title": "When something fails",
       "items": [
         "A Jev failure sends the message straight to the agent",
-        "Tool and agent failures email the team in plain text",
+        "notify-team holds repeat alerts per phone, read from Postgres",
         "error-handler emails the team when any workflow fails"
       ]
     },
     {
       "dot": "slate",
-      "title": "Other triggers",
+      "title": "Languages and test calls",
       "items": [
-        "retention-cleanup prunes old messages and memory daily at 03:00",
-        "dev-harness takes POST /webhook/dev with X-Dev-Token",
-        "The harness path never matches the tunnel allowlist"
+        "Fixed replies follow the message: English or Spanish",
+        "Team emails follow config.team_locale",
+        "dev-harness takes POST /webhook/dev with X-Dev-Token"
       ]
     }
   ]
