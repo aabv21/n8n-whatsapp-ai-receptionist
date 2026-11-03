@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { readWorkflow } from '../scripts/lib/workflow.ts';
+import { normalizeLocale } from '../src/nodes/shared/locale.ts';
 
 const compose = readFileSync('compose.yaml', 'utf8');
 const envExample = readFileSync('.env.example', 'utf8');
@@ -61,9 +62,15 @@ test('the webhook allowlist regex only accepts the WhatsApp trigger path', () =>
   expect(allowlist.test(`/webhook/${triggerWebhookId}/webhook/extra`)).toBe(false);
   expect(allowlist.test('/rest/login')).toBe(false);
 });
+test("config example's locale settings each name a supported language", () => {
+  const { locale, team_locale } = config as { locale: { default: unknown }; team_locale: unknown };
+  expect([normalizeLocale(locale.default), normalizeLocale(team_locale)]).toEqual(['es', 'en']);
+});
 test('config example carries the starting thresholds', () => expect(config).toEqual({
   google: { calendar_id: 'REPLACE_ME', patients_sheet_id: 'REPLACE_ME', patients_tab: 'Patients' },
   team_email: 'team@example.com',
+  team_locale: 'en',
+  locale: { default: 'es' },
   triage: {
     model: 'jev-1.14.0', timeout_ms: 3000,
     thresholds: { emergency: 0.6, asks_for_human: 0.7, complaint: 0.7, medical_advice: 0.7, manipulation: 0.85 },

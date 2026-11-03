@@ -57,7 +57,9 @@ export function run(input: BookingInput): BookingCheck {
   const time = input.time.trim();
   if (!phone || !name || !service || !date || !time) return { ok: false, reason: 'missing_field' };
 
-  const match = business.services.find((s) => s.name.toLowerCase() === service.toLowerCase());
+  // The model is told to send the canonical name, but a translated display name still maps back to it.
+  const wanted = service.toLowerCase();
+  const match = business.services.find((s) => [s.name, ...Object.values(s.name_i18n)].some((n) => n.toLowerCase() === wanted));
   if (!match) return { ok: false, reason: 'invalid_service' };
 
   if (!TIME_RE.test(time)) return { ok: false, reason: 'invalid_datetime' };

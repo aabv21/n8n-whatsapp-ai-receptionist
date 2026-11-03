@@ -71,8 +71,8 @@
       }
     },
     {
-      "id": "30000000-0000-4000-8000-000000000003",
-      "name": "Compose alert",
+      "id": "30000000-0000-4000-8000-000000000011",
+      "name": "Prepare alert",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
@@ -80,25 +80,24 @@
         200
       ],
       "parameters": {
-        "mode": "manual",
-        "includeOtherFields": true,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "30000000-0000-4000-8000-0000000a0004",
-              "name": "subject",
-              "type": "string",
-              "value": "=[Cumbident] {{ ({ emergency: 'Dental emergency', human_requested: 'Patient asked for a person', complaint: 'Complaint', unknown_treatment: \"Asked about a treatment we don't list\", out_of_scope: \"Question the assistant couldn't answer\", tool_failure: 'Assistant tool failure', other: 'Needs attention' })[$('Receive alert request').item.json.reason] ?? 'Needs attention' }}: {{ $('Receive alert request').item.json.name || $('Receive alert request').item.json.phone }}"
-            },
-            {
-              "id": "30000000-0000-4000-8000-0000000a0005",
-              "name": "body",
-              "type": "string",
-              "value": "=Reason: {{ ({ emergency: 'Dental emergency', human_requested: 'Patient asked for a person', complaint: 'Complaint', unknown_treatment: \"Asked about a treatment we don't list\", out_of_scope: \"Question the assistant couldn't answer\", tool_failure: 'Assistant tool failure', other: 'Needs attention' })[$('Receive alert request').item.json.reason] ?? 'Needs attention' }}\nName: {{ $('Receive alert request').item.json.name || '(not given)' }}\nPhone: https://wa.me/{{ $('Receive alert request').item.json.phone }}\nSummary: {{ $('Receive alert request').item.json.summary || '(none)' }}\nTime: {{ $now.setZone('America/Bogota').toFormat('yyyy-LL-dd HH:mm') }} America/Bogota\n\nRecent messages:\n{{ ($('Receive alert request').item.json.recent_messages || []).join('\\n') }}"
-            }
-          ]
-        },
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  reason: $('Receive alert request').item.json.reason,\n  phone: $('Receive alert request').item.json.phone,\n  name: $('Receive alert request').item.json.name,\n  summary: $('Receive alert request').item.json.summary,\n  recent_messages: $('Receive alert request').item.json.recent_messages,\n  now: $now.toISO(),\n  timezone: $json.business.timezone,\n  team_locale: $json.config.team_locale\n} }}",
         "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000003",
+      "name": "Compose alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        200
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: every label and reason comes from a two-language message table picked by config.team_locale, which one expression can't hold readably. Generated from src/nodes/compose-alert.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/compose-alert.ts\n  var compose_alert_exports = {};\n  __export(compose_alert_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n  function localeSetting(value, fallback) {\n    return value === void 0 || value === null ? fallback : normalizeLocale(value);\n  }\n\n  // src/nodes/shared/team-messages.ts\n  var ALERT_REASONS = [\"emergency\", \"human_requested\", \"complaint\", \"unknown_treatment\", \"out_of_scope\", \"tool_failure\", \"other\"];\n  var TEAM_MESSAGES = {\n    en: {\n      reasons: {\n        emergency: \"Dental emergency\",\n        human_requested: \"Patient asked for a person\",\n        complaint: \"Complaint\",\n        unknown_treatment: \"Asked about a treatment we don't list\",\n        out_of_scope: \"Question the assistant couldn't answer\",\n        tool_failure: \"Assistant tool failure\",\n        other: \"Needs attention\"\n      },\n      reason: \"Reason\",\n      name: \"Name\",\n      notGiven: \"(not given)\",\n      phone: \"Phone\",\n      summary: \"Summary\",\n      none: \"(none)\",\n      time: \"Time\",\n      recentMessages: \"Recent messages\",\n      workflowFailed: \"Workflow failed\",\n      failedNode: \"Failed node\",\n      error: \"Error\",\n      execution: \"Execution\"\n    },\n    es: {\n      reasons: {\n        emergency: \"Urgencia odontológica\",\n        human_requested: \"El paciente pidió hablar con una persona\",\n        complaint: \"Queja\",\n        unknown_treatment: \"Preguntó por un tratamiento que no ofrecemos\",\n        out_of_scope: \"Pregunta que el asistente no pudo responder\",\n        tool_failure: \"Falla de una herramienta del asistente\",\n        other: \"Requiere atención\"\n      },\n      reason: \"Motivo\",\n      name: \"Nombre\",\n      notGiven: \"(no lo indicó)\",\n      phone: \"Teléfono\",\n      summary: \"Resumen\",\n      none: \"(ninguno)\",\n      time: \"Hora\",\n      recentMessages: \"Mensajes recientes\",\n      workflowFailed: \"Falló un flujo\",\n      failedNode: \"Nodo que falló\",\n      error: \"Error\",\n      execution: \"Ejecución\"\n    }\n  };\n  var INVALID_TEAM_LOCALE_NOTE = 'Note: config.team_locale must be \"en\" or \"es\", so this email is in English.';\n  function teamMessages(teamLocale) {\n    const lang = localeSetting(teamLocale, \"en\");\n    return { messages: pick(TEAM_MESSAGES, lang ?? \"en\"), invalid: lang === null };\n  }\n  function plain(value) {\n    if (typeof value === \"string\") return value;\n    return typeof value === \"number\" ? String(value) : \"\";\n  }\n  function localTime(now, timezone) {\n    return `${DateTime.fromISO(now, { zone: timezone }).toFormat(\"yyyy-LL-dd HH:mm\")} ${timezone}`;\n  }\n\n  // src/nodes/compose-alert.ts\n  var isReason = (value) => ALERT_REASONS.includes(value);\n  function run(input) {\n    const { messages, invalid } = teamMessages(input.team_locale);\n    const reasonText = plain(input.reason);\n    const reason = messages.reasons[isReason(reasonText) ? reasonText : \"other\"];\n    const name = plain(input.name);\n    const phone = plain(input.phone);\n    const recent = Array.isArray(input.recent_messages) ? input.recent_messages.map(plain) : [];\n    const lines = [\n      `${messages.reason}: ${reason}`,\n      `${messages.name}: ${name || messages.notGiven}`,\n      `${messages.phone}: https://wa.me/${phone}`,\n      `${messages.summary}: ${plain(input.summary) || messages.none}`,\n      `${messages.time}: ${localTime(input.now, input.timezone)}`,\n      \"\",\n      `${messages.recentMessages}:`,\n      recent.join(\"\\n\")\n    ];\n    if (invalid) lines.push(\"\", INVALID_TEAM_LOCALE_NOTE);\n    return { subject: `[Cumbident] ${reason}: ${name || phone}`, body: lines.join(\"\\n\") };\n  }\n  return __toCommonJS(compose_alert_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       }
     },
     {
@@ -107,7 +106,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        620,
+        880,
         200
       ],
       "parameters": {
@@ -141,7 +140,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        880,
+        1140,
         340
       ],
       "parameters": {
@@ -175,7 +174,7 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        1140,
+        1400,
         540
       ],
       "parameters": {
@@ -189,7 +188,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        1140,
+        1400,
         340
       ],
       "retryOnFail": true,
@@ -216,7 +215,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        1400,
+        1660,
         340
       ],
       "parameters": {
@@ -250,7 +249,7 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        1660,
+        1920,
         200
       ],
       "retryOnFail": true,
@@ -260,7 +259,7 @@
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "sendTo": "={{ $('Compose alert').first().json.config.team_email }}",
+        "sendTo": "={{ $('Load context').first().json.config.team_email }}",
         "subject": "={{ $('Compose alert').first().json.subject }}",
         "emailType": "text",
         "message": "={{ $('Compose alert').first().json.body }}",
@@ -279,7 +278,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        1920,
+        2180,
         80
       ],
       "retryOnFail": true,
@@ -306,7 +305,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2180,
+        2440,
         80
       ],
       "parameters": {
@@ -321,7 +320,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1920,
+        2180,
         340
       ],
       "parameters": {
@@ -336,7 +335,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1660,
+        1920,
         480
       ],
       "parameters": {
@@ -355,9 +354,9 @@
         -60
       ],
       "parameters": {
-        "width": 2560,
+        "width": 2820,
         "height": 200,
-        "content": "## Notify team\nComposes a plain-text alert (so patient-written text can't inject markup) and emails config.team_email. A per-phone cooldown keeps one phone from using up the Gmail daily quota that real emergencies rely on: unless the reason is tool_failure (a system failure the team must always hear about), Check alert cooldown asks whether any of this phone's inbound messages within config.limits.alert_cooldown_minutes is marked team_alerted, and if so returns { ok: true, suppressed: true } without sending. An emergency is held back only by an earlier emergency, so an earlier alert of another kind, such as a question about an unlisted treatment, never keeps a dental emergency from the team; every other reason is held back by any earlier alert. Suppressed means an earlier alert reached the team inside the window, not this one, so a caller must not tell the patient this request was forwarded. Check alert cooldown setting first refuses an alert_cooldown_minutes that isn't an integer of 1 or more, into a Stop and Error the error workflow reports, instead of silently turning the cooldown off; tool_failure alerts skip it and still send. A cooldown check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id with team_alerted and the alert's reason as alerted_reason, which the cooldown reads back (callers without a message_id mark nothing), and a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
+        "content": "## Notify team\nCompose alert (generated from src/nodes/compose-alert.ts) writes a plain-text alert (so patient-written text can't inject markup) in config.team_locale's language and emails config.team_email; a team_locale naming no supported language still sends, in English, with a line saying so. A per-phone cooldown keeps one phone from using up the Gmail daily quota that real emergencies rely on: unless the reason is tool_failure (a system failure the team must always hear about), Check alert cooldown asks whether any of this phone's inbound messages within config.limits.alert_cooldown_minutes is marked team_alerted, and if so returns { ok: true, suppressed: true } without sending. An emergency is held back only by an earlier emergency, so an earlier alert of another kind, such as a question about an unlisted treatment, never keeps a dental emergency from the team; every other reason is held back by any earlier alert. Suppressed means an earlier alert reached the team inside the window, not this one, so a caller must not tell the patient this request was forwarded. Check alert cooldown setting first refuses an alert_cooldown_minutes that isn't an integer of 1 or more, into a Stop and Error the error workflow reports, instead of silently turning the cooldown off; tool_failure alerts skip it and still send. A cooldown check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id with team_alerted and the alert's reason as alerted_reason, which the cooldown reads back (callers without a message_id mark nothing), and a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
       }
     }
   ],
@@ -374,6 +373,17 @@
       ]
     },
     "Load context": {
+      "main": [
+        [
+          {
+            "node": "Prepare alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare alert": {
       "main": [
         [
           {

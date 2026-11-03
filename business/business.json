@@ -18,20 +18,41 @@
   "min_notice_minutes": 60,
   "payment_methods": ["Cash", "Card", "Bank transfer", "Nequi"],
   "services": [
-    { "name": "Initial evaluation", "price_cop": 50000 },
-    { "name": "Dental cleaning", "price_cop": 120000 },
-    { "name": "Teeth whitening", "price_cop": 450000 },
-    { "name": "Composite filling (per tooth)", "price_cop": 150000 },
-    { "name": "Orthodontic evaluation", "price_cop": 80000 },
-    { "name": "Dental emergency", "price_cop": 100000 }
+    { "name": "Initial evaluation", "name_i18n": { "en": "Initial evaluation", "es": "Evaluación inicial" }, "price_cop": 50000 },
+    { "name": "Dental cleaning", "name_i18n": { "en": "Dental cleaning", "es": "Limpieza dental" }, "price_cop": 120000 },
+    { "name": "Teeth whitening", "name_i18n": { "en": "Teeth whitening", "es": "Blanqueamiento dental" }, "price_cop": 450000 },
+    { "name": "Composite filling (per tooth)", "name_i18n": { "en": "Composite filling (per tooth)", "es": "Resina (por diente)" }, "price_cop": 150000 },
+    { "name": "Orthodontic evaluation", "name_i18n": { "en": "Orthodontic evaluation", "es": "Valoración de ortodoncia" }, "price_cop": 80000 },
+    { "name": "Dental emergency", "name_i18n": { "en": "Dental emergency", "es": "Urgencia odontológica" }, "price_cop": 100000 }
   ],
   "replies": {
-    "non_text": "Thanks for your message! I can only read text for now. Please type your question and I'll help right away.",
-    "blocked": "I can only help with questions about Cumbident's services, prices, and appointments.",
-    "rate_limited": "You've sent a lot of messages in a short time. Please wait a few minutes and try again.",
-    "technical_issue": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon.",
-    "technical_issue_retry": "Sorry, I'm having a technical issue right now. Please try again in a few minutes.",
-    "medical_advice": "I can't give medical advice or recommend medicines or doses. The right next step is an initial evaluation with our dentist. Would you like me to find you a time?",
-    "price_check": "I can only quote the prices on Cumbident's price list, and I can't confirm discounts or other amounts. Tell me which service you're interested in and I'll give you its listed price."
+    "non_text": {
+      "en": "Thanks for your message! I can only read text for now. Please type your question and I'll help right away.",
+      "es": "¡Gracias por su mensaje! Por ahora solo puedo leer texto. Escríbame su pregunta y con gusto le ayudo."
+    },
+    "blocked": {
+      "en": "I can only help with questions about Cumbident's services, prices, and appointments.",
+      "es": "Solo puedo ayudarle con preguntas sobre los servicios, los precios y las citas de Cumbident."
+    },
+    "rate_limited": {
+      "en": "You've sent a lot of messages in a short time. Please wait a few minutes and try again.",
+      "es": "Ha enviado muchos mensajes en poco tiempo. Por favor, espere unos minutos e intente de nuevo."
+    },
+    "technical_issue": {
+      "en": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon.",
+      "es": "Lo siento, en este momento tengo un problema técnico. Nuestro equipo ya está enterado y se comunicará con usted pronto."
+    },
+    "technical_issue_retry": {
+      "en": "Sorry, I'm having a technical issue right now. Please try again in a few minutes.",
+      "es": "Lo siento, en este momento tengo un problema técnico. Por favor, intente de nuevo en unos minutos."
+    },
+    "medical_advice": {
+      "en": "I can't give medical advice or recommend medicines or doses. The right next step is an initial evaluation with our dentist. Would you like me to find you a time?",
+      "es": "No puedo dar consejos médicos ni recomendar medicamentos o dosis. Lo indicado es una evaluación inicial con nuestro odontólogo. ¿Quiere que le busque un horario?"
+    },
+    "price_check": {
+      "en": "I can only quote the prices on Cumbident's price list, and I can't confirm discounts or other amounts. Tell me which service you're interested in and I'll give you its listed price.",
+      "es": "Solo puedo darle los precios de la lista de precios de Cumbident, y no puedo confirmar descuentos ni otros valores. Dígame qué servicio le interesa y le indico su precio de lista."
+    }
   }
 }

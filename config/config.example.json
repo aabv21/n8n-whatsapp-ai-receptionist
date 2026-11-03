@@ -5,6 +5,10 @@
     "patients_tab": "Patients"
   },
   "team_email": "team@example.com",
+  "team_locale": "en",
+  "locale": {
+    "default": "es"
+  },
   "triage": {
     "model": "jev-1.14.0",
     "timeout_ms": 3000,

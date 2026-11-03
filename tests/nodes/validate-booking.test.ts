@@ -20,6 +20,10 @@ test('valid booking returns the event', () => expect(call({})).toEqual({
 }));
 test('service match ignores case and surrounding spaces', () =>
   expect(call({ service: '  dental CLEANING ' })).toMatchObject({ ok: true, service: 'Dental cleaning' }));
+test('a service named by its display name in another language books under its canonical name', () => {
+  expect(call({ service: 'Limpieza dental' })).toMatchObject({ ok: true, service: 'Dental cleaning', price_cop: 120000, summary: 'Appointment: Dental cleaning - Laura Gomez' });
+  expect(call({ service: ' blanqueamiento DENTAL ', time: '10:15' })).toMatchObject({ ok: true, service: 'Teeth whitening', price_cop: 450000 });
+});
 test('unknown service', () => expect(reason({ service: 'Dental implants' })).toBe('invalid_service'));
 test('missing name', () => expect(reason({ name: '' })).toBe('missing_field'));
 test('malformed time', () => expect(reason({ time: '9am' })).toBe('invalid_datetime'));

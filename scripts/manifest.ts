@@ -178,6 +178,12 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
   },
   {
     file: 'process-message.json',
+    node: 'Resolve language',
+    source: 'src/nodes/resolve-language.ts',
+    why: "scoring the message's Spanish and English signals word by word needs a loop and regular expressions, and the configured default is applied in the same step",
+  },
+  {
+    file: 'process-message.json',
     node: 'Build system prompt',
     source: 'src/nodes/build-system-prompt.ts',
     why: 'prompt placeholders are filled verbatim and the local time is formatted',
@@ -193,6 +199,18 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     node: 'Check reply',
     source: 'src/nodes/check-reply.ts',
     why: 'matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions',
+  },
+  {
+    file: 'notify-team.json',
+    node: 'Compose alert',
+    source: 'src/nodes/compose-alert.ts',
+    why: "every label and reason comes from a two-language message table picked by config.team_locale, which one expression can't hold readably",
+  },
+  {
+    file: 'error-handler.json',
+    node: 'Compose error email',
+    source: 'src/nodes/compose-error-email.ts',
+    why: "every label comes from a two-language message table picked by config.team_locale, which one expression can't hold readably",
   },
   {
     // A delete node's success and error outputs feeding the same merge input race (n8n's internal
