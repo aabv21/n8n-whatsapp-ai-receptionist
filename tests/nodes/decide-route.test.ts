@@ -42,3 +42,22 @@ test('no note claims the team was alerted', () => {
   expect(notes).toHaveLength(3);
   for (const note of notes) expect(note).not.toMatch(/alert/i);
 });
+test('a missing, misspelled, zero, or out-of-range threshold fails the run instead of turning its signal off', () => {
+  const message = 'config.triage.thresholds must give every signal a number in (0, 1]';
+  const withoutManipulation = Object.fromEntries(Object.entries(thresholds).filter(([signal]) => signal !== 'manipulation'));
+  for (const bad of [
+    withoutManipulation,
+    { ...withoutManipulation, manipulaton: 0.85 },
+    { ...thresholds, emergency: 0 },
+    { ...thresholds, complaint: 1.2 },
+    { ...thresholds, asks_for_human: '0.7' },
+  ]) {
+    expect(() => run({ scores: low, thresholds: bad as unknown as Scores })).toThrow(message);
+  }
+});
+test('a threshold of exactly 1 is valid', () => expect(run({ scores: low, thresholds: { ...thresholds, manipulation: 1 } }).route).toBe('agent'));
+test('a missing thresholds object fails with the same fixed message, not a TypeError', () => {
+  for (const missing of [undefined, null]) {
+    expect(() => run({ scores: low, thresholds: missing as unknown as Scores })).toThrow('config.triage.thresholds must give every signal a number in (0, 1]');
+  }
+});

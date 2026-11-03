@@ -1,8 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { readWorkflow } from '../../scripts/lib/workflow.ts';
+import { CODE_NODES } from '../../scripts/manifest.ts';
+import type { Business } from '../../src/nodes/types.ts';
+import { runGenerated } from '../helpers/run-generated.ts';
 
 const wf = readWorkflow('workflows/book-appointment.json');
 const recheckSlot = wf.nodes.find((n) => n.name === 'Recheck slot availability');
+
+test('no node reads Validate booking through item pairing', () => {
+  // One booking per call, so .first() is always the validated booking. `.item` would have to
+  // pair back through Aggregate upcoming bookings and Check booking limit, which n8n can't
+  // always resolve.
+  expect(JSON.stringify(wf)).not.toContain("$('Validate booking').item");
+});
 
 test('Recheck slot availability calls the Google Calendar node', () =>
   expect(recheckSlot?.type).toBe('n8n-nodes-base.googleCalendar'));
@@ -17,6 +28,75 @@ test("Recheck slot availability expands recurring events into the queried slot's
 });
 
 test('Recheck slot availability queries exactly [start, end) of the validated booking', () => {
-  expect(recheckSlot?.parameters.timeMin).toBe("={{ $('Validate booking').item.json.start }}");
-  expect(recheckSlot?.parameters.timeMax).toBe("={{ $('Validate booking').item.json.end }}");
+  expect(recheckSlot?.parameters.timeMin).toBe("={{ $('Validate booking').first().json.start }}");
+  expect(recheckSlot?.parameters.timeMax).toBe("={{ $('Validate booking').first().json.end }}");
+});
+
+type Edge = { node: string };
+const branches = (name: string): Edge[][] => (wf.connections[name] as { main?: Edge[][] } | undefined)?.main ?? [];
+const targets = (name: string, index: number): string[] => branches(name)[index]?.map((e) => e.node) ?? [];
+const node = (name: string) => wf.nodes.find((n) => n.name === name);
+/** Every `[source, branchIndex]` pair in the file whose branch lists `target`. */
+function incomingEdges(target: string): [string, number][] {
+  const edges: [string, number][] = [];
+  for (const source of Object.keys(wf.connections)) {
+    branches(source).forEach((branch, index) => {
+      if (branch.some((e) => e.node === target)) edges.push([source, index]);
+    });
+  }
+  return edges.sort();
+}
+const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
+const booking = { phone: '570000000001', name: 'Laura Gomez', service: 'Dental cleaning', date: '2026-11-04', time: '09:30', now: '2026-11-03T15:00:00-05:00', business };
+const limits = { max_booking_days_ahead: 60, max_upcoming_bookings: 3 };
+const jsCode = (name: string): string => String(node(name)?.parameters.jsCode);
+
+test('an invalid request is rejected before any Calendar call, like check-availability', () => {
+  expect(targets('Load context', 0)).toEqual(['Prepare booking check']);
+  expect(targets('Prepare booking check', 0)).toEqual(['Validate booking']);
+  expect(targets('Validate booking', 0)).toEqual(['Decide whether to call Calendar']);
+  expect(targets('Decide whether to call Calendar', 0)).toEqual(['Return validation result']);
+  expect(targets('Decide whether to call Calendar', 1)).toEqual(['Get upcoming bookings']);
+  // The first pass counts no bookings: the real count needs Calendar, which comes after it.
+  const prepare = String(node('Prepare booking check')?.parameters.jsonOutput);
+  expect(prepare).toContain('upcoming_bookings: 0');
+  expect(prepare).toContain('limits: $json.config.limits');
+});
+
+test('a missing booking limit stops the run in Validate booking with the fixed message, before Calendar is called', () => {
+  expect(() => runGenerated(jsCode('Validate booking'), { ...booking, upcoming_bookings: 0, limits: { max_upcoming_bookings: 3 } }))
+    .toThrow('config.limits.max_booking_days_ahead and config.limits.max_upcoming_bookings must be integers of 1 or more');
+});
+
+test("a valid request reads the phone's upcoming bookings over the booking horizon, then reruns the same checks with that count", () => {
+  const get = node('Get upcoming bookings');
+  expect(get?.type).toBe('n8n-nodes-base.googleCalendar');
+  expect([get?.parameters.operation, get?.parameters.returnAll]).toEqual(['getAll', true]);
+  expect(get?.parameters.timeMin).toBe('={{ $now.toISO() }}');
+  expect(get?.parameters.timeMax).toBe("={{ $now.plus({ days: $('Load context').item.json.config.limits.max_booking_days_ahead }).toISO() }}");
+  // An empty calendar still continues, and a Calendar failure reports calendar_unavailable like the other Calendar calls.
+  expect([get?.alwaysOutputData, get?.onError]).toEqual([true, 'continueErrorOutput']);
+  expect(targets('Get upcoming bookings', 0)).toEqual(['Aggregate upcoming bookings']);
+  expect(targets('Get upcoming bookings', 1)).toEqual(['Notify calendar failure']);
+  expect(targets('Aggregate upcoming bookings', 0)).toEqual(['Prepare limit check']);
+  expect(targets('Prepare limit check', 0)).toEqual(['Check booking limit']);
+  expect(targets('Check booking limit', 0)).toEqual(['Is the booking limit reached']);
+  expect(targets('Is the booking limit reached', 0)).toEqual(['Return validation result']);
+  expect(incomingEdges('Recheck slot availability')).toEqual([['Is the booking limit reached', 1]]);
+  for (const name of ['Validate booking', 'Check booking limit']) {
+    expect(CODE_NODES).toContainEqual(expect.objectContaining({ file: 'book-appointment.json', node: name, source: 'src/nodes/validate-booking.ts' }));
+  }
+});
+
+test('the limit check counts only events booked for this exact phone, as the description writes it', () => {
+  const prepare = String(node('Prepare limit check')?.parameters.jsonOutput);
+  expect(prepare).toContain(
+    "upcoming_bookings: $json.events.filter((e) => (e.description ?? '').includes('Phone: ' + String($('Receive booking request').item.json.phone).trim() + '\\n')).length",
+  );
+  expect(prepare).toContain("limits: $('Load context').item.json.config.limits");
+  expect(prepare).toContain("business: $('Load context').item.json.business");
+  expect(runGenerated(jsCode('Check booking limit'), { ...booking, upcoming_bookings: 3, limits }))
+    .toEqual([{ json: { ok: false, reason: 'too_many_bookings' } }]);
+  expect(runGenerated(jsCode('Check booking limit'), { ...booking, upcoming_bookings: 2, limits }))
+    .toMatchObject([{ json: { ok: true, start: '2026-11-04T09:30:00.000-05:00' } }]);
 });

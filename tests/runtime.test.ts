@@ -53,5 +53,8 @@ test('config example carries the starting thresholds', () => expect(config).toEq
     model: 'jev-1.14.0', timeout_ms: 3000,
     thresholds: { emergency: 0.6, asks_for_human: 0.7, complaint: 0.7, medical_advice: 0.7, manipulation: 0.85 },
   },
-  limits: { max_messages_per_window: 20, window_minutes: 10, retention_days: 30, max_text_chars: 2000 },
+  limits: {
+    max_messages_per_window: 20, window_minutes: 10, retention_days: 30, max_text_chars: 2000,
+    alert_cooldown_minutes: 60, max_booking_days_ahead: 60, max_upcoming_bookings: 3,
+  },
 }));

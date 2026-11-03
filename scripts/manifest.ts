@@ -111,11 +111,19 @@ export const CREDENTIALS: readonly CredentialEntry[] = [
     data: (env) => ({ clientId: readEnv(env, 'GOOGLE_OAUTH_CLIENT_ID'), clientSecret: readEnv(env, 'GOOGLE_OAUTH_CLIENT_SECRET') }),
   },
   {
+    // notify-team and error-handler only send mail, so the sign-in asks Google for the send scope
+    // alone instead of n8n's default full-mailbox set. Field names from n8n 2.45.6's
+    // GmailOAuth2Api.credentials.js.
     id: 'cmbCredGmail0001',
     name: 'Gmail',
     type: 'gmailOAuth2',
     env: ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET'],
-    data: (env) => ({ clientId: readEnv(env, 'GOOGLE_OAUTH_CLIENT_ID'), clientSecret: readEnv(env, 'GOOGLE_OAUTH_CLIENT_SECRET') }),
+    data: (env) => ({
+      clientId: readEnv(env, 'GOOGLE_OAUTH_CLIENT_ID'),
+      clientSecret: readEnv(env, 'GOOGLE_OAUTH_CLIENT_SECRET'),
+      customScopes: true,
+      enabledScopes: 'https://www.googleapis.com/auth/gmail.send',
+    }),
   },
   {
     id: 'cmbCredWhatsApp1',
@@ -135,8 +143,8 @@ export const CREDENTIALS: readonly CredentialEntry[] = [
 
 export const CODE_NODES: readonly CodeNodeEntry[] = [
   {
-    // Ruling P5: runs the same slot computation with events: [] before calling Google Calendar, so
-    // a closed, past, or invalid date short-circuits without an avoidable (and offline-unreachable) API call.
+    // Runs the same slot computation with events: [] before calling Google Calendar, so a closed,
+    // past, or invalid date short-circuits without an avoidable (and offline-unreachable) API call.
     file: 'check-availability.json',
     node: 'Check date',
     source: 'src/nodes/compute-free-slots.ts',
@@ -152,7 +160,15 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     file: 'book-appointment.json',
     node: 'Validate booking',
     source: 'src/nodes/validate-booking.ts',
-    why: 'ordered checks of service, date, hours and notice must yield one result',
+    why: 'ordered checks of service, date, hours, slot grid, notice, booking horizon and booking limit must yield one result',
+  },
+  {
+    // The same checks again, now with the phone's real upcoming-booking count from Calendar. The
+    // first pass counts none, so an invalid request is rejected before any Calendar call.
+    file: 'book-appointment.json',
+    node: 'Check booking limit',
+    source: 'src/nodes/validate-booking.ts',
+    why: "reruns validate-booking's ordered checks with the phone's upcoming-booking count, so the limit follows the same rules as the first pass",
   },
   {
     file: 'triage-message.json',
@@ -171,6 +187,12 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     node: 'Collect tool calls',
     source: 'src/nodes/collect-tool-calls.ts',
     why: 'tool observations may or may not be JSON, and parsing them needs try/catch',
+  },
+  {
+    file: 'process-message.json',
+    node: 'Check reply',
+    source: 'src/nodes/check-reply.ts',
+    why: 'matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions',
   },
   {
     // A delete node's success and error outputs feeding the same merge input race (n8n's internal

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { expect, test } from 'vitest';
 
@@ -59,4 +59,41 @@ test('every Compose image is pinned by digest', () => {
     expect(images.length).toBeGreaterThan(0);
     for (const image of images) expect(image).toMatch(/@sha256:[a-f0-9]{64}$/);
   }
+});
+
+/** One Compose service's block: the lines from `  <name>:` up to the next service at the same indent. */
+const serviceBlock = (text: string, name: string): string =>
+  text.split(/^ {2}(?=[a-z][\w-]*:$)/m).find((block) => block.startsWith(`${name}:`)) ?? '';
+
+test('every long-running Compose service blocks privilege escalation, and n8n drops every capability', () => {
+  const compose = readFileSync('compose.yaml', 'utf8');
+  const queue = readFileSync('compose.queue.yaml', 'utf8');
+  const services: [string, string][] = [[compose, 'postgres'], [compose, 'n8n'], [compose, 'ngrok'], [queue, 'redis']];
+  for (const [text, name] of services) expect(serviceBlock(text, name), name).toMatch(/^ {4}security_opt:\n {6}- no-new-privileges:true$/m);
+  // n8n runs as the unprivileged node user and needs no capability. Postgres's and Redis's entrypoints
+  // change file owners and switch users as root, so they keep Docker's default set, and so does ngrok.
+  expect(serviceBlock(compose, 'n8n')).toMatch(/^ {4}cap_drop:\n {6}- ALL$/m);
+  for (const [text, name] of services.filter(([, n]) => n !== 'n8n')) expect(serviceBlock(text, name), name).not.toContain('cap_drop');
+  // n8n-worker extends compose.yaml's own n8n service, so it inherits both settings instead of restating them.
+  expect(serviceBlock(queue, 'n8n-worker')).toMatch(/^ {4}extends:\n {6}file: compose\.yaml\n {6}service: n8n$/m);
+});
+
+test('every image a CI workflow runs with docker run is pinned by digest', () => {
+  const images: string[] = [];
+  for (const file of readdirSync('.github/workflows').filter((f) => f.endsWith('.yml'))) {
+    for (const line of readFileSync(`.github/workflows/${file}`, 'utf8').split('\n').filter((l) => /\bdocker run\b/.test(l))) {
+      images.push(/\s([a-z0-9][\w./-]*:\S+)/.exec(line)?.[1] ?? `unparsed: ${line.trim()}`);
+    }
+  }
+  expect(images.length).toBeGreaterThan(0);
+  for (const image of images) expect(image).toMatch(/^[\w./-]+:[\w.-]+@sha256:[a-f0-9]{64}$/);
+});
+
+test('CI installs zizmor only from a requirements file that pins it by hash', () => {
+  const pipLines = readFileSync('.github/workflows/ci.yml', 'utf8').split('\n').filter((l) => /\bpip install\b/.test(l));
+  expect(pipLines.length).toBeGreaterThan(0);
+  for (const line of pipLines) expect(line.trim()).toBe('pip install --require-hashes -r .github/zizmor-requirements.txt');
+  const requirements = readFileSync('.github/zizmor-requirements.txt', 'utf8');
+  expect(requirements).toMatch(/^zizmor==1\.31\.1 \\$/m);
+  expect([...requirements.matchAll(/--hash=sha256:[a-f0-9]{64}/g)].length).toBeGreaterThan(0);
 });

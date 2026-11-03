@@ -1,0 +1,117 @@
+import type { ToolCall } from './collect-tool-calls.ts';
+import type { Business } from './types.ts';
+
+export interface ReplyCheckInput {
+  reply: string;
+  flags: Record<string, boolean>;
+  tool_calls: ToolCall[];
+  business: Business;
+}
+
+export interface ReplyCheck {
+  reply: string;
+  flags: Record<string, boolean>;
+}
+
+// NOTE: These are patterns, not a classifier. They catch a dose, a dosing interval, or a medicine
+// named by its generic name, a brand sold in Colombia, or its class, in Spanish or English, so a
+// reply that only mentions a medicine to refuse it is replaced too (with a reply that also
+// refuses). A dose written out in words, or a medicine not on this list, gets through. The upgrade
+// is a second model call that judges the reply; docs/red-team.md lists the remaining limits.
+const MEDICAL_PATTERNS: readonly RegExp[] = [
+  /\d\s?(?:mg|ml)(?!\p{L})/iu,
+  /\bcada\s+\d+\s?h(?:oras|ora|rs|r)?(?!\p{L})/iu,
+  /\bevery\s+\d+\s?h(?:ours|our|rs|r)?(?!\p{L})/iu,
+  /\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\p{L})/iu,
+  /\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\p{L})/iu,
+  /\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\p{L})/iu,
+];
+
+// A discount the price list doesn't have: a percentage off, in Spanish or English.
+const DISCOUNT_PATTERNS: readonly RegExp[] = [
+  /\d\s?%\s*(?:de\s)?\s*descuento/iu,
+  /\bdescuentos?\s+del?\s+\d/iu,
+  /\d\s?%\s*(?:off|discount)(?!\p{L})/iu,
+  /\bdiscount\s+of\s+\d/iu,
+];
+
+// A number as written: digits, dots, and commas. Only a currency marker beside it makes it an amount.
+const NUMBER_RE = /\d[\d.,]*/g;
+// Thousands grouped by a space (`120 000`), rewritten as `120.000` before numbers are read.
+const SPACED_THOUSANDS_RE = /(\d)[ \u00A0\u202F](?=\d{3}(?!\d))/g;
+const CURRENCY_BEFORE_RE = /(?:\$|\bCOP)\s?$/i;
+const CURRENCY_AFTER_RE = /^\s?(?:COP|pesos)(?!\p{L})/iu;
+const MULTIPLIER_AFTER_RE = /^\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\p{L})/iu;
+
+/**
+ * The value of a thousands-grouped number (`450.000`, `1,200,000`, `450.000,00`), or null for
+ * anything else, such as a time (`08:00`), a date, or a decimal (`1.5`).
+ */
+function groupedValue(token: string): number | null {
+  const parts = token.split(/[.,]/);
+  if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop(); // cents
+  const [head = '', ...groups] = parts;
+  if (groups.length === 0 || !/^\d{1,3}$/.test(head) || !groups.every((group) => /^\d{3}$/.test(group))) return null;
+  return Number(head + groups.join(''));
+}
+
+/** A grouped number, a whole number, or a decimal with one or two places (`1,2` in `1,2 millones`). */
+function numberValue(token: string): number | null {
+  const grouped = groupedValue(token);
+  if (grouped !== null) return grouped;
+  if (/^\d+$/.test(token)) return Number(token);
+  if (/^\d+[.,]\d{1,2}$/.test(token)) return Number(token.replace(',', '.'));
+  return null;
+}
+
+/**
+ * Every peso amount in `text`: a number with `$` or `COP` before it, `COP` or `pesos` after it, or
+ * a multiplier after it (`mil` and `k` for thousands, `millón` or `millones` for millions). A
+ * number with none of these, such as a time, a date, an age, or "2.000 pacientes", never counts.
+ */
+function amounts(text: string): number[] {
+  const normalized = text.replace(SPACED_THOUSANDS_RE, '$1.');
+  const found: number[] = [];
+  for (const match of normalized.matchAll(NUMBER_RE)) {
+    const token = match[0].replace(/[.,]+$/, ''); // the sentence's own period or comma
+    const value = numberValue(token);
+    if (value === null) continue;
+    const before = normalized.slice(Math.max(0, match.index - 5), match.index);
+    const after = normalized.slice(match.index + token.length);
+    const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();
+    if (multiplier !== undefined) found.push(Math.round(value * (multiplier === 'mil' || multiplier === 'k' ? 1_000 : 1_000_000)));
+    else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);
+  }
+  return found;
+}
+
+/** The listed prices, plus the price a `book_appointment` call returned this turn. */
+function allowedPrices(business: Business, toolCalls: readonly ToolCall[]): Set<number> {
+  const prices = new Set(business.services.map((service) => service.price_cop));
+  for (const call of toolCalls) {
+    const output = call.output;
+    if (call.tool !== 'book_appointment' || typeof output !== 'object' || output === null) continue;
+    const price = (output as { price_cop?: unknown }).price_cop;
+    if (typeof price === 'number') prices.add(price);
+  }
+  return prices;
+}
+
+/**
+ * Checks the agent's reply before it reaches the patient. A dose or a medicine is replaced with
+ * the fixed `medical_advice` reply, and a discount or a peso amount that isn't a listed price
+ * with the fixed `price_check` reply; either sets `flags.reply_replaced`.
+ */
+export function run(input: ReplyCheckInput): ReplyCheck {
+  const { reply, business } = input;
+  let replacement: string | null = null;
+  if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {
+    replacement = business.replies.medical_advice;
+  } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {
+    replacement = business.replies.price_check;
+  } else {
+    const allowed = allowedPrices(business, input.tool_calls);
+    if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = business.replies.price_check;
+  }
+  return { reply: replacement ?? reply, flags: { ...input.flags, reply_replaced: replacement !== null } };
+}

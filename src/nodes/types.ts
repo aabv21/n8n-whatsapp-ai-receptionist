@@ -23,5 +23,7 @@ export interface Business {
     rate_limited: string;
     technical_issue: string;
     technical_issue_retry: string;
+    medical_advice: string;
+    price_check: string;
   };
 }

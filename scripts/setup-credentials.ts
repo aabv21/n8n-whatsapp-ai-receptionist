@@ -9,8 +9,8 @@ export interface ImportableCredential {
   data: Record<string, unknown>;
 }
 
-// Ruling P3: these OAuth2 types carry an interactive Google sign-in that import:credentials
-// (which overwrites by id) would otherwise wipe out on every setup run.
+// These OAuth2 types carry an interactive Google sign-in that import:credentials (which
+// overwrites by id) would otherwise wipe out on every setup run.
 const PROTECTED_TYPES = new Set(['googleCalendarOAuth2Api', 'googleSheetsOAuth2Api', 'gmailOAuth2']);
 
 /**
@@ -58,7 +58,7 @@ export function buildCredentials(env: Readonly<Record<string, string | undefined
   return { credentials, skipped };
 }
 
-/** The skip decision for ruling P3: which credentials to actually import. */
+/** Which credentials to actually import: an existing Google OAuth2 credential is kept unless `force` is set. */
 export function skipExisting(
   credentials: readonly ImportableCredential[],
   existingIds: ReadonlySet<string>,

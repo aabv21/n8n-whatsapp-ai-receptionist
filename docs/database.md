@@ -29,7 +29,7 @@ The trade-off is that `app`'s password sits in n8n's encrypted credential store,
 
 ## Every statement and what covers it
 
-The ten Postgres node statements run as `app_runtime`. The last four rows are the Chat Memory node's, which run as `app`. Each `UPDATE`'s and `DELETE`'s `WHERE`, and the insert's conflict check, read columns, so they need `SELECT` as well; this was checked against Postgres 17 with a role that held only the write privilege. The "Served by" column comes from `EXPLAIN` on Postgres 17.11.
+The twelve Postgres node statements run as `app_runtime`. The last four rows are the Chat Memory node's, which run as `app`. Each `UPDATE`'s and `DELETE`'s `WHERE`, and the insert's conflict check, read columns, so they need `SELECT` as well; this was checked against Postgres 17 with a role that held only the write privilege. The "Served by" column comes from `EXPLAIN` on Postgres 17.11.
 
 | Workflow › node | Statement | Privileges it needs | Served by |
 |---|---|---|---|
@@ -38,6 +38,8 @@ The ten Postgres node statements run as `app_runtime`. The last four rows are th
 | `process-message` › Recent patient messages | `SELECT … WHERE phone = $1 AND message_id <> $2 AND body IS NOT NULL ORDER BY received_at DESC LIMIT 3` | `SELECT` | `inbound_messages_phone_received_idx` |
 | `process-message` › Save triage | `UPDATE inbound_messages SET triage = $2::jsonb WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `process-message` › Save route | `UPDATE inbound_messages SET route = $2 WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
+| `notify-team` › Check alert cooldown | `SELECT EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->>'team_alerted' = 'true') AS alerted` | `SELECT` | `inbound_messages_phone_received_idx` |
+| `notify-team` › Mark team alerted | `UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) \|\| '{"team_alerted": true}' WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `whatsapp-entry` › Mark replied | `UPDATE inbound_messages SET replied_at = now() WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `retention-cleanup` › Delete expired chat memory | `DELETE FROM n8n_chat_histories h WHERE NOT EXISTS (SELECT 1 FROM inbound_messages m WHERE (h.session_id = m.phone OR h.session_id = 'test:' \|\| m.phone) AND m.received_at >= now() - make_interval(days => $1))` | `DELETE`, `SELECT` on `n8n_chat_histories`; `SELECT` on `inbound_messages` | a full read of `n8n_chat_histories`, an anti-join that must judge every row (see item 3); the subquery's age range reads `inbound_messages_received_at_idx` |
 | `retention-cleanup` › Delete expired messages | `DELETE FROM inbound_messages WHERE received_at < now() - make_interval(days => $1)` | `DELETE`, `SELECT` | `inbound_messages_received_at_idx`, as a range |
@@ -85,7 +87,7 @@ NOTE: Grants are table-level. Column-level `UPDATE` grants would stop a leaked r
 
 Every statement a production path runs is served by the primary key or an index, as the table above shows, except the chat-history cleanup below. The plans come from `EXPLAIN` on Postgres 17.11.
 
-- **The baseline index.** `(phone, received_at)` serves the per-message count and the recent-messages lookup.
+- **The baseline index.** `(phone, received_at)` serves the per-message count, the recent-messages lookup, and `notify-team`'s alert cooldown check.
 - **The age delete.** `003_received_at_index.sql` adds `inbound_messages_received_at_idx` for `retention-cleanup`'s "Delete expired messages", which filters on `received_at` alone. Without it, Postgres 17, which has no skip scan, would read the whole `(phone, received_at)` index for that delete. With it, the delete is a range scan.
 
 Two documented exceptions read a whole table, on purpose:

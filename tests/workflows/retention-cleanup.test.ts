@@ -18,7 +18,7 @@ function incomingEdges(target: string): [string, number][] {
   return edges;
 }
 
-// Ruling P43: config.limits.retention_days must be validated before either DELETE runs. A missing,
+// config.limits.retention_days must be validated before either DELETE runs. A missing,
 // null, zero, or negative value would otherwise make `now() - make_interval(days => $1)` NULL (or
 // a non-positive interval), which admits every row instead of none — wiping both tables.
 test('"Delete expired chat memory" is reachable only from the retention-days guard\'s true output', () => {

@@ -101,6 +101,8 @@ describe('workflow statements', () => {
     expect(statements.map(key).sort()).toEqual([
       'dev-harness.json › Delete test memories',
       'dev-harness.json › Delete test messages',
+      'notify-team.json › Check alert cooldown',
+      'notify-team.json › Mark team alerted',
       'process-message.json › Count recent messages',
       'process-message.json › Recent patient messages',
       'process-message.json › Record inbound message',
@@ -127,6 +129,14 @@ describe('workflow statements', () => {
     expect(lines.at(-1)).toBe('ROLLBACK;');
     for (const statement of statements) expect(script).toContain(`\n${statement.query}\n\\bind `);
     expect(script).toContain("\\warn 'process-message.json › Save route'\nUPDATE inbound_messages SET route = $2 WHERE message_id = $1\n\\bind 'check-db-probe' 'agent' \\g /dev/null");
+  });
+
+  it("probes notify-team's cooldown check and alert mark after the insert, so the mark has the probe's own row to update", () => {
+    const order = PROBES.map(key);
+    expect(order.indexOf('notify-team.json › Check alert cooldown')).toBeGreaterThan(order.indexOf('process-message.json › Record inbound message'));
+    expect(order.indexOf('notify-team.json › Mark team alerted')).toBeGreaterThan(order.indexOf('process-message.json › Record inbound message'));
+    expect(PROBES.find((p) => key(p) === 'notify-team.json › Mark team alerted')?.params).toEqual(['check-db-probe']);
+    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60']);
   });
 
   it('refuses a probe list that misses a statement', () => {

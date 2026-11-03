@@ -102,6 +102,8 @@ export const PROBES: readonly Probe[] = [
   { file: 'process-message.json', node: 'Recent patient messages', params: [PROBE_PHONE, 'check-db-other'] },
   { file: 'process-message.json', node: 'Save triage', params: [PROBE_ID, '{"scores":null}'] },
   { file: 'process-message.json', node: 'Save route', params: [PROBE_ID, 'agent'] },
+  { file: 'notify-team.json', node: 'Check alert cooldown', params: [PROBE_PHONE, '60'] },
+  { file: 'notify-team.json', node: 'Mark team alerted', params: [PROBE_ID] },
   { file: 'whatsapp-entry.json', node: 'Mark replied', params: [PROBE_ID] },
   { file: 'retention-cleanup.json', node: 'Delete expired chat memory', params: ['30'] },
   { file: 'retention-cleanup.json', node: 'Delete expired messages', params: ['30'] },

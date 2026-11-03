@@ -1,6 +1,8 @@
+import { execFile } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { ensureN8nImportDir, fillSecrets, writeEnvFile } from '../scripts/init-env.ts';
 
@@ -61,5 +63,12 @@ describe('ensureN8nImportDir', () => {
     } finally {
       rmSync(dir, { recursive: true });
     }
+  });
+});
+
+describe('.gitignore', () => {
+  it("ignores the temp file writeEnvFile renames over .env, so a crashed run's secrets can't be committed", async () => {
+    // `git check-ignore -q` exits 0 when the path is ignored, and 1 (rejecting here) when it isn't.
+    await expect(promisify(execFile)('git', ['check-ignore', '-q', '.env.tmp'])).resolves.toBeDefined();
   });
 });
