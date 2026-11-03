@@ -87,6 +87,12 @@ test('credentials use the fixed ids', () => {
   expect(skipped).toEqual([]);
   expect(credentials.find((c) => c.id === 'cmbCredTypeSafe1')?.data.value).toBe('Bearer typesafe_api_key-test');
 });
+test('the Gmail credential asks Google only for permission to send', () => {
+  // notify-team and error-handler only send, so the token can't read or delete the team's mail.
+  const gmail = buildCredentials(fullEnv).credentials.filter((c) => c.type === 'gmailOAuth2');
+  expect(gmail).toHaveLength(1);
+  expect(gmail[0]?.data).toMatchObject({ customScopes: true, enabledScopes: 'https://www.googleapis.com/auth/gmail.send' });
+});
 test('credentials with missing env are skipped and named', () => {
   const { credentials, skipped } = buildCredentials({ APP_RUNTIME_DB_USER: 'u', APP_RUNTIME_DB_PASSWORD: 'p' });
   expect(credentials.map((c) => c.id)).toEqual(['cmbCredAppDb0001']);
@@ -137,7 +143,7 @@ test('check mode reports a stale node and write mode fixes it', async () => {
   expect((await buildWorkflows({ dir, entries: [entry], write: false })).stale).toEqual([]);
 });
 
-// Ruling P3: setup-credentials.ts must not silently overwrite a Google OAuth2 credential that
+// setup-credentials.ts must not silently overwrite a Google OAuth2 credential that
 // already exists (import:credentials overwrites by id, which would wipe the owner's sign-in).
 test('an existing Google OAuth2 credential is skipped unless forced', () => {
   const calendar = { id: 'cmbCredGCalendar', name: 'Google Calendar', type: 'googleCalendarOAuth2Api', data: {} };

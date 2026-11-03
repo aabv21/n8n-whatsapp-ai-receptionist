@@ -4,7 +4,7 @@ import security from 'eslint-plugin-security';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
-  globalIgnores(['node_modules/', '.n8n-import/', '.superpowers/', 'docs/diagrams/']),
+  globalIgnores(['node_modules/', '.n8n-import/', 'docs/diagrams/']),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   security.configs.recommended,

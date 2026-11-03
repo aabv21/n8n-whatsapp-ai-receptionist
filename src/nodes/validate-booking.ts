@@ -9,16 +9,31 @@ export interface BookingInput {
   time: string;
   now: string;
   business: Business;
+  /** This phone's events in Calendar between now and the booking horizon, counted by the workflow. */
+  upcoming_bookings: number;
+  limits: { max_booking_days_ahead: number; max_upcoming_bookings: number };
 }
 
 export type BookingCheck =
   | { ok: true; start: string; end: string; service: string; price_cop: number; summary: string; description: string }
   | {
       ok: false;
-      reason: 'missing_field' | 'invalid_service' | 'invalid_datetime' | 'closed' | 'outside_hours' | 'past' | 'too_soon';
+      reason:
+        | 'missing_field'
+        | 'invalid_service'
+        | 'invalid_datetime'
+        | 'closed'
+        | 'outside_hours'
+        | 'off_grid'
+        | 'past'
+        | 'too_soon'
+        | 'too_far'
+        | 'too_many_bookings';
     };
 
 const TIME_RE = /^\d{2}:\d{2}$/;
+
+const isPositiveInteger = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 1;
 
 /** `dt.toISO()`, which is only null for an invalid DateTime; every instant here is built from a validated date and time. */
 function toISOString(dt: DateTime): string {
@@ -28,7 +43,11 @@ function toISOString(dt: DateTime): string {
 }
 
 export function run(input: BookingInput): BookingCheck {
-  const { business } = input;
+  const { business, limits } = input;
+  // A missing or invalid limit would otherwise let every booking through, so it stops the run instead.
+  if (!isPositiveInteger(limits.max_booking_days_ahead) || !isPositiveInteger(limits.max_upcoming_bookings)) {
+    throw new Error('config.limits.max_booking_days_ahead and config.limits.max_upcoming_bookings must be integers of 1 or more');
+  }
   const zone = business.timezone;
 
   const phone = input.phone.trim();
@@ -55,10 +74,14 @@ export function run(input: BookingInput): BookingCheck {
 
   const end = start.plus({ minutes: business.appointment_minutes });
   if (start < window.open || end > window.close) return { ok: false, reason: 'outside_hours' };
+  // check-availability offers only starts on this grid; a start between two would block both slots.
+  if (start.diff(window.open, 'minutes').minutes % business.appointment_minutes !== 0) return { ok: false, reason: 'off_grid' };
 
   const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);
   if (start < now) return { ok: false, reason: 'past' };
   if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: 'too_soon' };
+  if (start > now.plus({ days: limits.max_booking_days_ahead })) return { ok: false, reason: 'too_far' };
+  if (input.upcoming_bookings >= limits.max_upcoming_bookings) return { ok: false, reason: 'too_many_bookings' };
 
   return {
     ok: true,

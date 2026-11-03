@@ -77,7 +77,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { phone: $('Receive booking request').item.json.phone, name: $('Receive booking request').item.json.name, service: $('Receive booking request').item.json.service, date: $('Receive booking request').item.json.date, time: $('Receive booking request').item.json.time, now: $now.toISO(), business: $json.business } }}",
+        "jsonOutput": "={{ { phone: $('Receive booking request').item.json.phone, name: $('Receive booking request').item.json.name, service: $('Receive booking request').item.json.service, date: $('Receive booking request').item.json.date, time: $('Receive booking request').item.json.time, now: $now.toISO(), upcoming_bookings: 0, limits: $json.config.limits, business: $json.business } }}",
         "options": {}
       }
     },
@@ -93,7 +93,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: ordered checks of service, date, hours and notice must yield one result. Generated from src/nodes/validate-booking.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/validate-booking.ts\n  var validate_booking_exports = {};\n  __export(validate_booking_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/validate-booking.ts\n  var TIME_RE = /^\\d{2}:\\d{2}$/;\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: booking time is always a valid DateTime\");\n    return value;\n  }\n  function run(input) {\n    const { business } = input;\n    const zone = business.timezone;\n    const phone = input.phone.trim();\n    const name = input.name.trim();\n    const service = input.service.trim();\n    const date = input.date.trim();\n    const time = input.time.trim();\n    if (!phone || !name || !service || !date || !time) return { ok: false, reason: \"missing_field\" };\n    const match = business.services.find((s) => s.name.toLowerCase() === service.toLowerCase());\n    if (!match) return { ok: false, reason: \"invalid_service\" };\n    if (!TIME_RE.test(time)) return { ok: false, reason: \"invalid_datetime\" };\n    const hour = Number(time.slice(0, 2));\n    const minute = Number(time.slice(3, 5));\n    if (hour > 23 || minute > 59) return { ok: false, reason: \"invalid_datetime\" };\n    const day = DateTime.fromISO(date, { zone });\n    if (!day.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const start = atTime(day, time);\n    if (!start.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const end = start.plus({ minutes: business.appointment_minutes });\n    if (start < window.open || end > window.close) return { ok: false, reason: \"outside_hours\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (start < now) return { ok: false, reason: \"past\" };\n    if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: \"too_soon\" };\n    return {\n      ok: true,\n      start: toISOString(start),\n      end: toISOString(end),\n      service: match.name,\n      price_cop: match.price_cop,\n      summary: `Appointment: ${match.name} - ${name}`,\n      description: `Phone: ${phone}\nService: ${match.name}\nBooked by the WhatsApp assistant`\n    };\n  }\n  return __toCommonJS(validate_booking_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: ordered checks of service, date, hours, slot grid, notice, booking horizon and booking limit must yield one result. Generated from src/nodes/validate-booking.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/validate-booking.ts\n  var validate_booking_exports = {};\n  __export(validate_booking_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/validate-booking.ts\n  var TIME_RE = /^\\d{2}:\\d{2}$/;\n  var isPositiveInteger = (value) => Number.isInteger(value) && value >= 1;\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: booking time is always a valid DateTime\");\n    return value;\n  }\n  function run(input) {\n    const { business, limits } = input;\n    if (!isPositiveInteger(limits.max_booking_days_ahead) || !isPositiveInteger(limits.max_upcoming_bookings)) {\n      throw new Error(\"config.limits.max_booking_days_ahead and config.limits.max_upcoming_bookings must be integers of 1 or more\");\n    }\n    const zone = business.timezone;\n    const phone = input.phone.trim();\n    const name = input.name.trim();\n    const service = input.service.trim();\n    const date = input.date.trim();\n    const time = input.time.trim();\n    if (!phone || !name || !service || !date || !time) return { ok: false, reason: \"missing_field\" };\n    const match = business.services.find((s) => s.name.toLowerCase() === service.toLowerCase());\n    if (!match) return { ok: false, reason: \"invalid_service\" };\n    if (!TIME_RE.test(time)) return { ok: false, reason: \"invalid_datetime\" };\n    const hour = Number(time.slice(0, 2));\n    const minute = Number(time.slice(3, 5));\n    if (hour > 23 || minute > 59) return { ok: false, reason: \"invalid_datetime\" };\n    const day = DateTime.fromISO(date, { zone });\n    if (!day.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const start = atTime(day, time);\n    if (!start.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const end = start.plus({ minutes: business.appointment_minutes });\n    if (start < window.open || end > window.close) return { ok: false, reason: \"outside_hours\" };\n    if (start.diff(window.open, \"minutes\").minutes % business.appointment_minutes !== 0) return { ok: false, reason: \"off_grid\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (start < now) return { ok: false, reason: \"past\" };\n    if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: \"too_soon\" };\n    if (start > now.plus({ days: limits.max_booking_days_ahead })) return { ok: false, reason: \"too_far\" };\n    if (input.upcoming_bookings >= limits.max_upcoming_bookings) return { ok: false, reason: \"too_many_bookings\" };\n    return {\n      ok: true,\n      start: toISOString(start),\n      end: toISOString(end),\n      service: match.name,\n      price_cop: match.price_cop,\n      summary: `Appointment: ${match.name} - ${name}`,\n      description: `Phone: ${phone}\nService: ${match.name}\nBooked by the WhatsApp assistant`\n    };\n  }\n  return __toCommonJS(validate_booking_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       }
     },
     {
@@ -146,8 +146,8 @@
       }
     },
     {
-      "id": "70000000-0000-4000-8000-000000000007",
-      "name": "Recheck slot availability",
+      "id": "70000013-0000-4000-8000-000000000013",
+      "name": "Get upcoming bookings",
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
       "position": [
@@ -167,8 +167,121 @@
           "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
         },
         "returnAll": true,
-        "timeMin": "={{ $('Validate booking').item.json.start }}",
-        "timeMax": "={{ $('Validate booking').item.json.end }}",
+        "timeMin": "={{ $now.toISO() }}",
+        "timeMax": "={{ $now.plus({ days: $('Load context').item.json.config.limits.max_booking_days_ahead }).toISO() }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "id": "70000014-0000-4000-8000-000000000014",
+      "name": "Aggregate upcoming bookings",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        500
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "events",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000015-0000-4000-8000-000000000015",
+      "name": "Prepare limit check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1540,
+        500
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { phone: $('Receive booking request').item.json.phone, name: $('Receive booking request').item.json.name, service: $('Receive booking request').item.json.service, date: $('Receive booking request').item.json.date, time: $('Receive booking request').item.json.time, now: $now.toISO(), upcoming_bookings: $json.events.filter((e) => (e.description ?? '').includes('Phone: ' + String($('Receive booking request').item.json.phone).trim() + '\\n')).length, limits: $('Load context').item.json.config.limits, business: $('Load context').item.json.business } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "70000016-0000-4000-8000-000000000016",
+      "name": "Check booking limit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        500
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: reruns validate-booking's ordered checks with the phone's upcoming-booking count, so the limit follows the same rules as the first pass. Generated from src/nodes/validate-booking.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/validate-booking.ts\n  var validate_booking_exports = {};\n  __export(validate_booking_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/validate-booking.ts\n  var TIME_RE = /^\\d{2}:\\d{2}$/;\n  var isPositiveInteger = (value) => Number.isInteger(value) && value >= 1;\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: booking time is always a valid DateTime\");\n    return value;\n  }\n  function run(input) {\n    const { business, limits } = input;\n    if (!isPositiveInteger(limits.max_booking_days_ahead) || !isPositiveInteger(limits.max_upcoming_bookings)) {\n      throw new Error(\"config.limits.max_booking_days_ahead and config.limits.max_upcoming_bookings must be integers of 1 or more\");\n    }\n    const zone = business.timezone;\n    const phone = input.phone.trim();\n    const name = input.name.trim();\n    const service = input.service.trim();\n    const date = input.date.trim();\n    const time = input.time.trim();\n    if (!phone || !name || !service || !date || !time) return { ok: false, reason: \"missing_field\" };\n    const match = business.services.find((s) => s.name.toLowerCase() === service.toLowerCase());\n    if (!match) return { ok: false, reason: \"invalid_service\" };\n    if (!TIME_RE.test(time)) return { ok: false, reason: \"invalid_datetime\" };\n    const hour = Number(time.slice(0, 2));\n    const minute = Number(time.slice(3, 5));\n    if (hour > 23 || minute > 59) return { ok: false, reason: \"invalid_datetime\" };\n    const day = DateTime.fromISO(date, { zone });\n    if (!day.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const start = atTime(day, time);\n    if (!start.isValid) return { ok: false, reason: \"invalid_datetime\" };\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const end = start.plus({ minutes: business.appointment_minutes });\n    if (start < window.open || end > window.close) return { ok: false, reason: \"outside_hours\" };\n    if (start.diff(window.open, \"minutes\").minutes % business.appointment_minutes !== 0) return { ok: false, reason: \"off_grid\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (start < now) return { ok: false, reason: \"past\" };\n    if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: \"too_soon\" };\n    if (start > now.plus({ days: limits.max_booking_days_ahead })) return { ok: false, reason: \"too_far\" };\n    if (input.upcoming_bookings >= limits.max_upcoming_bookings) return { ok: false, reason: \"too_many_bookings\" };\n    return {\n      ok: true,\n      start: toISOString(start),\n      end: toISOString(end),\n      service: match.name,\n      price_cop: match.price_cop,\n      summary: `Appointment: ${match.name} - ${name}`,\n      description: `Phone: ${phone}\nService: ${match.name}\nBooked by the WhatsApp assistant`\n    };\n  }\n  return __toCommonJS(validate_booking_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "70000017-0000-4000-8000-000000000017",
+      "name": "Is the booking limit reached",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2020,
+        500
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "70000000-0001-4000-8000-0000000a0104",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === false }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000007",
+      "name": "Recheck slot availability",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2260,
+        500
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Validate booking').first().json.start }}",
+        "timeMax": "={{ $('Validate booking').first().json.end }}",
         "options": {
           "recurringEventHandling": "expand"
         }
@@ -186,7 +299,7 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        1300,
+        2500,
         500
       ],
       "parameters": {
@@ -202,7 +315,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        1540,
+        2740,
         500
       ],
       "parameters": {
@@ -236,7 +349,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1780,
+        2980,
         380
       ],
       "parameters": {
@@ -251,7 +364,7 @@
       "type": "n8n-nodes-base.googleCalendar",
       "typeVersion": 1.3,
       "position": [
-        1780,
+        2980,
         580
       ],
       "retryOnFail": true,
@@ -265,11 +378,11 @@
           "mode": "id",
           "value": "={{ $('Load context').item.json.config.google.calendar_id }}"
         },
-        "start": "={{ $('Validate booking').item.json.start }}",
-        "end": "={{ $('Validate booking').item.json.end }}",
+        "start": "={{ $('Validate booking').first().json.start }}",
+        "end": "={{ $('Validate booking').first().json.end }}",
         "additionalFields": {
-          "summary": "={{ $('Validate booking').item.json.summary }}",
-          "description": "={{ $('Validate booking').item.json.description }}"
+          "summary": "={{ $('Validate booking').first().json.summary }}",
+          "description": "={{ $('Validate booking').first().json.description }}"
         }
       },
       "credentials": {
@@ -285,7 +398,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2020,
+        3220,
         580
       ],
       "parameters": {
@@ -301,8 +414,8 @@
             "phone": "={{ $('Receive booking request').item.json.phone }}",
             "status": "booked",
             "name": "={{ $('Receive booking request').item.json.name }}",
-            "service_of_interest": "={{ $('Validate booking').item.json.service }}",
-            "last_appointment": "={{ $('Validate booking').item.json.start }}"
+            "service_of_interest": "={{ $('Validate booking').first().json.service }}",
+            "last_appointment": "={{ $('Validate booking').first().json.start }}"
           },
           "schema": [
             {
@@ -358,12 +471,12 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2260,
+        3460,
         580
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { ok: true, event_id: $('Create calendar event').item.json.id, start: $('Validate booking').item.json.start, end: $('Validate booking').item.json.end, service: $('Validate booking').item.json.service, price_cop: $('Validate booking').item.json.price_cop } }}",
+        "jsonOutput": "={{ { ok: true, event_id: $('Create calendar event').item.json.id, start: $('Validate booking').first().json.start, end: $('Validate booking').first().json.end, service: $('Validate booking').first().json.service, price_cop: $('Validate booking').first().json.price_cop } }}",
         "options": {}
       }
     },
@@ -373,7 +486,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        1300,
+        2500,
         760
       ],
       "parameters": {
@@ -428,7 +541,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        1540,
+        2740,
         760
       ],
       "parameters": {
@@ -462,7 +575,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1780,
+        2980,
         680
       ],
       "parameters": {
@@ -477,7 +590,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1780,
+        2980,
         840
       ],
       "parameters": {
@@ -496,9 +609,9 @@
         -60
       ],
       "parameters": {
-        "width": 2460,
-        "height": 160,
-        "content": "## Book appointment\nValidate booking (generated from src/nodes/validate-booking.ts) runs the ordered service/datetime/hours/notice checks before anything touches Calendar; an ok:false result returns immediately. Only then does Recheck slot availability query Calendar for exactly [start, end), with Recurring Event Handling \"expand\" so a recurring hold is expanded to its real occurrence; Always Output Data keeps an empty result from stopping the branch. Any returned item (a real event has an id; an empty placeholder doesn't) means the slot was taken between the first check and now, so it returns slot_taken without creating anything. Only a still-free slot reaches Create calendar event, which uses Validate booking's own summary/description/start/end verbatim. A successful create upserts the patient as booked (last_appointment = start) and returns ok:true with the new event_id; either Calendar call's failure alerts the team through notify-team and reports calendar_unavailable, with team_notified set only when that alert actually sent."
+        "width": 3660,
+        "height": 200,
+        "content": "## Book appointment\nValidate booking (generated from src/nodes/validate-booking.ts) runs the ordered service/datetime/hours/slot-grid/notice/horizon checks before anything touches Calendar, counting no bookings yet; an ok:false result, or a missing booking limit in config.limits, stops there. Only a valid request reaches Get upcoming bookings, which reads Calendar from now to config.limits.max_booking_days_ahead (Always Output Data, so an empty calendar still continues); Prepare limit check counts the events whose description holds this exact phone ('Phone: <phone>' plus a line break, the line Validate booking writes), and Check booking limit reruns the same source with that count, so a phone already at config.limits.max_upcoming_bookings gets too_many_bookings. Only then does Recheck slot availability query Calendar for exactly [start, end), with Recurring Event Handling \"expand\" so a recurring hold is expanded to its real occurrence; Always Output Data keeps an empty result from stopping the branch. Any returned item (a real event has an id; an empty placeholder doesn't) means the slot was taken between the first check and now, so it returns slot_taken without creating anything. Only a still-free slot reaches Create calendar event, which uses Validate booking's own summary/description/start/end verbatim. A successful create upserts the patient as booked (last_appointment = start) and returns ok:true with the new event_id; any Calendar call's failure alerts the team through notify-team and reports calendar_unavailable, with team_notified set only when that alert actually sent."
       }
     }
   ],
@@ -548,6 +661,75 @@
       ]
     },
     "Decide whether to call Calendar": {
+      "main": [
+        [
+          {
+            "node": "Return validation result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get upcoming bookings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get upcoming bookings": {
+      "main": [
+        [
+          {
+            "node": "Aggregate upcoming bookings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate upcoming bookings": {
+      "main": [
+        [
+          {
+            "node": "Prepare limit check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare limit check": {
+      "main": [
+        [
+          {
+            "node": "Check booking limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check booking limit": {
+      "main": [
+        [
+          {
+            "node": "Is the booking limit reached",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the booking limit reached": {
       "main": [
         [
           {

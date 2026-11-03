@@ -35,6 +35,10 @@
             {
               "name": "recent_messages",
               "type": "array"
+            },
+            {
+              "name": "message_id",
+              "type": "string"
             }
           ]
         }
@@ -98,12 +102,155 @@
       }
     },
     {
+      "id": "30000000-0000-4000-8000-00000000000a",
+      "name": "Is it a tool failure",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        620,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "30000000-0001-4000-8000-0000000a0101",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Receive alert request').first().json.reason === 'tool_failure' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-00000000000f",
+      "name": "Check alert cooldown setting",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        880,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "30000000-0001-4000-8000-0000000a0103",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ Number.isInteger($('Load context').first().json.config.limits.alert_cooldown_minutes) && $('Load context').first().json.config.limits.alert_cooldown_minutes >= 1 }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000010",
+      "name": "Refuse invalid alert_cooldown_minutes",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1140,
+        540
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "config.limits.alert_cooldown_minutes must be an integer of 1 or more"
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-00000000000b",
+      "name": "Check alert cooldown",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1140,
+        340
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->>'team_alerted' = 'true') AS alerted",
+        "options": {
+          "queryReplacement": "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-00000000000c",
+      "name": "Was the team alerted recently",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1400,
+        340
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "30000000-0001-4000-8000-0000000a0102",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.alerted === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
       "id": "30000000-0000-4000-8000-000000000006",
       "name": "Send alert email",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        620,
+        1660,
         200
       ],
       "retryOnFail": true,
@@ -113,10 +260,10 @@
       "parameters": {
         "resource": "message",
         "operation": "send",
-        "sendTo": "={{ $json.config.team_email }}",
-        "subject": "={{ $json.subject }}",
+        "sendTo": "={{ $('Compose alert').first().json.config.team_email }}",
+        "subject": "={{ $('Compose alert').first().json.subject }}",
         "emailType": "text",
-        "message": "={{ $json.body }}",
+        "message": "={{ $('Compose alert').first().json.body }}",
         "options": {}
       },
       "credentials": {
@@ -127,12 +274,39 @@
       }
     },
     {
+      "id": "30000000-0000-4000-8000-00000000000e",
+      "name": "Mark team alerted",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1920,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) || '{\"team_alerted\": true}' WHERE message_id = $1",
+        "options": {
+          "queryReplacement": "={{ $('Receive alert request').first().json.message_id }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
       "id": "30000000-0000-4000-8000-000000000007",
       "name": "Return success",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        880,
+        2180,
         80
       ],
       "parameters": {
@@ -147,12 +321,27 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        880,
+        1920,
         340
       ],
       "parameters": {
         "mode": "raw",
         "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"email_failed\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "30000000-0000-4000-8000-00000000000d",
+      "name": "Return suppressed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1660,
+        480
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": true,\n  \"suppressed\": true\n}",
         "options": {}
       }
     },
@@ -166,9 +355,9 @@
         -60
       ],
       "parameters": {
-        "width": 1300,
-        "height": 160,
-        "content": "## Notify team\nComposes a plain-text alert (so patient-written text can't inject markup) and emails config.team_email. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
+        "width": 2560,
+        "height": 200,
+        "content": "## Notify team\nComposes a plain-text alert (so patient-written text can't inject markup) and emails config.team_email. A per-phone cooldown keeps one phone from using up the Gmail daily quota that real emergencies rely on: unless the reason is tool_failure (a system failure the team must always hear about), Check alert cooldown asks whether any of this phone's inbound messages within config.limits.alert_cooldown_minutes is marked team_alerted, and if so returns { ok: true, suppressed: true } without sending — an alert did go out inside the window, so a caller that tells the patient the team knows stays truthful. Check alert cooldown setting first refuses an alert_cooldown_minutes that isn't an integer of 1 or more, into a Stop and Error the error workflow reports, instead of silently turning the cooldown off; tool_failure alerts skip it and still send. A cooldown check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id (callers without one mark nothing), and a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
       }
     }
   ],
@@ -199,6 +388,71 @@
       "main": [
         [
           {
+            "node": "Is it a tool failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it a tool failure": {
+      "main": [
+        [
+          {
+            "node": "Send alert email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check alert cooldown setting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check alert cooldown setting": {
+      "main": [
+        [
+          {
+            "node": "Check alert cooldown",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuse invalid alert_cooldown_minutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check alert cooldown": {
+      "main": [
+        [
+          {
+            "node": "Was the team alerted recently",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was the team alerted recently": {
+      "main": [
+        [
+          {
+            "node": "Return suppressed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Send alert email",
             "type": "main",
             "index": 0
@@ -210,7 +464,7 @@
       "main": [
         [
           {
-            "node": "Return success",
+            "node": "Mark team alerted",
             "type": "main",
             "index": 0
           }
@@ -218,6 +472,17 @@
         [
           {
             "node": "Return failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark team alerted": {
+      "main": [
+        [
+          {
+            "node": "Return success",
             "type": "main",
             "index": 0
           }

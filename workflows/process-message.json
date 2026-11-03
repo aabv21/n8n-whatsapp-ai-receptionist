@@ -529,8 +529,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "phone": "={{ $('When called').item.json.phone }}",
-            "status": "handed_off",
-            "name": "={{ $('When called').item.json.name }}"
+            "status": "handed_off"
           },
           "schema": [
             {
@@ -555,7 +554,7 @@
               "type": "string",
               "required": false,
               "display": true,
-              "removed": false
+              "removed": true
             }
           ],
           "matchingColumns": [],
@@ -586,7 +585,8 @@
             "reason": "={{ $('Triage message').item.json.notify_reason }}",
             "phone": "={{ $('When called').item.json.phone }}",
             "name": "={{ $('When called').item.json.name }}",
-            "recent_messages": "={{ $('Recent patient messages').item.json.recent.concat([$('Normalize text').item.json.text]) }}"
+            "recent_messages": "={{ $('Recent patient messages').item.json.recent.concat([$('Normalize text').item.json.text]) }}",
+            "message_id": "={{ $('When called').item.json.message_id }}"
           },
           "schema": [
             {
@@ -617,6 +617,14 @@
               "id": "recent_messages",
               "displayName": "recent_messages",
               "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
               "required": false,
               "display": true,
               "removed": false
@@ -938,10 +946,11 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "reason": "={{ $fromAI('reason', 'unknown_treatment (a treatment BUSINESS does not list), out_of_scope (a question BUSINESS and KNOWLEDGE BASE do not answer), or other', 'string') }}",
+            "reason": "={{ ['unknown_treatment', 'out_of_scope', 'other'].find((reason) => reason === $fromAI('reason', 'unknown_treatment (a treatment BUSINESS does not list), out_of_scope (a question BUSINESS and KNOWLEDGE BASE do not answer), or other', 'string')) ?? 'other' }}",
             "phone": "={{ $('When called').first().json.phone }}",
             "name": "={{ $('When called').first().json.name }}",
-            "summary": "={{ $fromAI('summary', 'One or two sentences telling the team what the patient needs', 'string') }}"
+            "summary": "={{ $fromAI('summary', 'One or two sentences telling the team what the patient needs', 'string') }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
           },
           "schema": [
             {
@@ -983,6 +992,14 @@
               "required": false,
               "display": true,
               "removed": true
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
             }
           ],
           "matchingColumns": [],
@@ -1051,7 +1068,37 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Did the agent reply').first().json.output, route: $('Triage message').first().json.route, flags: $('Triage message').first().json.flags, tool_calls: $json.tool_calls } }}",
+        "jsonOutput": "={{ { reply: $('Did the agent reply').first().json.output, flags: $('Triage message').first().json.flags, tool_calls: $json.tool_calls, business: $('Load context').first().json.business } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000025",
+      "name": "Prepare reply check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        4480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n  function run(input) {\n    const { reply, business } = input;\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = business.replies.medical_advice;\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = business.replies.price_check;\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = business.replies.price_check;\n    }\n    return { reply: replacement ?? reply, flags: { ...input.flags, reply_replaced: replacement !== null } };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      },
+      "id": "90000000-0000-4000-8000-000000000026",
+      "name": "Check reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4720,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $json.reply, route: $('Triage message').first().json.route, flags: $json.flags, tool_calls: $('Collect tool calls').first().json.tool_calls } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-00000000001e",
@@ -1059,7 +1106,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4480,
+        4960,
         200
       ]
     },
@@ -1146,7 +1193,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        4760,
+        5240,
         400
       ],
       "retryOnFail": true,
@@ -1168,7 +1215,7 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        5000,
+        5480,
         300
       ]
     },
@@ -1189,9 +1236,9 @@
     },
     {
       "parameters": {
-        "width": 2080,
+        "width": 2560,
         "height": 220,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets the TEAM ALERTED note only when the emergency or handoff alert actually sent. Check reply (generated from src/nodes/check-reply.ts) then replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply, and one offering a discount or quoting a peso amount that isn't a listed price with the fixed price_check reply, setting flags.reply_replaced; it's a pattern check, not a classifier. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
       },
       "id": "90000000-0000-4000-8000-000000000024",
       "name": "Sticky Note1",
@@ -1459,6 +1506,28 @@
       ]
     },
     "Collect tool calls": {
+      "main": [
+        [
+          {
+            "node": "Prepare reply check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare reply check": {
+      "main": [
+        [
+          {
+            "node": "Check reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check reply": {
       "main": [
         [
           {

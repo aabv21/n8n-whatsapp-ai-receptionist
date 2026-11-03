@@ -39,8 +39,8 @@ function isValidScores(scores: Scores): boolean {
 }
 
 /**
- * The one `>=` comparison in the triage contract (Ruling P19): `scripts/lib/scenarios.ts`'s
- * accuracy report reuses this same function instead of re-implementing the threshold rule.
+ * The one `>=` comparison in the triage contract: `scripts/lib/scenarios.ts`'s accuracy report
+ * reuses this same function instead of re-implementing the threshold rule, so the two can't drift.
  */
 export function meetsThreshold(scores: Scores, thresholds: Scores, signal: Signal): boolean {
   // eslint-disable-next-line security/detect-object-injection -- signal is always one of the fixed Signal literals above
@@ -55,7 +55,21 @@ const FAILED_OPEN: Triage = {
   notes: [],
 };
 
+/**
+ * A threshold that's missing, misspelled, or not a number makes `>=` false for every score, which
+ * would silently turn its signal off; 0 would turn it on for every message, and a missing object
+ * would throw a TypeError that names nothing. Config errors fail the run with one fixed message (and
+ * so reach error-handler) instead, unlike Jev's answers, which fail open.
+ */
+function assertValidThresholds(thresholds: Scores | null | undefined): void {
+  // eslint-disable-next-line security/detect-object-injection -- signal is always one of the fixed Signal literals above
+  if (typeof thresholds !== 'object' || thresholds === null || !SIGNALS.every((signal) => isScore(thresholds[signal]) && thresholds[signal] > 0)) {
+    throw new Error('config.triage.thresholds must give every signal a number in (0, 1]');
+  }
+}
+
 export function run(input: RouteInput): Triage {
+  assertValidThresholds(input.thresholds);
   const { scores } = input;
   if (scores === null || !isValidScores(scores)) return FAILED_OPEN;
 

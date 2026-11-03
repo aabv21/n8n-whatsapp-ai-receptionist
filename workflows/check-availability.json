@@ -345,7 +345,7 @@
       "parameters": {
         "width": 2220,
         "height": 160,
-        "content": "## Check availability\nRuling P5: \"Check date\" runs the same compute-free-slots source with events: [] before touching Calendar, so invalid_date, past_date, and closed return right away — checkable offline, and avoiding a false calendar_unavailable. Only a valid, open date reaches Calendar. Its Get Many has Always Output Data on, so an empty day still yields one item; Aggregate turns that into events (compute-free-slots ignores an eventless placeholder item). Recurring Event Handling is \"All Occurrences\" (singleEvents on the wire) so a recurring block comes back as that day's own occurrence, not its unexpanded master event. On a Calendar failure, notify-team alerts the team; team_notified is set only when that alert actually sent."
+        "content": "## Check availability\n\"Check date\" runs the same compute-free-slots source with events: [] before touching Calendar, so invalid_date, past_date, and closed return right away — checkable offline, and avoiding a false calendar_unavailable. Only a valid, open date reaches Calendar. Its Get Many has Always Output Data on, so an empty day still yields one item; Aggregate turns that into events (compute-free-slots ignores an eventless placeholder item). Recurring Event Handling is \"All Occurrences\" (singleEvents on the wire) so a recurring block comes back as that day's own occurrence, not its unexpanded master event. On a Calendar failure, notify-team alerts the team; team_notified is set only when that alert actually sent."
       }
     }
   ],

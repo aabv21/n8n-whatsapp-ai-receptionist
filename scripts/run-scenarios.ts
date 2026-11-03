@@ -82,8 +82,8 @@ function errorMessage(err: unknown): string {
  * A dev-harness call that fails outright, rather than answering with a result that fails its
  * checks, still reports as that one scenario's FAIL instead of aborting the rest of the batch and
  * skipping the closing cleanup. This matters offline: `find-patient` has no failure shape of its
- * own (Task 6) and throws without a live Sheets credential, so every `after` check fails this way
- * until Task 15.
+ * own and throws without a live Sheets credential, so every `after` check fails this way until the
+ * live integration check.
  */
 export async function runScenario(scenario: Scenario, now: DateTime): Promise<ConversationRow> {
   if (scenario.requires_open_tomorrow === true && isTomorrowSunday(now)) {
@@ -131,7 +131,7 @@ export async function runConversationScenarios(scenarios: readonly Scenario[], n
   return rows;
 }
 
-/** Lives here, not in conversations.json (Ruling P8): it only runs under `--tool-failure`, never the full suite. */
+/** Lives here, not in conversations.json: it rewrites config/config.json, so it only runs under `--tool-failure`, never the full suite. */
 const TOOL_FAILURE_SCENARIO: Scenario = {
   id: 'tool-failure',
   phone: '570000000022',
@@ -152,7 +152,7 @@ const TOOL_FAILURE_SCENARIO: Scenario = {
 /**
  * n8n reads `config/config.json` through a bind mount on every execution, so this never edits it
  * in place: a `writeFileSync` truncates before it writes, and a reader can land in between and see
- * partial JSON (Ruling P37). It also never holds the only copy of the original in memory — the
+ * partial JSON. It also never holds the only copy of the original in memory — the
  * on-disk `.bak` file is that copy throughout, so even a SIGINT that skips `finally` leaves a
  * recoverable backup on disk instead of losing the original.
  */

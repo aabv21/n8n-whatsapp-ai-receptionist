@@ -18,7 +18,7 @@ const LANGS: readonly ('en' | 'es')[] = ['en', 'es'];
 
 /**
  * Scores each item's asserted signals against `thresholds`, reusing decide-route's own `>=` rule
- * (Ruling P19) so the accuracy report can never drift from the routing logic it's grading. A
+ * so the accuracy report can never drift from the routing logic it's grading. A
  * `null` score (Jev failed or answered incompletely) always counts as wrong, whatever the item
  * expects — there's no reading to compare, so it can't count as a match either way.
  */

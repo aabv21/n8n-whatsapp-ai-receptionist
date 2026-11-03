@@ -20,6 +20,9 @@
     "max_messages_per_window": 20,
     "window_minutes": 10,
     "retention_days": 30,
-    "max_text_chars": 2000
+    "max_text_chars": 2000,
+    "alert_cooldown_minutes": 60,
+    "max_booking_days_ahead": 60,
+    "max_upcoming_bookings": 3
   }
 }
