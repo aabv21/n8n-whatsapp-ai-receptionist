@@ -110,3 +110,41 @@ test('ordinary replies about hours, dates, times, and the address are kept', () 
 
 test('medical advice wins when a reply has both a dose and an unlisted price', () =>
   expect(check('Toma 400 mg de ibuprofeno y la consulta te sale en $30.000.').reply).toBe(business.replies.medical_advice));
+
+const booked = (start: string, service = 'Dental cleaning'): ToolCall => ({
+  tool: 'book_appointment',
+  input: {},
+  output: { ok: true, event_id: 'evt-1', start, end: start, service, price_cop: 120000 },
+});
+
+test("a replaced reply keeps this turn's booking confirmation, built from book_appointment's own result", () => {
+  const reply = 'Listo, tu limpieza quedó para el miércoles a las 9:30. Mientras tanto puedes tomar ibuprofeno.';
+  expect(check(reply, [booked('2026-11-04T09:30:00.000-05:00')])).toEqual({
+    reply: `${business.replies.medical_advice}\n\nYour appointment is booked: Dental cleaning on 2026-11-04 at 09:30.`,
+    flags: { ...flags, reply_replaced: true },
+  });
+  expect(check('Listo, agendada. Te queda en $99.000.', [booked('2026-11-04T09:30:00.000-05:00')]).reply)
+    .toBe(`${business.replies.price_check}\n\nYour appointment is booked: Dental cleaning on 2026-11-04 at 09:30.`);
+});
+
+test('the confirmation gives the booking in the business timezone, one line per booking made this turn', () => {
+  const calls = [booked('2026-11-04T14:30:00.000Z'), booked('2026-11-05T08:00:00.000-05:00', 'Teeth whitening')];
+  expect(check('Toma ibuprofeno.', calls).reply).toBe(
+    `${business.replies.medical_advice}\n\nYour appointment is booked: Dental cleaning on 2026-11-04 at 09:30.\nYour appointment is booked: Teeth whitening on 2026-11-05 at 08:00.`,
+  );
+});
+
+test('no confirmation line without a successful booking, or for a result missing its start or service', () => {
+  const failed: ToolCall = { tool: 'book_appointment', input: {}, output: { ok: false, reason: 'slot_taken' } };
+  const availability: ToolCall = { tool: 'check_availability', input: {}, output: { ok: true, start: '2026-11-04T09:30:00.000-05:00', service: 'Dental cleaning' } };
+  const malformed: ToolCall = { tool: 'book_appointment', input: {}, output: { ok: true, start: 'not a date', service: 'Dental cleaning' } };
+  const noService: ToolCall = { tool: 'book_appointment', input: {}, output: { ok: true, start: '2026-11-04T09:30:00.000-05:00' } };
+  for (const calls of [[], [failed], [availability], [malformed], [noService]]) {
+    expect(check('Toma ibuprofeno.', calls).reply).toBe(business.replies.medical_advice);
+  }
+});
+
+test('a reply that is kept gets no confirmation line added', () => {
+  const reply = 'Listo, tu cita de limpieza quedó agendada para el 2026-11-04 a las 09:30.';
+  expect(check(reply, [booked('2026-11-04T09:30:00.000-05:00')])).toEqual(kept(reply));
+});

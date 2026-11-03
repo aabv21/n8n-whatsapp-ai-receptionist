@@ -23,3 +23,18 @@ on_http_request:
       - type: deny
         config:
           status_code: 404
+  # n8n's WhatsApp Trigger reads the app secret and computes the HMAC over the whole body before
+  # it rejects a bad signature, so an unsigned flood can still burn CPU. Capacity is well above a
+  # small clinic's real delivery rate: each patient message, plus Meta's sent, delivered, and read
+  # callbacks for its reply, is about four deliveries. Meta retries a refused delivery for up to
+  # 7 days, so a burst past the limit arrives late rather than not at all.
+  - name: Rate limit by client IP
+    actions:
+      - type: rate-limit
+        config:
+          name: Rate limit by client IP
+          algorithm: sliding_window
+          capacity: 60
+          rate: 60s
+          bucket_key:
+            - conn.client_ip

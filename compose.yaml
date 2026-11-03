@@ -52,6 +52,10 @@ services:
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: "168"
       N8N_DIAGNOSTICS_ENABLED: "false"
+      # A WhatsApp webhook is far below 2 MiB: a media message carries only the media's id, never
+      # its bytes. This caps an unsigned flood's body size before the WhatsApp Trigger computes the
+      # HMAC over it.
+      N8N_PAYLOAD_SIZE_MAX: "2"
     volumes:
       - n8n_data:/home/node/.n8n
       - ./business:/files/business:ro
@@ -69,7 +73,9 @@ services:
     image: ngrok/ngrok:3.39.13-alpine@sha256:a51a7637a70be573615b01852af0419c4ab9dc857601b3d61ea2a082be3ec0d3
     security_opt:
       - no-new-privileges:true
-    command: http n8n:5678 --url=${NGROK_DOMAIN} --traffic-policy-file /etc/ngrok/traffic-policy.yml
+    # Captured requests (ngrok's own inspection UI/API) hold patient messages and signed headers
+    # outside n8n's own execution-data pruning, so inspection stays off.
+    command: http n8n:5678 --url=${NGROK_DOMAIN} --traffic-policy-file /etc/ngrok/traffic-policy.yml --inspect=false
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     volumes:

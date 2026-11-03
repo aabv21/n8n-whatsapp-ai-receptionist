@@ -98,9 +98,29 @@ function allowedPrices(business: Business, toolCalls: readonly ToolCall[]): Set<
 }
 
 /**
+ * One fixed line per appointment a `book_appointment` call booked this turn, from that tool's own
+ * result: its service, and its start's date and time in the business timezone. A result without a
+ * readable start or service gets no line.
+ */
+function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[]): string[] {
+  const lines: string[] = [];
+  for (const call of toolCalls) {
+    const output = call.output;
+    if (call.tool !== 'book_appointment' || typeof output !== 'object' || output === null) continue;
+    const { ok, start, service } = output as { ok?: unknown; start?: unknown; service?: unknown };
+    if (ok !== true || typeof start !== 'string' || typeof service !== 'string') continue;
+    const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone);
+    if (!at.isValid) continue;
+    lines.push(`Your appointment is booked: ${service} on ${at.toFormat('yyyy-LL-dd')} at ${at.toFormat('HH:mm')}.`);
+  }
+  return lines;
+}
+
+/**
  * Checks the agent's reply before it reaches the patient. A dose or a medicine is replaced with
  * the fixed `medical_advice` reply, and a discount or a peso amount that isn't a listed price
- * with the fixed `price_check` reply; either sets `flags.reply_replaced`.
+ * with the fixed `price_check` reply; either sets `flags.reply_replaced`. A replaced reply still
+ * confirms any booking this turn made, so the patient never loses the news that it went through.
  */
 export function run(input: ReplyCheckInput): ReplyCheck {
   const { reply, business } = input;
@@ -113,5 +133,10 @@ export function run(input: ReplyCheckInput): ReplyCheck {
     const allowed = allowedPrices(business, input.tool_calls);
     if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = business.replies.price_check;
   }
-  return { reply: replacement ?? reply, flags: { ...input.flags, reply_replaced: replacement !== null } };
+  if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };
+  const confirmations = bookingConfirmations(business, input.tool_calls);
+  return {
+    reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join('\n')}` : replacement,
+    flags: { ...input.flags, reply_replaced: true },
+  };
 }
