@@ -142,9 +142,7 @@ test('a missing directory lists no files', () => expect(listJsonFiles('tests/fix
 test('generated code runs like a Code node', async () =>
   expect(runGenerated(await built(), { n: 2 })).toEqual([{ json: { n: 4 } }]));
 test('generated code still exports run when Object.defineProperty is frozen, like the real n8n Task Runner sandbox', async () => {
-  // @n8n/task-runner's createVmExecutableCode runs Code-node JS after `Object.defineProperty = ()
-  // => ({})`. esbuild's own export plumbing calls that function, so without
-  // hardenAgainstFrozenDefineProperty, __node.run silently comes back undefined there.
+  // The sandbox's frozen `Object.defineProperty`: see hardenAgainstFrozenDefineProperty in build-workflows.ts.
   const hardened = `Object.defineProperty = () => ({});\n${await built()}`;
   expect(runGenerated(hardened, { n: 2 })).toEqual([{ json: { n: 4 } }]);
 });
@@ -175,10 +173,8 @@ test('an existing Google OAuth2 credential is skipped unless forced', () => {
   expect(skipExisting([calendar, appDb], existing, true)).toEqual({ toImport: [calendar, appDb], alreadyExists: [] });
 });
 
-// On a Linux CI runner the import step used to fail: a credentials.json file written by the
-// runner's own uid is unreadable by n8n's own, different uid inside the container. Streaming
-// the JSON over stdin instead means buildImportCall's `input` is the only place the decrypted
-// data appears — never a file argument, and never written to `.n8n-import/` at all.
+// buildImportCall's `input` is the only place the decrypted data appears: never a file argument,
+// and never a file under `.n8n-import/` (see IMPORT_SCRIPT).
 test('the import call carries credentials only as stdin input, never as a file argument', () => {
   const appDb = { id: 'cmbCredAppDb0001', name: 'App DB', type: 'postgres', data: { password: 'secret' } };
   const { args, input } = buildImportCall([appDb]);

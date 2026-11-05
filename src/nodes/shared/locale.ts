@@ -3,7 +3,6 @@ export type Lang = 'en' | 'es';
 
 export const LANGS: readonly Lang[] = ['en', 'es'];
 
-/** A text in every supported language. */
 export type Localized = Record<Lang, string>;
 
 /**
@@ -17,7 +16,6 @@ export function normalizeLocale(value: unknown): Lang | null {
   return primary === 'en' || primary === 'es' ? primary : null;
 }
 
-/** The entry of a per-language table for `lang`. */
 export function pick<T>(table: Readonly<Record<Lang, T>>, lang: Lang): T {
   // eslint-disable-next-line security/detect-object-injection -- lang is typed as one of the two Lang literals, and every caller normalizes it first
   return table[lang];

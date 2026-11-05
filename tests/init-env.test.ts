@@ -26,9 +26,7 @@ describe('writeEnvFile', () => {
     const dir = mkdtempSync(join(tmpdir(), 'cmb-env-'));
     try {
       const path = join(dir, '.env');
-      // A crashed prior run can leave `.env.tmp` behind at whatever mode it was created with.
-      // `writeFileSync`'s `{ mode }` option only applies when the file doesn't already exist, so
-      // without the defensive chmod this stale file would keep its looser mode.
+      // A stale `.env.tmp` from a crashed run keeps its looser mode without writeEnvFile's chmod.
       writeFileSync(`${path}.tmp`, 'stale', { mode: 0o644 });
       writeEnvFile(path, 'A=1\nN8N_ENCRYPTION_KEY=secret\n');
       expect(readFileSync(path, 'utf8')).toBe('A=1\nN8N_ENCRYPTION_KEY=secret\n');

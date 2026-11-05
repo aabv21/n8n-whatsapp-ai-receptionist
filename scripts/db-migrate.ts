@@ -61,7 +61,6 @@ export function orderMigrations(fileNames: readonly string[]): string[] {
   return files;
 }
 
-/** The files in `files` not yet in `applied`, in order. */
 export function pendingMigrations(files: readonly string[], applied: ReadonlySet<string>): string[] {
   return files.filter((file) => !applied.has(file));
 }

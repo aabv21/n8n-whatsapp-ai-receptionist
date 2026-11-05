@@ -11,16 +11,13 @@ export interface CountCleanupOutcomesOutput {
 }
 
 /**
- * Reduces one `cleanup` part's tagged outcomes — one per delete attempt, plus a failure tag when
- * the search/read step itself errored — to that part's report: the count of items deleted, or
- * null the moment any outcome failed. An empty list (nothing matched, so there was nothing to
- * delete) is a success with count 0, not a failure.
+ * Reduces one `cleanup` part's tagged outcomes (one per delete, plus a failure tag if the search
+ * itself errored) to the count deleted, or null if any outcome failed. An empty list is a success
+ * with count 0.
  *
- * This exists because feeding a delete node's separate success and error outputs into the same
- * merge input races: n8n's internal ordering decides which item (a real count, or null) reaches
- * the merge first, so a single failed delete among several successes could be reported as a
- * success. Routing every outcome through one Aggregate into this single decision point removes
- * that race — exactly one item reaches the merge chain per part, whatever the outcome.
+ * Feeding a delete node's success and error outputs into one merge input races: n8n's ordering
+ * decides which item arrives first, so one failed delete could report as a success. One Aggregate
+ * into this node sends exactly one item per part to the merge.
  */
 export function run(input: CountCleanupOutcomesInput): CountCleanupOutcomesOutput {
   if (input.outcomes.some((outcome) => !outcome.ok)) return { count: null };

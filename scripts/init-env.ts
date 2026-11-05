@@ -6,12 +6,9 @@ const EXAMPLE_PATH = '.env.example';
 const ENV_PATH = '.env';
 const N8N_IMPORT_DIR = '.n8n-import';
 
-// Names this repo's `.env.example` leaves blank that the local stack and the credential-free
-// dev-harness target (`retention`) still need a real value for: the passwords of Postgres's
-// superuser, n8n's role, the app's owner role, and the app's runtime role, n8n's own encryption
-// key, and the dev-harness header token. Everything else blank in the example
-// (Google, WhatsApp, Anthropic, TypeSafe, ngrok) stays blank — generating those would make a
-// workflow that needs a real third-party credential look configured when it isn't.
+// The blank `.env.example` names the local stack and the credential-free `retention` dev-harness
+// target need a real value for. Third-party values (Google, WhatsApp, Anthropic, TypeSafe, ngrok)
+// stay blank: generating them would make a workflow that needs a real credential look configured.
 const GENERATED_NAMES = new Set([
   'POSTGRES_PASSWORD',
   'N8N_DB_PASSWORD',
@@ -40,12 +37,9 @@ export function fillSecrets(example: string, randomHex: () => string = defaultRa
 }
 
 /**
- * Writes `.env` text atomically at mode 0600. `.env` holds `N8N_ENCRYPTION_KEY`; a write
- * interrupted partway through must never leave a truncated file, which would lose every stored
- * n8n credential. Writes to a tmp file first, then renames it over the target in one step. The
- * tmp file is chmod'd 0600 explicitly, because a crashed prior run can leave it behind at
- * whatever looser mode it was created with, and `writeFileSync`'s own `{ mode }` option only
- * applies when the file doesn't already exist.
+ * Writes `.env` atomically at mode 0600, through a tmp file and a rename: a truncated `.env` would
+ * lose `N8N_ENCRYPTION_KEY` and with it every stored n8n credential. The explicit chmod covers a
+ * stale tmp file from a crashed run, since `writeFileSync`'s `{ mode }` only applies to a new file.
  */
 export function writeEnvFile(path: string, text: string): void {
   const tmpPath = `${path}.tmp`;
@@ -58,19 +52,10 @@ export function writeEnvFile(path: string, text: string): void {
 }
 
 /**
- * Creates `path` at mode 0700 if it doesn't exist yet, and leaves it (and whatever it already
- * holds) alone otherwise. No credential data crosses this directory: `setup-credentials.ts`
- * streams credentials into the `n8n` container over stdin and reads the existing-credentials
- * export back over stdout, entirely inside the container's own `/tmp`. The directory now serves
- * only `pnpm run export` (`export-workflows.ts` writes its output under `.n8n-import/export`,
- * recreating that one subdirectory itself with `mkdirSync`, which defaults to 0755); this is a
- * safety net so the directory itself exists, at the stricter local default mode, before anything
- * else touches it.
- *
- * On Linux, the bind mount only works when the host uid matches n8n's container uid (1000),
- * because n8n writes into a directory the host creates at 0700 — this function's own mode. A CI
- * runner whose uid differs would create the directory but still be unable to read back what n8n
- * writes into it; CI avoids the problem entirely by never using this bind mount for credentials.
+ * Creates the `.n8n-import/` bind-mount directory at mode 0700 if it's missing, before anything
+ * else touches it. Only `pnpm run export` uses it; credentials never cross it (see
+ * `setup-credentials.ts`). On Linux it works only when the host uid matches n8n's container uid
+ * (1000), because of that 0700 mode.
  */
 export function ensureN8nImportDir(path: string): void {
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- path is the caller-provided .n8n-import path, not user input

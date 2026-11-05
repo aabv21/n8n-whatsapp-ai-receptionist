@@ -11,7 +11,6 @@ export interface PromptInput {
   team_alerted: boolean;
   /** This message's language, or the configured default when it couldn't be detected. */
   lang: Lang;
-  /** Whether `lang` was detected from the message itself, rather than taken from the default. */
   lang_detected: boolean;
 }
 

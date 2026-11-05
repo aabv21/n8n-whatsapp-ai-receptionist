@@ -1,12 +1,12 @@
 # How the Cumbident WhatsApp receptionist works
 
-This page follows a patient’s WhatsApp message from webhook to reply, then covers failures, scaling, security, and the reasons behind each design choice.
+This page follows a patient’s WhatsApp message from webhook to reply, then covers failures, scaling, security, the reasons behind each design choice, and how to regenerate the diagrams.
 
 ![System architecture: WhatsApp reaches n8n through a one-path ngrok tunnel, and n8n’s workflows call Postgres, Google, Anthropic, and TypeSafe](diagrams/architecture.svg)
 
 System architecture: [interactive page](diagrams/architecture.html) · [source](diagrams/architecture.json)
 
-The diagram tool [archify](https://github.com/tt-a1i/archify) generates both diagrams on this page from their JSON sources, and [AGENTS.md](../AGENTS.md#commands) shows how to regenerate them. Each interactive page adds search, focus, and both color themes; open it in a browser.
+The diagram tool [archify](https://github.com/tt-a1i/archify) generates both diagrams on this page from their JSON sources, and [Regenerating the diagrams](#regenerating-the-diagrams) below shows how. Each interactive page adds search, focus, and both color themes; open it in a browser.
 
 ## What the system does and where it runs
 
@@ -130,7 +130,7 @@ The current design accepts these gaps:
 The default stack is one n8n process and one Postgres server. These are the limits it meets first, and what to change:
 
 - **One n8n process**: In regular mode, one process receives webhooks and runs every execution. Executions run concurrently, because `compose.yaml` sets no production concurrency limit. Waiting on Anthropic doesn’t block other runs, so the ceiling is CPU and memory, which webhook intake and the editor share with every execution.
-- **Queue mode**: `compose.queue.yaml` adds Redis and `n8n-worker` containers. The main process then only receives webhooks and queues them, each worker runs up to 10 jobs at once by default, and `--scale n8n-worker=N` adds workers. Switch when the main process runs short of CPU or memory, or when intake must stay responsive under load. The override gives Redis no named volume, so a `down` or a crash can lose queued jobs.
+- **Queue mode**: `compose.queue.yaml` adds Redis and `n8n-worker` containers. The main process then only receives webhooks and queues them, each worker runs up to 10 jobs at once by default, and `--scale n8n-worker=N` adds workers. Switch when the main process runs short of CPU or memory, or when intake must stay responsive under load. The override gives Redis no named volume, so a `down` or a crash can lose queued jobs. `n8n-worker` extends `compose.yaml`’s own `n8n` service, so it shares the encryption key, the database settings, and the read-only `/files` mounts, and it resets the published port so it scales past one replica without a conflict.
 - **WhatsApp Cloud API**: A business number can send up to 80 messages per second by default ([Meta throughput and pair rate limits](https://developers.facebook.com/docs/whatsapp/cloud-api/overview)). To one user, it can send one message every 6s, and a burst of up to 45 borrows from later quota. The per-phone limit of 20 text messages per 10 minutes keeps text replies to one patient below that rate. Non-text messages each get a reply, though, so a flood of them can exceed it.
 - **Anthropic**: Anthropic sets limits per organization and model class, in requests, input tokens, and output tokens per minute, and raises them with the usage tier. At the Start tier, Claude Haiku 5.5 allows 4,000 requests per minute ([Anthropic rate limits](https://platform.claude.com/docs/en/api/rate-limits)). Each message makes one request per agent iteration, up to 6. Past a limit the API answers 429, and once the client’s retries run out the message ends like any other agent failure.
 - **TypeSafe**: TypeSafe publishes no rate-limit figures; it answers 429 or 529 and asks clients to back off exponentially ([TypeSafe request rules and errors](https://docs.typesafe.ai/api/errors)). Triage makes one request per text message, plus one retry, and a failure only skips triage: the message still reaches the agent.
@@ -157,6 +157,8 @@ From outside the host, only the trigger’s path reaches n8n, and only signed re
 - **Personal data retention**: `retention-cleanup` runs daily at 03:00 Bogota time. It deletes chat memory whose phone has no message inside `retention_days`, then older messages, and it refuses any `retention_days` that isn’t an integer of 1 or more. n8n prunes its own executions after 168 hours, and every workflow sets `saveManualExecutions: false`, so a run started from the editor isn’t kept at all. That covers even `load-context`, which a passthrough trigger hands its caller’s whole item. The trigger takes no status callbacks, so no execution stores a phone only for a delivery receipt.
 - **Data outside Postgres**: Retention covers Postgres only. The Patients sheet and Calendar events keep names and phones until staff delete them.
 - **File access**: Workflow file nodes can read only `/files` (`N8N_RESTRICT_FILE_ACCESS_TO`), where Compose mounts the business, prompt, and config directories read-only.
+- **Credentials never cross the host**: `scripts/setup-credentials.ts` streams the decrypted import JSON into the `n8n` container over stdin, and reads the existing-credentials export back over stdout. That export stays encrypted, and only its IDs are used. Each direction goes through a temp file in the container’s own `/tmp`, never the host or the `.n8n-import/` bind mount, because on Linux a file one side writes there is owned by its uid (the runner’s 1001 or n8n’s 1000), which the other side can’t read or `chmod`.
+- **The `.n8n-import/` bind mount**: `node scripts/init-env.ts` creates it at mode 0700, and only `pnpm run export` writes to it; `export-workflows.ts` recreates `.n8n-import/export` with `mkdirSync`’s default 0755, looser than the 0700 parent. On Linux it works only when the host uid matches n8n’s container uid (1000), since n8n writes into a directory the host created at 0700. It’s a live bind mount, so never `rm -rf` it; if it breaks, `docker compose up -d --force-recreate n8n` recovers it without touching the named volumes.
 
 ## Design decisions and their trade-offs
 
@@ -182,3 +184,18 @@ Each decision names the option it chose, the one it passed over, and why:
 - **Code nodes generated from TypeScript, over hand-written JavaScript**: Each Code node’s logic is a pure `run()` in `src/nodes/*.ts`, typed, linted, and unit-tested, and `pnpm run build:workflows` bundles it into the node with esbuild. CI’s `--check` run proves the committed JSON matches the source, and `pnpm run check` rejects any Code node missing from `CODE_NODES`. The cost is a build step and a workaround for the sandbox’s disabled `Object.defineProperty`.
 - **Publishing held back only by missing trigger credentials, over waiting for every credential**: `pnpm run setup` publishes every workflow except one whose trigger needs a credential that isn’t set. A trigger can’t activate without it: the WhatsApp Trigger, for example, registers its subscription with Meta on activation. Without third-party credentials, every external call fails as it would in an outage, so offline dev-harness calls exercise the real failure paths.
 - **A static dev-harness path, over `dev/:target`**: n8n serves a path with a route parameter under the node’s webhook ID, as `/webhook/40000000-aaaa-4bbb-8ccc-000000000001/dev/:target`, so a tunnel rule naming `/webhook/dev` would miss it. A static `/webhook/dev`, with the target in the body, keeps the harness at one predictable URL that a rule can block.
+
+## Regenerating the diagrams
+
+Each diagram’s source is a JSON file in `docs/diagrams/`; archify renders the `*.html` page from it, and the `*.svg` image is that page’s own export. Edit only the JSON, then regenerate the other two.
+
+The diagram tool is [archify](https://github.com/tt-a1i/archify), a Node.js command-line tool that needs no install. Keep it outside this repo, so `pnpm run lint` doesn’t scan its files, and set `ARCHIFY` to its `bin/archify.mjs`. These sources were last validated, delivered, and exported with archify’s 2.17 skill package (`2.17.0-dev.1`). archify v3.2.0 renders the architecture diagram too, but its stricter desktop-readability budget rejects the sequence diagram’s small message notes at its 1700 px width.
+
+Run the commands from the repo root, because each source’s `meta.output` path is relative to it. `architecture.json` has type `architecture`, and `message-sequence.json` has type `sequence`. For the architecture diagram:
+
+1. `node "$ARCHIFY" validate architecture docs/diagrams/architecture.json --quality showcase --json`, after every edit, until it reports all 9 artifact checks passing with 0 composition errors and 0 warnings.
+2. `node "$ARCHIFY" deliver architecture docs/diagrams/architecture.json docs/diagrams/architecture.html --quality showcase --json` writes the page.
+3. Open the page in a browser, choose **Export**, then **SVG**, and save the download over `docs/diagrams/architecture.svg`, which `README.md` and this page embed.
+4. `node "$ARCHIFY" visual-check <copy>.html --json` checks a copy of the page in a real browser at four desktop sizes. It writes PNG screenshots next to the page, so run it on a copy outside the repo.
+
+For the sequence diagram, run the same steps with type `sequence` and the `message-sequence` files; only this page embeds its SVG.

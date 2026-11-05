@@ -9,7 +9,7 @@ export function atTime(day: DateTime, time: string): DateTime {
 
 /** The business's opening and closing instants on `day`'s date, or null when it's closed that day. */
 export function openingWindow(day: DateTime, business: Business): { open: DateTime; close: DateTime } | null {
-  // Luxon's `weekday` is 1 (Monday) .. 7 (Sunday); `day.weekday - 1` indexes WEEKDAYS the same way.
+  // Luxon's `weekday` runs 1 (Monday) to 7 (Sunday).
   const weekday = WEEKDAYS[day.weekday - 1];
   // eslint-disable-next-line security/detect-object-injection -- weekday is one of the fixed Weekday literals, not user input
   const hours = weekday && business.hours[weekday];

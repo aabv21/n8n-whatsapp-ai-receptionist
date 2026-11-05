@@ -2,11 +2,9 @@ import { fileURLToPath } from 'node:url';
 import { callDev } from './lib/dev-client.ts';
 
 /**
- * True only when `result` is exactly `{ success: true }` — the Postgres node's own synthesized
- * result for a `DELETE` with nothing left to return (see AGENTS.md's `retention` target). Used
- * by CI to prove the `retention-cleanup` workflow actually ran end to end through n8n — the
- * Postgres path, with no Code node on it (`dev-harness`'s own Code nodes, `Count event/row
- * outcomes`, sit on the `cleanup` target's branch, not this one).
+ * True only when `result` is exactly `{ success: true }`, the Postgres node's own result for a
+ * `DELETE` with nothing left to return. CI uses it to prove `retention-cleanup`, a path with no
+ * Code node, runs end to end through n8n.
  */
 export function isRetentionSuccess(result: unknown): result is { success: true } {
   if (typeof result !== 'object' || result === null) return false;
@@ -15,12 +13,9 @@ export function isRetentionSuccess(result: unknown): result is { success: true }
 }
 
 /**
- * True only when `result` is exactly `{ ok: false, reason: 'past_date' }` — `check-availability`
- * rejecting a date before `Decide whether to call Calendar` ever runs, so no Google credential
- * is needed. This is the one check that proves a *generated* Code node runs: `Check date`
- * (`src/nodes/compute-free-slots.ts`) is what decides `past_date`, before `Get busy events`.
- * A fixed date in the past (`2020-01-06`, a Monday) keeps the result deterministic for any run
- * date from now on.
+ * True only when `result` is exactly `{ ok: false, reason: 'past_date' }`. The generated `Check date`
+ * node (`src/nodes/compute-free-slots.ts`) decides it before any Calendar call, so this proves a
+ * generated Code node runs, with no Google credential. A fixed past date keeps it deterministic.
  */
 export function isPastDateRejected(result: unknown): result is { ok: false; reason: 'past_date' } {
   if (typeof result !== 'object' || result === null) return false;

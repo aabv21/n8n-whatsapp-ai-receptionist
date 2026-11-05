@@ -6,11 +6,9 @@ import { compose, loadDotEnv } from './lib/runtime.ts';
 import { listJsonFiles, readWorkflow, writeWorkflow, type Workflow } from './lib/workflow.ts';
 import { CODE_NODES, WORKFLOWS } from './manifest.ts';
 
-// Fields n8n sets on every export that are never meaningful diff material: pinned test data,
-// server-assigned bookkeeping, and the exporting instance's own identity.
-// `active` and `versionCounter` appear once a workflow has been published; both reflect this
-// instance's own history (publish state, save count), not the workflow's source, so they're
-// dropped the same way as the other bookkeeping fields below.
+// Fields n8n sets on export that reflect this instance's history, not the workflow's source:
+// pinned data, server bookkeeping (`active` and `versionCounter` appear once a workflow is
+// published), and the instance's own identity.
 const VOLATILE_FIELDS = [
   'pinData',
   'versionId',
