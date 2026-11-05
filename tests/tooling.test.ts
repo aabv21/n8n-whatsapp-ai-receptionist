@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { buildWorkflows, hardenAgainstFrozenDefineProperty } from '../scripts/build-workflows.ts';
-import { checkWorkflow } from '../scripts/check-workflows.ts';
+import { checkWorkflow, hasCommentPlaceholder } from '../scripts/check-workflows.ts';
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
@@ -74,6 +74,25 @@ test('expression inside SQL is rejected', () =>
   expect(errors(withNode({ name: 'Insert row', type: 'n8n-nodes-base.postgres', typeVersion: 2, retryOnFail: true,
     parameters: { operation: 'executeQuery', query: "SELECT '{{ $json.text }}'" } })))
     .toMatch(/query in node Insert row must use \$n parameters, not expressions/));
+test.each([
+  'SELECT $1 -- uses $2 later',
+  'SELECT $1 /* $2 is the phone */',
+  'SELECT $1 /* spans\n  $2 lines */',
+])('a $n placeholder inside a SQL comment is rejected: %s', (query) =>
+  expect(errors(withNode({ name: 'Insert row', type: 'n8n-nodes-base.postgres', typeVersion: 2, retryOnFail: true,
+    parameters: { operation: 'executeQuery', query } })))
+    .toMatch(/query in node Insert row has a \$n placeholder inside a SQL comment/));
+test('placeholders outside comments, and comments without them, pass', () => {
+  for (const query of ['SELECT $1, $2 -- phone, then text', 'SELECT 1 /* no params */ WHERE x = $1']) expect(hasCommentPlaceholder(query)).toBe(false);
+});
+test('no committed workflow has a $n placeholder inside a SQL comment', () => {
+  for (const file of listJsonFiles('workflows')) {
+    for (const node of readWorkflow(file).nodes) {
+      const query = node.parameters.query;
+      if (typeof query === 'string') expect(hasCommentPlaceholder(query), `${file} ${node.name}`).toBe(false);
+    }
+  }
+});
 test('normalize drops volatile fields and is idempotent', () => {
   const n = normalizeWorkflow(fx('volatile'));
   expect([n.pinData, n.versionId, n.active, n.versionCounter, (n.meta as { instanceId?: string } | undefined)?.instanceId])

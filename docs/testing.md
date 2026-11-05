@@ -63,7 +63,7 @@ CI runs these directly, not through a test file:
 
 - `pnpm run typecheck` and `pnpm run lint` — `tsc --noEmit` and ESLint (with `eslint-plugin-security`) over the repo.
 - `pnpm run build:workflows -- --check` — fails if a Code node's committed `jsCode` doesn't match a fresh build of its `src/nodes/*.ts` source.
-- `pnpm run check` — the hygiene checker against `workflows/` itself: pinned data, literal secrets, unknown credential ids, undocumented or hand-written Code nodes, required settings, retries on external calls, and Postgres queries built from expressions.
+- `pnpm run check` — the hygiene checker against `workflows/` itself: pinned data, literal secrets, unknown credential ids, undocumented or hand-written Code nodes, required settings, retries on external calls, Postgres queries built from expressions, and `$n` placeholders inside SQL comments.
 
 ## Stack checks (Docker)
 

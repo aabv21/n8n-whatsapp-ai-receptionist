@@ -19,13 +19,21 @@ test('services and prices are pinned', () => expect(business.services.map(({ nam
 ]));
 test('every service has a display name in every language, the English one being its canonical name', () => {
   for (const service of business.services) {
-    expect(Object.keys(service.name_i18n).sort(), service.name).toEqual([...LANGS].sort());
-    for (const lang of LANGS) expect(service.name_i18n[lang].trim(), `${service.name}.${lang}`).not.toBe('');
-    expect(service.name_i18n.en, service.name).toBe(service.name);
+    const shown = service.name_i18n;
+    expect(shown, service.name).toBeDefined();
+    if (!shown) continue;
+    expect(Object.keys(shown).sort(), service.name).toEqual([...LANGS].sort());
+    for (const lang of LANGS) expect(shown[lang].trim(), `${service.name}.${lang}`).not.toBe('');
+    expect(shown.en, service.name).toBe(service.name);
   }
-  expect(business.services.map((s) => s.name_i18n.es)).toEqual([
+  expect(business.services.map((s) => s.name_i18n?.es)).toEqual([
     'Evaluación inicial', 'Limpieza dental', 'Blanqueamiento dental', 'Resina (por diente)', 'Valoración de ortodoncia', 'Urgencia odontológica',
   ]);
+});
+test('no two services share a canonical or display name, so a translated name maps back to one service', () => {
+  const names = business.services.flatMap((s) => [s.name, ...Object.values(s.name_i18n ?? {})].map((n) => n.toLowerCase()));
+  const perService = business.services.map((s) => new Set([s.name, ...Object.values(s.name_i18n ?? {})].map((n) => n.toLowerCase())).size);
+  expect(new Set(names).size).toBe(perService.reduce((a, b) => a + b, 0));
 });
 test('opening hours and scheduling rules are pinned', () => {
   for (const d of ['mon', 'tue', 'wed', 'thu', 'fri'] as const) expect(business.hours[d]).toEqual(['08:00', '18:00']);

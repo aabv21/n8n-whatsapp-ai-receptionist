@@ -25,6 +25,12 @@ test('a service named by its display name in another language books under its ca
   expect(call({ service: ' blanqueamiento DENTAL ', time: '10:15' })).toMatchObject({ ok: true, service: 'Teeth whitening', price_cop: 450000 });
 });
 test('unknown service', () => expect(reason({ service: 'Dental implants' })).toBe('invalid_service'));
+test('a hand-edited business.json without display names still books by canonical name', () => {
+  const bare = { ...business, services: business.services.map(({ name, price_cop }) => ({ name, price_cop })) };
+  const run2 = (service: string): BookingCheck => run({ business: bare, now: '2026-11-03T15:00:00-05:00', ...base, service });
+  expect(run2('Dental cleaning')).toMatchObject({ ok: true, service: 'Dental cleaning' });
+  expect(run2('Limpieza dental')).toEqual({ ok: false, reason: 'invalid_service' });
+});
 test('missing name', () => expect(reason({ name: '' })).toBe('missing_field'));
 test('malformed time', () => expect(reason({ time: '9am' })).toBe('invalid_datetime'));
 test('sunday is closed', () => expect(reason({ date: '2026-11-08' })).toBe('closed'));
