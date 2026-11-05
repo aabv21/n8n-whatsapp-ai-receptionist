@@ -1,7 +1,6 @@
 on_http_request:
-  # req.url.raw_path is un-normalized (keeps percent-encoding literal), unlike
-  # req.url.path which ngrok decodes first — checked here so an encoded trick
-  # can't slip past as something that merely looks safe once decoded.
+  # req.url.raw_path keeps percent-encoding literal, unlike the decoded req.url.path,
+  # so an encoded path can't pass as one that only looks safe once decoded.
   - name: Refuse unsafe path encodings
     expressions:
       - 'req.url.raw_path.contains("%") || req.url.raw_path.contains("\\") || req.url.raw_path.contains("//") || req.url.raw_path.contains("/./") || req.url.raw_path.contains("/../")'
@@ -9,13 +8,9 @@ on_http_request:
       - type: deny
         config:
           status_code: 404
-  # Allowlist: only the WhatsApp Trigger's own fixed webhookId
-  # (workflows/whatsapp-entry.json) gets through, not any webhook-shaped path.
-  # Meta's subscription-verification GET carries hub.* query parameters, not
-  # path segments, and req.url.raw_path excludes the query string
-  # (https://ngrok.com/docs/traffic-policy/variables/req/: "The full query
-  # string ... excluding the leading question mark" is the separate
-  # req.url.query), so that GET still matches this same anchored path.
+  # Only the WhatsApp Trigger's own webhookId (workflows/whatsapp-entry.json) gets through.
+  # req.url.raw_path excludes the query string, so Meta's verification GET, with its hub.*
+  # query parameters, still matches (https://ngrok.com/docs/traffic-policy/variables/req/).
   - name: Forward the WhatsApp trigger path only
     expressions:
       - '!req.url.raw_path.matches("^/webhook/a0000000-aaaa-4bbb-8ccc-000000000001/webhook$")'
@@ -23,11 +18,10 @@ on_http_request:
       - type: deny
         config:
           status_code: 404
-  # n8n's WhatsApp Trigger reads the app secret and computes the HMAC over the whole body before
-  # it rejects a bad signature, so an unsigned flood can still burn CPU. Capacity is well above a
-  # small clinic's real delivery rate: each patient message, plus Meta's sent, delivered, and read
-  # callbacks for its reply, is about four deliveries. Meta retries a refused delivery for up to
-  # 7 days, so a burst past the limit arrives late rather than not at all.
+  # The trigger computes the HMAC over the whole body before rejecting a bad signature, so an
+  # unsigned flood still burns CPU. 60/min is well above a clinic's rate (about four deliveries
+  # per patient message, counting Meta's status callbacks), and Meta retries a refused delivery
+  # for up to 7 days.
   - name: Rate limit by client IP
     actions:
       - type: rate-limit

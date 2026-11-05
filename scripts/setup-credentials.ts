@@ -14,15 +14,10 @@ export interface ImportableCredential {
 const PROTECTED_TYPES = new Set(['googleCalendarOAuth2Api', 'googleSheetsOAuth2Api', 'gmailOAuth2']);
 
 /**
- * The import:credentials call used to write a decrypted `.n8n-import/credentials.json` on the
- * host (mode 0600) and point the CLI at it inside the container. That works on macOS, where
- * Docker Desktop's VM makes a bind-mounted file appear owned by whatever uid the reading
- * process runs as — but on a Linux runner the file is written by the runner's own uid (1001)
- * and stays owned by it inside the container too, where n8n runs as uid 1000 and can't read it.
- * Streaming the JSON over stdin instead means the plaintext credential data never touches the
- * host filesystem or the bind mount at all, so no uid can be wrong: `sh -c` inside the container
- * sets a strict umask, makes its own temp file in the container's own `/tmp` (entirely separate
- * from `.n8n-import/`), copies stdin into it, runs the import, and removes it either way.
+ * Imports credentials streamed over stdin, so the decrypted JSON never touches the host or the
+ * `.n8n-import/` bind mount. A host file fails on Linux: the runner's uid (1001) owns it inside the
+ * container too, where n8n (uid 1000) can't read it; Docker Desktop on macOS hides that. The script
+ * writes a umask-077 temp file in the container's own `/tmp` and removes it either way.
  */
 export const IMPORT_SCRIPT = 'umask 077; tmp="$(mktemp)"; cat > "$tmp"; n8n import:credentials --input="$tmp"; status=$?; rm -f "$tmp"; exit $status';
 
@@ -83,29 +78,21 @@ function isExecError(err: unknown): err is { stdout: string; stderr: string } {
 }
 
 /**
- * The detection export used to write `.n8n-import/existing-credentials.json` and have the host
- * read and `chmod`/delete it. That fails on a Linux runner: n8n (uid 1000 in the container)
- * creates the file, so the runner (uid 1001) doesn't own it and can't `chmod` it (EPERM), even
- * once the directory itself is writable by both. Streaming the (still encrypted) export back over
- * stdout instead means the file never leaves the container: `sh -c` makes its own temp file in
- * the container's own `/tmp`, exports into it, and `cat`s it to stdout only on success, so a
- * truncated or partial export can't be mistaken for a real one — n8n's own progress messages
- * ("Acquiring database migration lock...") go to stderr here, keeping stdout pure JSON.
+ * Exports the (still encrypted) credentials to stdout, so the file never leaves the container: on
+ * Linux, a file n8n (uid 1000) writes to the bind mount can't be `chmod`ed by the runner (uid
+ * 1001, EPERM). The script `cat`s its container `/tmp` file only on success, so a partial export
+ * can't pass for a real one, and sends n8n's progress messages to stderr to keep stdout pure JSON.
  */
 export const EXPORT_SCRIPT = 'umask 077; tmp="$(mktemp)"; n8n export:credentials --all --output="$tmp" >&2; status=$?; [ "$status" -eq 0 ] && cat "$tmp"; rm -f "$tmp"; exit $status';
 
-/**
- * IDs already in n8n, read from an (encrypted) CLI export over stdout — never the decrypted
- * credential data, and never a file on the bind mount (see `EXPORT_SCRIPT`'s own comment).
- */
+/** IDs already in n8n, from the encrypted export over stdout (see `EXPORT_SCRIPT`). */
 export async function existingCredentialIds(): Promise<Set<string>> {
   let stdout: string;
   try {
     ({ stdout } = await compose(['exec', '-T', 'n8n', 'sh', '-c', EXPORT_SCRIPT]));
   } catch (err) {
-    // A brand-new instance with no credentials yet errors instead of exporting an empty list.
-    // n8n prints that message to stderr now (EXPORT_SCRIPT redirects its own stdout there), but a
-    // non-zero exit from the script itself can still surface it on either stream.
+    // A brand-new instance errors instead of exporting an empty list. EXPORT_SCRIPT sends n8n's
+    // stdout to stderr, but check both streams in case the message lands on either.
     if (isExecError(err) && (/No credentials found/i.test(err.stderr) || /No credentials found/i.test(err.stdout))) return new Set();
     throw err;
   }

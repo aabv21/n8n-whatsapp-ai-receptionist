@@ -15,11 +15,9 @@ export function loadDotEnv(): void {
 }
 
 /**
- * Runs `command args`. `input`, when given, is written to the child process's stdin and the
- * stream is then closed — `child_process.execFile`'s own promisified form has no `input` option
- * (unlike `execFileSync`), so stdin is wired by hand here. Kept separate from `compose()` below
- * so the stdin-wiring itself can be tested against a real, trivial command, with no `docker`
- * dependency.
+ * Runs `command args`, writing `input` to stdin when given: promisified `execFile` has no `input`
+ * option, unlike `execFileSync`. Separate from `compose()` so the stdin wiring is testable
+ * without Docker.
  */
 export function execFileWithInput(command: string, args: readonly string[], input?: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
@@ -31,9 +29,8 @@ export function execFileWithInput(command: string, args: readonly string[], inpu
       resolve({ stdout, stderr });
     });
     if (input !== undefined) {
-      // Writing more than the child reads before it exits raises EPIPE here. Node treats an
-      // unhandled stream 'error' as fatal and crashes the process, so this must reject through
-      // the callback above instead of being left to the default behavior.
+      // Writing more than the child reads raises EPIPE, and an unhandled stream 'error' crashes
+      // the process, so reject instead.
       child.stdin?.on('error', (err: Error) => {
         reject(Object.assign(err, { stdout: '', stderr: '' }));
       });
@@ -57,11 +54,10 @@ export interface PsqlOptions {
 }
 
 /**
- * The `compose()` arguments that run psql inside the `postgres` container over its local socket,
- * reading the script from stdin. Each variable in `forwardEnv` is passed as a bare `-e NAME`, so
- * Docker copies its value from this process's environment (`.env`, once `loadDotEnv` has run):
- * the value never appears in an argument list, and a changed `.env` takes effect without
- * recreating the container. psql stops at the first error and prints tuples only, unaligned.
+ * The `compose()` arguments that run psql in the `postgres` container over its local socket,
+ * reading the script from stdin. Each `forwardEnv` name goes as a bare `-e NAME`, so Docker copies
+ * the value from this process's environment: it never reaches an argument list, and a changed
+ * `.env` applies without recreating the container.
  */
 export function psqlArgs({ role, database, forwardEnv, singleTransaction }: PsqlOptions): string[] {
   const transaction = singleTransaction ? ' --single-transaction' : '';
@@ -124,13 +120,10 @@ export function isWebhookLive(status: number): boolean {
 
 /**
  * Polls `${baseUrl}/webhook/${path}` with an unauthenticated POST, once a second, until
- * `isWebhookLive` is true or `budgetMs` elapses. `publish:workflow` only takes effect after an
- * n8n restart, and the publication reconciler that actually registers the webhook route runs on
- * its own schedule after that (10 s by default) — so a call made right after `/healthz` turns
- * healthy can still 404 for a few more seconds. The dev harness's webhook checks `X-Dev-Token`
- * before running anything, so an unauthenticated request answers 403 once it's live — the
- * cheapest possible proof the publish actually took effect, with no credential needed.
- * `fetchImpl` is injectable so the polling logic can be unit-tested with no real network.
+ * `isWebhookLive` or `budgetMs` elapses. After the restart that applies `publish:workflow`, the
+ * publication reconciler registers the route on its own schedule (10 s by default), so it can
+ * still 404 after `/healthz` is healthy. The dev harness answers 403 without `X-Dev-Token` once
+ * live, so this needs no credential. `fetchImpl` is injectable for tests.
  */
 export async function waitForWebhookLive(
   baseUrl: string,

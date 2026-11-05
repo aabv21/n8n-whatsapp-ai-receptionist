@@ -79,11 +79,9 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * A dev-harness call that fails outright, rather than answering with a result that fails its
- * checks, still reports as that one scenario's FAIL instead of aborting the rest of the batch and
- * skipping the closing cleanup. This matters offline: `find-patient` has no failure shape of its
- * own and throws without a live Sheets credential, so every `after` check fails this way until the
- * live integration check.
+ * A dev-harness call that throws still reports as this scenario's FAIL, instead of aborting the
+ * batch and skipping the closing cleanup. Offline, `find-patient` has no failure shape of its own
+ * and throws without a live Sheets credential, so every `after` check fails this way.
  */
 export async function runScenario(scenario: Scenario, now: DateTime): Promise<ConversationRow> {
   if (scenario.requires_open_tomorrow === true && isTomorrowSunday(now)) {
@@ -151,10 +149,9 @@ const TOOL_FAILURE_SCENARIO: Scenario = {
 
 /**
  * n8n reads `config/config.json` through a bind mount on every execution, so this never edits it
- * in place: a `writeFileSync` truncates before it writes, and a reader can land in between and see
- * partial JSON. It also never holds the only copy of the original in memory — the
- * on-disk `.bak` file is that copy throughout, so even a SIGINT that skips `finally` leaves a
- * recoverable backup on disk instead of losing the original.
+ * in place: `writeFileSync` truncates first, and a reader in between would see partial JSON. The
+ * original lives in an on-disk `.bak`, never only in memory, so even a SIGINT that skips `finally`
+ * leaves it recoverable.
  */
 export async function runToolFailureScenario(now: DateTime): Promise<ConversationRow> {
   copyFileSync(CONFIG_PATH, CONFIG_BACKUP_PATH);

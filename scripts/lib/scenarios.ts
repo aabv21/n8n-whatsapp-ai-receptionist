@@ -17,10 +17,9 @@ export interface AccuracyRow {
 const LANGS: readonly ('en' | 'es')[] = ['en', 'es'];
 
 /**
- * Scores each item's asserted signals against `thresholds`, reusing decide-route's own `>=` rule
- * so the accuracy report can never drift from the routing logic it's grading. A
- * `null` score (Jev failed or answered incompletely) always counts as wrong, whatever the item
- * expects — there's no reading to compare, so it can't count as a match either way.
+ * Scores each item's asserted signals against `thresholds` with decide-route's own `>=` rule, so
+ * the report can't drift from the routing it grades. A `null` score (Jev failed or answered
+ * incompletely) always counts as wrong, whatever the item expects.
  */
 export function triageAccuracy(items: readonly TriageItem[], scores: readonly (Scores | null)[], thresholds: Scores): AccuracyRow[] {
   const rows = new Map<string, AccuracyRow>();

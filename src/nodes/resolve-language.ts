@@ -24,11 +24,10 @@ function defaultLang(locale: unknown): Lang {
 }
 
 /**
- * The language every fixed reply and the agent's hint use for this message: the one its text
- * shows, or `config.locale.default` when it shows none (a non-text message, "ok", an emoji).
- * A default that names no supported language falls back to English instead of stopping the run,
- * so a config mistake never costs a patient their reply; `tests/runtime.test.ts` checks the
- * example config's own value.
+ * The language this message's fixed replies and prompt hint use: the one its text shows, or
+ * `config.locale.default` when it shows none (a non-text message, "ok", an emoji). An unsupported
+ * default falls back to English instead of stopping the run, so a config mistake never costs a
+ * patient their reply.
  */
 export function run(input: LanguageInput): Language {
   const fallback = defaultLang(input.locale);

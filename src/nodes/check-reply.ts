@@ -16,11 +16,10 @@ export interface ReplyCheck {
   flags: Record<string, boolean>;
 }
 
-// NOTE: These are patterns, not a classifier. They catch a dose, a dosing interval, or a medicine
-// named by its generic name, a brand sold in Colombia, or its class, in Spanish or English, so a
-// reply that only mentions a medicine to refuse it is replaced too (with a reply that also
-// refuses). A dose written out in words, or a medicine not on this list, gets through. The upgrade
-// is a second model call that judges the reply; docs/red-team.md lists the remaining limits.
+// NOTE: Patterns, not a classifier: a dose, a dosing interval, or a medicine by generic name,
+// Colombian brand, or class, in Spanish or English, so a reply that names a medicine only to refuse
+// it is replaced too. Ceiling: a dose in words or an unlisted medicine gets through. Upgrade: a
+// second model call that judges the reply; docs/red-team.md lists the remaining limits.
 const MEDICAL_PATTERNS: readonly RegExp[] = [
   /\d\s?(?:mg|ml)(?!\p{L})/iu,
   /\bcada\s+\d+\s?h(?:oras|ora|rs|r)?(?!\p{L})/iu,
@@ -100,7 +99,6 @@ function allowedPrices(business: Business, toolCalls: readonly ToolCall[]): Set<
   return prices;
 }
 
-/** The booking confirmation line, with its date and time written the way each language reads them. */
 const CONFIRMATIONS: Record<Lang, { locale: string; date: string; time: string; line: (service: string, date: string, time: string) => string }> = {
   en: {
     locale: 'en-US',
@@ -117,9 +115,10 @@ const CONFIRMATIONS: Record<Lang, { locale: string; date: string; time: string; 
 };
 
 /**
- * One fixed line per appointment a `book_appointment` call booked this turn, from that tool's own
- * result: its service, by its display name when the price list has one, and its start's date and
- * time in the business timezone, in the patient's language. A result without a readable start or service gets no line.
+ * One fixed line per appointment `book_appointment` booked this turn, built from the tool's own
+ * result: its service, by its display name when the price list has one, and its start in the
+ * business timezone, in the patient's language. A result without a readable start or service
+ * gets no line.
  */
 function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[], lang: Lang): string[] {
   const format = pick(CONFIRMATIONS, lang);

@@ -73,10 +73,8 @@ async function main(): Promise<void> {
     if (!healthy) {
       failures.push('n8n did not become healthy after restart');
     } else {
-      // /healthz reports healthy well before the publication reconciler registers the webhook
-      // route for the version just published (10 s by default). This fixed wait is longer than
-      // that default interval, not a guarantee against a slower one; the poll below is the real
-      // proof, and this wait just keeps the common case from spending its whole budget on it.
+      // /healthz turns healthy before the publication reconciler (every 10 s by default) registers
+      // the new webhook route. The poll below is the proof; this wait spares it the common case.
       await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
 
       if (n8nUrl) {

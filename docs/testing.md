@@ -1,6 +1,6 @@
 # Test suites
 
-This page lists every test suite in the repo: its command, what it covers, and how it stays deterministic and clean. It then covers the checks that need the local Docker stack, the scenario and red-team suites that need real credentials, what continuous integration (CI) runs, and the live checks still deferred.
+This page lists every test suite in the repo: its command, what it covers, and how it stays deterministic and clean. It then covers the checks that need the local Docker stack, the dev harness, the scenario and red-team suites that need real credentials, what continuous integration (CI) runs, and the live checks still deferred.
 
 ## Unit and workflow tests (Vitest)
 
@@ -63,7 +63,7 @@ CI runs these directly, not through a test file:
 
 - `pnpm run typecheck` and `pnpm run lint` — `tsc --noEmit` and ESLint (with `eslint-plugin-security`) over the repo.
 - `pnpm run build:workflows -- --check` — fails if a Code node's committed `jsCode` doesn't match a fresh build of its `src/nodes/*.ts` source.
-- `pnpm run check` — the hygiene checker against `workflows/` itself: pinned data, literal secrets, unknown credential ids, undocumented or hand-written Code nodes, required settings, retries on external calls, Postgres queries built from expressions, and `$n` placeholders inside SQL comments.
+- `pnpm run check` — the hygiene checker against `workflows/` itself: pinned data, literal emails, phones, long ids, and secrets, unknown credential ids, undocumented or hand-written Code nodes, required settings, retries on external calls, Postgres queries built from expressions, and `$n` placeholders inside SQL comments.
 
 ## Stack checks (Docker)
 
@@ -74,14 +74,23 @@ CI runs these directly, not through a test file:
 
 **Staying deterministic and clean:** both scripts need only the generated `.env` and the example config. `check-db` rolls back every probe, and `check-dev-response` uses a fixed past date and the `retention` target, which deletes only expired rows.
 
+## The dev harness
+
+`node scripts/dev-call.ts <target> '<json>'` calls `POST {N8N_URL}/webhook/dev` with the `X-Dev-Token` header, to run a sub-workflow without WhatsApp: for example, `node scripts/dev-call.ts load-context '{}'` or `node scripts/dev-call.ts notify-team '{"reason":"other","phone":"570000000001"}'`. Checked against n8n 2.45.6, a request without the header answers `403`, and an unknown target answers `404 {"error":"unknown_target"}`.
+
+- **`process-message`** takes the full contract input: `channel`, `message_id`, `phone`, `name`, `type`, `text`, and `received_at`. Use `channel: "test"`, so its chat memory is keyed `test:<phone>`, which `cleanup` also deletes, and a fresh `message_id` per call, since a repeated one answers `duplicate`.
+- **`find-patient '{"phone":...}'`** exists only in the harness. It looks a Patients row up by exact phone and answers `{ "rows": [...] }`.
+- **`cleanup '{"phone_prefix":...}'`** exists only in the harness. It deletes a prefix's test data from Calendar, Sheets, and Postgres, and the scenario runner calls it before and after a run. It refuses any prefix that isn't 8 or more digits with `{"ok":false,"reason":"prefix_too_short"}` before touching anything, and reports `null` for any of its four parts that failed.
+- **`retention '{}'`** exists only in the harness. It runs `retention-cleanup` through its Execute Workflow Trigger. Unlike every other target, it needs no third-party credential, so it always runs for real and answers `{"success":true}`, the Postgres node's own result for a `DELETE` with nothing left to return.
+
 ## Scenario suites
 
 These call the real models through the dev harness, so they need `N8N_URL`, `DEV_HARNESS_TOKEN`, and real credentials. CI doesn't run them.
 
 - `pnpm run scenarios -- --triage` — sends each of the 17 English and Spanish messages in `tests/scenarios/triage.json` to `triage-message` and prints a `| lang | signal | correct/total |` table. It never fails the run, and without a TypeSafe credential every score is `null` and counts as wrong.
-- `pnpm run scenarios` — the triage table, then the 20 multi-turn conversations in `tests/scenarios/conversations.json` through `process-message`, each turn checked against its route, tools, reply text, and tool input and output. It exits 1 on any `FAIL`; a scenario that needs tomorrow open prints `SKIP` on a Sunday in America/Bogota.
+- `pnpm run scenarios` — the triage table, then the 20 multi-turn conversations in `tests/scenarios/conversations.json` through `process-message`, each turn checked against its route, tools, reply text, and tool input and output. It exits 1 only when a conversation is `FAIL`, never for the triage table or a `SKIP`; a scenario that needs tomorrow open prints `SKIP` on a Sunday in America/Bogota. A harness call that throws, such as `find-patient` without a live Sheets credential, reports as that scenario's `FAIL` instead of aborting the batch.
 - `pnpm run scenarios -- --only <id>` — one conversation, such as `hours`.
-- `pnpm run scenarios -- --tool-failure` — one more scenario that points `config.google.calendar_id` at an invalid id to exercise `calendar_unavailable` and its team alert. It backs up `config/config.json` first and restores it afterward.
+- `pnpm run scenarios -- --tool-failure` — one more scenario that points `config.google.calendar_id` at an invalid id to exercise `calendar_unavailable` and its team alert. It backs up `config/config.json` first, restores it afterward even if the run fails, and never prints its contents.
 
 **Staying deterministic and clean:** relative dates such as `{{next_thursday}}` resolve from the run's own date in America/Bogota. Every scenario uses its own `5700000000` test phone, and the harness's `cleanup` target deletes that prefix's Calendar events, sheet rows, and Postgres rows before and after the batch. Without real credentials, every conversation reports `FAIL` with route `fallback`; that's the expected offline result, not a regression.
 
@@ -99,7 +108,7 @@ These call the real models through the dev harness, so they need `N8N_URL`, `DEV
 | `n8n` | `node scripts/init-env.ts`, `cp config/config.example.json config/config.json`, `docker compose up -d --wait postgres n8n`, `pnpm run setup`, `node scripts/check-db.ts`, `node scripts/check-dev-response.ts`, the container logs on failure, and `docker compose down -v` always. Its `timeout-minutes` is 20. |
 | `codeql` | `javascript-typescript`, ignoring the generated `docs/diagrams/` pages, on pull requests, pushes to `main`, and weekly on Mondays. It runs only once the repository is public. |
 
-CI doesn't run the scenario suites (they need TypeSafe, Anthropic, and Google credentials), the queue-mode stack (`compose.queue.yaml`), the `tunnel` profile, or any harness target whose workflow needs a third-party credential.
+CI doesn't run the scenario suites (they need TypeSafe, Anthropic, and Google credentials), the queue-mode stack (`compose.queue.yaml`, which needs no credential but proves nothing about plain-node and Code-node execution that `check-dev-response.ts` doesn't), the `tunnel` profile, or any harness target whose workflow needs a third-party credential.
 
 ## Deferred live checks
 

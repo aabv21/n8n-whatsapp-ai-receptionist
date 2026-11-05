@@ -11,15 +11,12 @@ export function wrapBundle(bundle: string, entry: Pick<CodeNodeEntry, 'source' |
   return `${header}\n${bundle.trim()}\n${footer}\n`;
 }
 
-// n8n's Code-node Task Runner sandbox runs generated code after `Object.defineProperty = () =>
-// ({})` (@n8n/task-runner's createVmExecutableCode freezes builtins this way). esbuild's IIFE
-// output attaches every named export through that same function (`__defProp(target, name, {
-// get: ... })`), so under that sandbox each export silently never lands and `__node.run` comes
-// back undefined. Swapping esbuild's own `__defProp` helper for a plain assignment sidesteps
-// `Object.defineProperty` entirely; a plain function export needs no live binding or descriptor.
-// NOTE: this patches esbuild's current codegen for this exact helper, pinned by esbuild's version
-// in package.json. If a future esbuild renames or restructures it, the guard below throws instead
-// of silently shipping a broken Code node; the fix is to update the needle/replacement together.
+// n8n's Code-node Task Runner (@n8n/task-runner's createVmExecutableCode) sets
+// `Object.defineProperty = () => ({})`, and esbuild's IIFE attaches every export through
+// `__defProp`, so `__node.run` would silently come back undefined. A plain assignment avoids it.
+// NOTE: This patches esbuild's current codegen, pinned by its version in package.json. Ceiling: a
+// renamed or restructured helper makes the guard below throw. Upgrade: change the needle and its
+// replacement together.
 const ESBUILD_DEFINE_PROP = 'var __defProp = Object.defineProperty;';
 const HARDENED_DEFINE_PROP =
   'var __defProp = (obj, key, desc) => { obj[key] = desc && "get" in desc ? desc.get() : desc.value; return obj; };';
