@@ -16,6 +16,11 @@ updates:
       # hand when the project itself moves to a newer Node LTS major.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # NOTE: typescript 7 is the native port with no classic compiler API, and typescript-eslint
+      # 8.x requires a typescript version below 6.1. Move both together by hand once
+      # typescript-eslint supports typescript 7.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
@@ -36,3 +41,8 @@ updates:
       # come through; minor/major bumps to n8nio/n8n are reviewed and pinned by hand.
       - dependency-name: n8nio/n8n
         update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      # NOTE: a Postgres major version can't start on a data directory from the previous major
+      # without pg_upgrade, so a major bump would break every existing local volume. Minor and
+      # patch updates still come through; a major upgrade is planned by hand with a dump/restore.
+      - dependency-name: postgres
+        update-types: ['version-update:semver-major']

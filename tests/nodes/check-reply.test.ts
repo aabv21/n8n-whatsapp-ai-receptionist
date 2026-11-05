@@ -118,6 +118,12 @@ const booked = (start: string, service = 'Dental cleaning'): ToolCall => ({
   output: { ok: true, event_id: 'evt-1', start, end: start, service, price_cop: 120000 },
 });
 
+test('a service without display names is shown by its canonical name', () => {
+  const bare = { ...business, services: business.services.map(({ name, price_cop }) => ({ name, price_cop })) };
+  const out = run({ reply: 'Tome ibuprofeno.', flags, tool_calls: [booked('2026-11-04T09:30:00.000-05:00')], business: bare, lang: 'es' });
+  expect(out.reply).toContain('Su cita quedó agendada: Dental cleaning,');
+});
+
 test("a replaced reply keeps this turn's booking confirmation, built from book_appointment's own result", () => {
   const reply = 'Listo, tu limpieza quedó para el miércoles a las 9:30. Mientras tanto puedes tomar ibuprofeno.';
   expect(check(reply, [booked('2026-11-04T09:30:00.000-05:00')])).toEqual({

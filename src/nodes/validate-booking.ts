@@ -58,8 +58,9 @@ export function run(input: BookingInput): BookingCheck {
   if (!phone || !name || !service || !date || !time) return { ok: false, reason: 'missing_field' };
 
   // The model is told to send the canonical name, but a translated display name still maps back to it.
+  // business.json is mounted live and edited by hand, so a service missing name_i18n still matches by name.
   const wanted = service.toLowerCase();
-  const match = business.services.find((s) => [s.name, ...Object.values(s.name_i18n)].some((n) => n.toLowerCase() === wanted));
+  const match = business.services.find((s) => [s.name, ...Object.values(s.name_i18n ?? {})].some((n) => n.toLowerCase() === wanted));
   if (!match) return { ok: false, reason: 'invalid_service' };
 
   if (!TIME_RE.test(time)) return { ok: false, reason: 'invalid_datetime' };

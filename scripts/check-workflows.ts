@@ -7,6 +7,7 @@ const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const PHONE_RE = /\d{10,}/;
 const LONG_ID_RE = /[A-Za-z0-9_-]{40,}/;
 const SECRET_RE = /sk-ant-|EAA[A-Za-z0-9]{20,}|Bearer [A-Za-z0-9._-]{20,}/;
+const DOLLAR_DIGIT_RE = /\$\d/;
 
 // External services that must retry instead of failing a workflow run on a transient error.
 const RETRY_REQUIRED_TYPES = new Set([
@@ -17,6 +18,53 @@ const RETRY_REQUIRED_TYPES = new Set([
   'n8n-nodes-base.postgres',
   'n8n-nodes-base.whatsApp',
 ]);
+
+/**
+ * Pulls out the text of every `--` line comment and block comment in a SQL string, in source
+ * order. Not a SQL lexer: it has no notion of string literals, so a comment marker inside a
+ * quoted string would be misread as a comment start. None of this repo's queries do that, and
+ * neither does n8n's own query formatter, which is the thing this check guards against.
+ */
+export function sqlComments(query: string): string[] {
+  const comments: string[] = [];
+  let inBlock = false;
+  for (const line of query.split('\n')) {
+    let rest = line;
+    if (inBlock) {
+      const end = rest.indexOf('*/');
+      if (end === -1) {
+        comments.push(rest);
+        continue;
+      }
+      comments.push(rest.slice(0, end));
+      rest = rest.slice(end + 2);
+      inBlock = false;
+    }
+    for (;;) {
+      const dash = rest.indexOf('--');
+      const block = rest.indexOf('/*');
+      if (dash === -1 && block === -1) break;
+      if (block === -1 || (dash !== -1 && dash < block)) {
+        comments.push(rest.slice(dash + 2));
+        break;
+      }
+      const end = rest.indexOf('*/', block + 2);
+      if (end === -1) {
+        comments.push(rest.slice(block + 2));
+        inBlock = true;
+        break;
+      }
+      comments.push(rest.slice(block + 2, end));
+      rest = rest.slice(end + 2);
+    }
+  }
+  return comments;
+}
+
+/** True when a `$` followed by a digit appears inside a SQL comment -- see AGENTS.md's Conventions. */
+export function hasCommentPlaceholder(query: string): boolean {
+  return sqlComments(query).some((comment) => DOLLAR_DIGIT_RE.test(comment));
+}
 
 export function checkWorkflow(
   wf: Workflow,
@@ -77,6 +125,9 @@ export function checkWorkflow(
       const query = node.parameters.query;
       if (typeof query === 'string' && query.includes('{{')) {
         errors.push(`query in node ${node.name} must use $n parameters, not expressions`);
+      }
+      if (typeof query === 'string' && hasCommentPlaceholder(query)) {
+        errors.push(`query in node ${node.name} has a $n placeholder inside a SQL comment`);
       }
     }
   }

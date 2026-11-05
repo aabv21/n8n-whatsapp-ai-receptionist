@@ -132,7 +132,7 @@ function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[]
     const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);
     if (!at.isValid) continue;
     const listed = business.services.find((s) => s.name === service);
-    const shown = listed ? pick(listed.name_i18n, lang) : service;
+    const shown = listed?.name_i18n ? pick(listed.name_i18n, lang) : service;
     lines.push(format.line(shown, at.toFormat(format.date), at.toFormat(format.time)));
   }
   return lines;
