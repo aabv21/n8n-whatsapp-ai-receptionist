@@ -154,6 +154,13 @@ Package management is pnpm, pinned in `package.json`'s `packageManager` to an ex
 
 **Dependabot** (`.github/dependabot.yml`) adds a 7-day cooldown to every ecosystem: `npm` (which covers the pnpm lockfile) gets 14 days for major and 7 for minor and patch, and `docker-compose` and `github-actions` a flat `default-days: 7`, since neither has a universal semver convention. Every version PR is therefore past pnpm's 3-day install gate, while security updates still arrive immediately.
 
+## Branches and pull requests
+
+- `main` holds released code and is the default branch; `develop` is the integration branch. Both take changes only through a pull request with CI green, and repository rulesets block direct pushes, force pushes, and deletion.
+- Work on a short-lived branch from `develop` (`feat/…`, `fix/…`, `docs/…`, `chore/…`) and open the pull request into `develop`, titled in Conventional Commits form. It's squash-merged, so the title becomes the commit.
+- A release is a pull request from `develop` into `main`, merged with a merge commit, then tagged `vX.Y.Z` with a GitHub release.
+- Dependabot opens its pull requests against `develop`.
+
 ## Definition of done
 
 - `pnpm run typecheck && pnpm run lint && pnpm test && pnpm run build:workflows -- --check && pnpm run check` all pass locally — run this full gate before every commit that touches TypeScript.
