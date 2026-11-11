@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { run as composeAlert, type AlertInput } from '../../src/nodes/compose-alert.ts';
 import { run as composeErrorEmail, type ErrorEmailInput } from '../../src/nodes/compose-error-email.ts';
 import { LANGS } from '../../src/nodes/shared/locale.ts';
-import { ALERT_REASONS, TEAM_MESSAGES } from '../../src/nodes/shared/team-messages.ts';
+import { ALERT_REASONS, INVALID_ALERT_COOLDOWN_NOTE, INVALID_TEAM_LOCALE_NOTE, TEAM_MESSAGES } from '../../src/nodes/shared/team-messages.ts';
 
 const alert: AlertInput = {
   reason: 'emergency',
@@ -13,6 +13,7 @@ const alert: AlertInput = {
   now: '2026-11-04T14:05:00.000Z',
   timezone: 'America/Bogota',
   team_locale: 'en',
+  alert_cooldown_minutes: 60,
 };
 
 const failure: ErrorEmailInput = {
@@ -76,6 +77,24 @@ test('an invalid team_locale still sends the alert, in English, and says the set
   expect(sent.subject).toBe('[Cumbident] Dental emergency: Laura Gomez');
   expect(sent.body.startsWith('Reason: Dental emergency\n')).toBe(true);
   expect(sent.body.endsWith('\n\nNote: config.team_locale must be "en" or "es", so this email is in English.')).toBe(true);
+});
+
+// The owner's config may predate alert_cooldown_minutes or hold it as a string; the alert must still
+// reach the team, so notify-team sends it without the cooldown and this line names the setting.
+test('an invalid alert_cooldown_minutes adds a line saying the alert skipped the cooldown', () => {
+  for (const value of ['x', undefined, 0, '60']) {
+    const body = composeAlert({ ...alert, alert_cooldown_minutes: value }).body;
+    expect(body.endsWith(`\n\n${INVALID_ALERT_COOLDOWN_NOTE}`), String(value)).toBe(true);
+  }
+  expect(composeAlert(alert).body).not.toContain('Note:');
+  expect(INVALID_ALERT_COOLDOWN_NOTE).toBe(
+    'Note: config.limits.alert_cooldown_minutes must be an integer of 1 or more, so this alert was sent without the per-phone cooldown.',
+  );
+});
+
+test('both notes appear, team locale first', () => {
+  const body = composeAlert({ ...alert, team_locale: 'fr', alert_cooldown_minutes: 'x' }).body;
+  expect(body.endsWith(`\n\n${INVALID_TEAM_LOCALE_NOTE}\n\n${INVALID_ALERT_COOLDOWN_NOTE}`)).toBe(true);
 });
 
 test('an English failure email reads exactly as before', () => expect(composeErrorEmail(failure)).toEqual({

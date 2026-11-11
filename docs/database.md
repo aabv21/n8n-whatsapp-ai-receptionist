@@ -15,7 +15,7 @@ One Postgres 17 server holds two databases: `n8n`, n8n's own (workflows, credent
 
 ### Why the Postgres Chat Memory node connects as the owner
 
-The node can't run as `app_runtime`. In n8n 2.45.6, `MemoryPostgresChat.node.js` builds a `PostgresChatMessageHistory` (`@langchain/community` 1.1.27) for each execution. That class calls `ensureTable()` before its first read or write, and `ensureTable()` always sends `CREATE TABLE IF NOT EXISTS "n8n_chat_histories" (…)`. It ignores only error `23505`.
+The node can't run as `app_runtime`. In n8n (checked against n8n `2.45.7` on 2026-11-11), `MemoryPostgresChat.node.js` builds a `PostgresChatMessageHistory` (`@langchain/community` 1.1.27) for each execution. That class calls `ensureTable()` before its first read or write, and `ensureTable()` always sends `CREATE TABLE IF NOT EXISTS "n8n_chat_histories" (…)`. It ignores only error `23505`.
 
 Postgres checks `CREATE` on the target schema before it checks whether the table exists. So the statement fails without that privilege even when the table is already there. Run as `app_runtime` against the local stack, with the table in place:
 

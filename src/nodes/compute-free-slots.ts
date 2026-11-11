@@ -1,3 +1,4 @@
+import { isPositiveInteger } from './shared/limits.ts';
 import { openingWindow } from './shared/opening-hours.ts';
 import type { Business } from './types.ts';
 
@@ -11,6 +12,8 @@ export interface FreeSlotsInput {
   now: string;
   events: CalendarEvent[];
   business: Business;
+  /** `config.limits.max_booking_days_ahead`, the horizon `validate-booking` also enforces. */
+  max_booking_days_ahead: number;
 }
 
 export interface Slot {
@@ -19,9 +22,12 @@ export interface Slot {
   label: string;
 }
 
+/** Every reason a day can have no slots, in the order they're checked. */
+export const FREE_SLOT_REASONS = ['invalid_date', 'past_date', 'too_far', 'closed', 'no_slots'] as const;
+
 export type FreeSlotsOutput =
   | { ok: true; date: string; slots: Slot[] }
-  | { ok: false; reason: 'invalid_date' | 'past_date' | 'closed' | 'no_slots' };
+  | { ok: false; reason: (typeof FREE_SLOT_REASONS)[number] };
 
 interface Window {
   start: DateTime;
@@ -60,6 +66,10 @@ function toISOString(dt: DateTime): string {
 
 export function run(input: FreeSlotsInput): FreeSlotsOutput {
   const { business } = input;
+  // Without a horizon this would offer slots book-appointment refuses, so it stops the run instead.
+  if (!isPositiveInteger(input.max_booking_days_ahead)) {
+    throw new Error('config.limits.max_booking_days_ahead must be an integer of 1 or more');
+  }
   const zone = business.timezone;
 
   const day = DateTime.fromISO(input.date, { zone });
@@ -67,6 +77,10 @@ export function run(input: FreeSlotsInput): FreeSlotsOutput {
 
   const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);
   if (day < now.startOf('day')) return { ok: false, reason: 'past_date' };
+
+  // The same bound validate-booking uses: a slot may start at the horizon, never after it.
+  const horizon = now.plus({ days: input.max_booking_days_ahead });
+  if (day.startOf('day') > horizon) return { ok: false, reason: 'too_far' };
 
   const window = openingWindow(day, business);
   if (!window) return { ok: false, reason: 'closed' };
@@ -84,7 +98,7 @@ export function run(input: FreeSlotsInput): FreeSlotsOutput {
   const earliest = now.plus({ minutes: business.min_notice_minutes });
 
   const slots: Slot[] = grid
-    .filter((start) => start >= earliest)
+    .filter((start) => start >= earliest && start <= horizon)
     .map((start) => ({ start, end: start.plus({ minutes: business.appointment_minutes }) }))
     .filter((slot) => !busyWindows.some((event) => overlaps(slot, event)))
     .slice(0, business.max_slots_offered)

@@ -27,6 +27,8 @@ services:
   n8n:
     image: n8nio/n8n:2.45.7@sha256:9a8d8dcea75667496695d7810d7e1fe018a65efb36cc499d347f3931b3957b5d
     restart: unless-stopped
+    # Compose's default 10 s would kill executions n8n is still finishing; n8n itself waits up to 30 s.
+    stop_grace_period: 30s
     security_opt:
       - no-new-privileges:true
     # n8n runs as the unprivileged node user and needs no Linux capability; n8n-worker inherits this.

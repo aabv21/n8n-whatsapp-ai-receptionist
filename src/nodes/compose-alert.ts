@@ -1,4 +1,5 @@
-import { ALERT_REASONS, INVALID_TEAM_LOCALE_NOTE, localTime, plain, teamMessages, type AlertReason } from './shared/team-messages.ts';
+import { isPositiveInteger } from './shared/limits.ts';
+import { ALERT_REASONS, INVALID_ALERT_COOLDOWN_NOTE, INVALID_TEAM_LOCALE_NOTE, localTime, plain, teamMessages, type AlertReason } from './shared/team-messages.ts';
 
 export interface AlertInput {
   reason: string;
@@ -11,6 +12,8 @@ export interface AlertInput {
   timezone: string;
   /** `config.team_locale`. */
   team_locale: unknown;
+  /** `config.limits.alert_cooldown_minutes`; anything but an integer of 1 or more adds a note. */
+  alert_cooldown_minutes: unknown;
 }
 
 const isReason = (value: string): value is AlertReason => (ALERT_REASONS as readonly string[]).includes(value);
@@ -37,5 +40,6 @@ export function run(input: AlertInput): { subject: string; body: string } {
     recent.join('\n'),
   ];
   if (invalid) lines.push('', INVALID_TEAM_LOCALE_NOTE);
+  if (!isPositiveInteger(input.alert_cooldown_minutes)) lines.push('', INVALID_ALERT_COOLDOWN_NOTE);
   return { subject: `[Cumbident] ${reason}: ${name || phone}`, body: lines.join('\n') };
 }

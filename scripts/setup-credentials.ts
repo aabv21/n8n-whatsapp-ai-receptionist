@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { isExecError } from './lib/errors.ts';
 import { compose, loadDotEnv } from './lib/runtime.ts';
 import { CREDENTIALS } from './manifest.ts';
 
@@ -71,10 +72,6 @@ export function skipExisting(
     }
   }
   return { toImport, alreadyExists };
-}
-
-function isExecError(err: unknown): err is { stdout: string; stderr: string } {
-  return typeof err === 'object' && err !== null && typeof (err as { stdout?: unknown }).stdout === 'string';
 }
 
 /**

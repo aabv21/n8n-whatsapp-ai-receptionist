@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { run, type CalendarEvent, type FreeSlotsInput, type FreeSlotsOutput } from '../../src/nodes/compute-free-slots.ts';
+import { FREE_SLOT_REASONS, run, type CalendarEvent, type FreeSlotsInput, type FreeSlotsOutput } from '../../src/nodes/compute-free-slots.ts';
 import type { Business } from '../../src/nodes/types.ts';
 
 const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
 const dayBefore = '2026-11-03T15:00:00-05:00';
 const call = (input: Partial<FreeSlotsInput>): FreeSlotsOutput =>
-  run({ business, events: [], date: '2026-11-04', now: dayBefore, ...input });
+  run({ business, events: [], date: '2026-11-04', now: dayBefore, max_booking_days_ahead: 60, ...input });
 const labels = (r: FreeSlotsOutput): string[] => (r.ok ? r.slots.map((s) => s.label) : []);
 const busy = (from: string, to: string): CalendarEvent => ({ start: { dateTime: from }, end: { dateTime: to } });
 
@@ -33,3 +33,30 @@ test('late in the day leaves no slots', () =>
   expect(call({ now: '2026-11-04T17:30:00-05:00' })).toEqual({ ok: false, reason: 'no_slots' }));
 test('an empty item from an empty calendar is ignored', () =>
   expect(labels(call({ events: [{}] }))).toEqual(['08:00', '08:45', '09:30']));
+
+// check-availability must never offer a slot book-appointment would refuse as too_far.
+test('a day past the booking horizon is too_far', () => {
+  // dayBefore + 60 days is 2027-01-02 15:00, so 2027-01-05 starts after the horizon.
+  expect(call({ date: '2027-01-05' })).toEqual({ ok: false, reason: 'too_far' });
+  expect(call({ date: '2031-03-04' })).toEqual({ ok: false, reason: 'too_far' });
+});
+test('the horizon day offers only slots starting by the horizon', () =>
+  expect(labels(call({ now: '2026-11-04T09:00:00-05:00', max_booking_days_ahead: 7, date: '2026-11-11' }))).toEqual(['08:00', '08:45']));
+test('a missing or invalid max_booking_days_ahead fails with a fixed message', () => {
+  for (const bad of [undefined, 0, '60', 1.5]) {
+    expect(() => call({ max_booking_days_ahead: bad as number }), String(bad)).toThrow('config.limits.max_booking_days_ahead must be an integer of 1 or more');
+  }
+});
+// The prompt's Tool errors section is checked against FREE_SLOT_REASONS, so it must list exactly
+// what run() returns: one input per reason, in check order.
+test('FREE_SLOT_REASONS lists exactly the reasons run() returns', () => {
+  const emitted = [
+    call({ date: '2026-13-40' }),
+    call({ date: '2026-11-02' }),
+    call({ date: '2027-01-05' }),
+    call({ date: '2026-11-08' }),
+    call({ now: '2026-11-04T17:30:00-05:00' }),
+  ].map((r) => (r.ok ? 'ok' : r.reason));
+  expect(emitted).toEqual(['invalid_date', 'past_date', 'too_far', 'closed', 'no_slots']);
+  expect([...FREE_SLOT_REASONS]).toEqual(emitted);
+});

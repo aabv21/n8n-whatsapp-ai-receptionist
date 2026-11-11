@@ -25,6 +25,8 @@
         180,
         -140
       ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
       "parameters": {
         "operation": "read",
         "fileSelector": "/files/business/business.json"
@@ -54,6 +56,8 @@
         180,
         80
       ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
       "parameters": {
         "operation": "read",
         "fileSelector": "/files/config/config.json"
@@ -83,6 +87,8 @@
         180,
         300
       ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
       "parameters": {
         "operation": "read",
         "fileSelector": "/files/business/knowledge-base.md"
@@ -112,6 +118,8 @@
         180,
         520
       ],
+      "alwaysOutputData": true,
+      "executeOnce": true,
       "parameters": {
         "operation": "read",
         "fileSelector": "/files/prompts/system-prompt.md"
@@ -134,47 +142,17 @@
     },
     {
       "id": "10000000-0000-4000-8000-00000000000a",
-      "name": "Combine business and config",
+      "name": "Combine context",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        700,
-        -30
+        760,
+        190
       ],
       "parameters": {
         "mode": "combine",
         "combineBy": "combineByPosition",
-        "numberInputs": 2
-      }
-    },
-    {
-      "id": "10000000-0000-4000-8000-00000000000b",
-      "name": "Add knowledge base",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        940,
-        140
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 2
-      }
-    },
-    {
-      "id": "10000000-0000-4000-8000-00000000000c",
-      "name": "Add system prompt",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        1180,
-        320
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 2
+        "numberInputs": 4
       }
     },
     {
@@ -187,9 +165,9 @@
         -340
       ],
       "parameters": {
-        "width": 1860,
+        "width": 1160,
         "height": 160,
-        "content": "## Load context\nReads business.json, knowledge-base.md, system-prompt.md, and config.json from the read-only /files mounts, then merges them into one item: { business, config, knowledge_base, system_prompt }. Any missing file or invalid JSON fails this workflow, which fires the error handler."
+        "content": "## Load context\nReads business.json, knowledge-base.md, system-prompt.md, and config.json from the read-only /files mounts, then merges them into one item: { business, config, knowledge_base, system_prompt }. A missing file fails its read with \"No file(s) found\" (Read/Write Files typeVersion 1.1, checked against n8n `2.45.7` on 2026-11-11), and the caller's run fails with it. Each read also sets Always Output Data and Execute Once, so a read that ever returned no item would still reach its parse step and fail there, instead of the branch silently returning nothing."
       }
     }
   ],
@@ -235,7 +213,7 @@
       "main": [
         [
           {
-            "node": "Combine business and config",
+            "node": "Combine context",
             "type": "main",
             "index": 0
           }
@@ -257,20 +235,9 @@
       "main": [
         [
           {
-            "node": "Combine business and config",
+            "node": "Combine context",
             "type": "main",
             "index": 1
-          }
-        ]
-      ]
-    },
-    "Combine business and config": {
-      "main": [
-        [
-          {
-            "node": "Add knowledge base",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -290,20 +257,9 @@
       "main": [
         [
           {
-            "node": "Add knowledge base",
+            "node": "Combine context",
             "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Add knowledge base": {
-      "main": [
-        [
-          {
-            "node": "Add system prompt",
-            "type": "main",
-            "index": 0
+            "index": 2
           }
         ]
       ]
@@ -323,9 +279,9 @@
       "main": [
         [
           {
-            "node": "Add system prompt",
+            "node": "Combine context",
             "type": "main",
-            "index": 1
+            "index": 3
           }
         ]
       ]

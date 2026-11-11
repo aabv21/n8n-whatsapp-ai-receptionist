@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { readWorkflow, type WorkflowNode } from '../../scripts/lib/workflow.ts';
 import { CODE_NODES } from '../../scripts/manifest.ts';
+import { INVALID_ALERT_COOLDOWN_NOTE } from '../../src/nodes/shared/team-messages.ts';
+import { evaluateExpression } from '../helpers/run-expression.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
 
 const wf = readWorkflow('workflows/notify-team.json');
@@ -26,8 +28,12 @@ const condition = (name: string): unknown =>
 
 // One phone sending a handoff or emergency message over and over would otherwise send one email per
 // message, using up the Gmail daily quota that real emergencies from other patients rely on.
-test('Send alert email is reachable only through the cooldown IF, or straight from a tool_failure alert', () => {
-  expect(incomingEdges('Send alert email')).toEqual([['Is it a tool failure', 0], ['Was the team alerted recently', 1]]);
+test('Send alert email is reachable only through the cooldown IF, straight from a tool_failure alert, or past an invalid cooldown setting', () => {
+  expect(incomingEdges('Send alert email')).toEqual([
+    ['Check alert cooldown setting', 1],
+    ['Is it a tool failure', 0],
+    ['Was the team alerted recently', 1],
+  ]);
   expect(condition('Is it a tool failure')).toEqual(["={{ $('Receive alert request').first().json.reason === 'tool_failure' }}"]);
   expect(targets('Is it a tool failure', 1)).toEqual(['Check alert cooldown setting']);
   expect(targets('Check alert cooldown setting', 0)).toEqual(['Check alert cooldown']);
@@ -35,15 +41,16 @@ test('Send alert email is reachable only through the cooldown IF, or straight fr
   expect(condition('Was the team alerted recently')).toEqual(['={{ $json.alerted === true }}']);
 });
 
-test('a missing or invalid alert_cooldown_minutes stops the run with a fixed message instead of turning the cooldown off', () => {
+// An emergency must reach the team even when the owner's config predates the setting or holds it as a
+// string: the alert goes out without the cooldown, and Compose alert adds a line naming the setting.
+test('a missing or invalid alert_cooldown_minutes sends the alert without the cooldown instead of stopping', () => {
   expect(condition('Check alert cooldown setting')).toEqual([
-    "={{ Number.isInteger($('Load context').first().json.config.limits.alert_cooldown_minutes) && $('Load context').first().json.config.limits.alert_cooldown_minutes >= 1 }}",
+    "={{ Number.isInteger($('Load context').first().json.config.limits?.alert_cooldown_minutes) && $('Load context').first().json.config.limits.alert_cooldown_minutes >= 1 }}",
   ]);
   expect(incomingEdges('Check alert cooldown')).toEqual([['Check alert cooldown setting', 0]]);
-  expect(targets('Check alert cooldown setting', 1)).toEqual(['Refuse invalid alert_cooldown_minutes']);
-  const refuse = node('Refuse invalid alert_cooldown_minutes');
-  expect(refuse?.type).toBe('n8n-nodes-base.stopAndError');
-  expect(refuse?.parameters.errorMessage).toBe('config.limits.alert_cooldown_minutes must be an integer of 1 or more');
+  expect(targets('Check alert cooldown setting', 1)).toEqual(['Send alert email']);
+  expect(wf.nodes.filter((n) => n.type === 'n8n-nodes-base.stopAndError')).toEqual([]);
+  expect(String(node('Prepare alert')?.parameters.jsonOutput)).toContain('alert_cooldown_minutes: $json.config.limits?.alert_cooldown_minutes');
 });
 
 test('an alert inside the cooldown returns ok and suppressed without sending', () => {
@@ -122,10 +129,32 @@ test('the generated Compose alert writes a Spanish alert inside a sandbox that f
   const input = {
     reason: 'emergency', phone: '570000000001', name: 'Laura Gomez', summary: 'Cara hinchada desde anoche',
     recent_messages: ['Hola', 'Me duele mucho la muela'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es',
+    alert_cooldown_minutes: 60,
   };
   expect(runGenerated(jsCode, input)).toEqual([{ json: {
     subject: '[Cumbident] Urgencia odontológica: Laura Gomez',
     body: 'Motivo: Urgencia odontológica\nNombre: Laura Gomez\nTeléfono: https://wa.me/570000000001\nResumen: Cara hinchada desde anoche\n'
       + 'Hora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nHola\nMe duele mucho la muela',
   } }]);
+});
+
+test('the generated Compose alert adds the cooldown note in the frozen sandbox', () => {
+  const jsCode = `Object.defineProperty = () => ({});\n${String(node('Compose alert')?.parameters.jsCode)}`;
+  const input = {
+    reason: 'emergency', phone: '570000000001', name: 'Laura Gomez', summary: 'Cara hinchada desde anoche',
+    recent_messages: ['Hola'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es',
+    alert_cooldown_minutes: 'x',
+  };
+  const [item] = runGenerated(jsCode, input) as [{ json: { body: string } }];
+  expect(item.json.body.endsWith(`\n\n${INVALID_ALERT_COOLDOWN_NOTE}`)).toBe(true);
+});
+
+// A tool_failure alert used to skip every limits read; a config without limits must still alert.
+test('Prepare alert passes an undefined cooldown, never throws, when config.limits is missing', () => {
+  const prepared = evaluateExpression(String(node('Prepare alert')?.parameters.jsonOutput), {
+    nodes: { 'Receive alert request': { reason: 'tool_failure', phone: '570000000001', name: '', summary: 'x', recent_messages: [] } },
+    json: { business: { timezone: 'America/Bogota' }, config: { team_locale: 'en' } },
+  }) as Record<string, unknown>;
+  expect(prepared).toMatchObject({ reason: 'tool_failure', team_locale: 'en' });
+  expect(prepared.alert_cooldown_minutes).toBeUndefined();
 });

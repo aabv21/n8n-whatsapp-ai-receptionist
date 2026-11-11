@@ -13,3 +13,15 @@ test("Get busy events expands recurring events into the queried day's own occurr
   const options = getBusyEvents?.parameters.options as Record<string, unknown> | undefined;
   expect(options?.recurringEventHandling).toBe('expand');
 });
+
+const node = (name: string) => wf.nodes.find((n) => n.name === name);
+
+// compute-free-slots refuses a day past the horizon as too_far, the reason book-appointment gives, and
+// the date check returns it before any Calendar call.
+test('both compute steps pass config.limits.max_booking_days_ahead, and too_far returns before Calendar', () => {
+  expect(String(node('Prepare date check')?.parameters.jsonOutput)).toContain('max_booking_days_ahead: $json.config.limits.max_booking_days_ahead');
+  expect(String(node('Prepare full compute')?.parameters.jsonOutput))
+    .toContain("max_booking_days_ahead: $('Load context').item.json.config.limits.max_booking_days_ahead");
+  const decide = node('Decide whether to call Calendar')?.parameters.conditions as { conditions: { leftValue: unknown }[] };
+  expect(decide.conditions.map((c) => c.leftValue)).toEqual(["={{ $json.ok === false && $json.reason !== 'no_slots' }}"]);
+});

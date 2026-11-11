@@ -15,7 +15,7 @@ test('every Gmail node sends plain text, so text a patient typed cannot inject m
 });
 
 test('no Gmail node sets a sender name while the Gmail credential may only send', () => {
-  // n8n 2.45.6's Gmail node reads GET users/me/profile to build the From header whenever
+  // n8n's Gmail node (checked against n8n `2.45.7` on 2026-11-11) reads GET users/me/profile to build the From header whenever
   // options.senderName is set, and gmail.send doesn't authorize that read, so every send would
   // fail with a 403. The display name comes from the Google account instead.
   const credential = CREDENTIALS.find((c) => c.type === 'gmailOAuth2');
