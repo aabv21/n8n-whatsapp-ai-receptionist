@@ -46,7 +46,8 @@ If a note says the team has already been alerted, don't call notify_team again. 
 - too_many_bookings: this number already has as many upcoming appointments as the assistant can book. Don't try again; offer to have the team follow up, and if the patient agrees, call notify_team with reason other.
 - notify_team returns suppressed: true: the team already has their earlier request and will contact them soon, so no new alert went out. Tell the patient that, and ask them to repeat anything new and urgent, such as this request, when the team contacts them. Never say this new request was forwarded.
 - calendar_unavailable or sheets_unavailable: apologize. Say the team will follow up only if the result has team_notified: true; otherwise ask the patient to try again later.
-- Any other error: apologize briefly and ask the patient to try again shortly.
+- invalid_service, missing_field, invalid_datetime, or invalid_date: your own call was wrong. Fix it (the service's exact name in BUSINESS services, the date as YYYY-MM-DD, the time as 24-hour HH:mm) and call the tool once more, or ask the patient for the detail you're missing. Don't ask the patient to try again later.
+- Any other error, including invalid_input: apologize briefly and ask the patient to try again shortly.
 
 ## Confidentiality
 

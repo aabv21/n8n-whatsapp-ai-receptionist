@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { FREE_SLOT_REASONS } from '../src/nodes/compute-free-slots.ts';
 import { LANGS } from '../src/nodes/shared/locale.ts';
 import { REPLY_KEYS, type Business } from '../src/nodes/types.ts';
+import { BOOKING_REASONS } from '../src/nodes/validate-booking.ts';
 
 const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
 const kb = readFileSync('business/knowledge-base.md', 'utf8');
@@ -49,7 +51,7 @@ test('business identity is pinned', () => {
   expect(business.address).toBe('Calle 84 # 45-20, Office 302, Barranquilla, Colombia');
 });
 test('knowledge base covers the FAQ topics: parking, children, insurance, and cancellations', () => {
-  for (const re of [/parking/i, /free/i, /age 4/i, /insurance/i, /reimburs/i, /24 hours/i]) expect(kb).toMatch(re);
+  for (const re of [/parking/i, /free/i, /age 4/i, /insurance/i, /reimburs/i, /24 hours' notice/]) expect(kb).toMatch(re);
 });
 test('knowledge base leaves structured facts to business.json', () => {
   for (const re of [/Calle 84/, /\d{1,3}[.,]\d{3}/, /\bCOP\b/, /\b\d{1,2}:\d{2}\b/, /^#+ *Payments/im]) expect(kb).not.toMatch(re);
@@ -107,4 +109,25 @@ test('a suppressed alert is never presented as a forwarded request', () => {
   expect(errors).toContain('suppressed: true');
   expect(errors).toMatch(/team already has (their|the patient's) earlier request/i);
   expect(errors).toMatch(/never say this new request was forwarded/i);
+});
+
+// The workflows' own failure reasons, besides the ones validate-booking and compute-free-slots export.
+const WORKFLOW_REASONS = ['slot_taken', 'calendar_unavailable', 'sheets_unavailable', 'invalid_input'];
+
+test('every reason a tool can return has a rule in the Tool errors section', () => {
+  const errors = section('Tool errors');
+  for (const reason of new Set([...BOOKING_REASONS, ...FREE_SLOT_REASONS, ...WORKFLOW_REASONS])) expect(errors, reason).toContain(reason);
+});
+
+// A translated service or a malformed date is the model's own mistake: sending the patient away
+// to "try again shortly" would fail the same way every time.
+test('argument errors tell the agent to fix its own call, never to send the patient away', () => {
+  const lines = section('Tool errors').split('\n');
+  const line = lines.find((l) => l.includes('invalid_service')) ?? '';
+  for (const reason of ['missing_field', 'invalid_datetime', 'invalid_date']) expect(line, reason).toContain(reason);
+  expect(line).toMatch(/fix/i);
+  expect(line).toContain("Don't ask the patient to try again later");
+  // invalid_input means a phone or status the workflow itself supplied, which the model can't fix.
+  expect(line).not.toContain('invalid_input');
+  expect(lines.find((l) => l.includes('invalid_input'))).toMatch(/^- Any other error/);
 });

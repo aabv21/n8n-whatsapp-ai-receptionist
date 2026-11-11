@@ -17,7 +17,15 @@ test('valid booking returns the event', () => expect(call({})).toEqual({
   ok: true, start: '2026-11-04T09:30:00.000-05:00', end: '2026-11-04T10:15:00.000-05:00',
   service: 'Dental cleaning', price_cop: 120000, summary: 'Appointment: Dental cleaning - Laura Gomez',
   description: 'Phone: 570000000001\nService: Dental cleaning\nBooked by the WhatsApp assistant',
+  phone: '570000000001', name: 'Laura Gomez',
 }));
+// book-appointment passes these to upsert-patient, so the Patients row matches the Calendar event.
+test('a valid booking returns the trimmed phone and name', () =>
+  expect(call({ phone: ' 570000000001 ', name: '  Laura Gomez ' })).toMatchObject({ ok: true, phone: '570000000001', name: 'Laura Gomez' }));
+test('an hour or minute past its range is invalid_datetime, never rolled over', () => {
+  expect(reason({ time: '24:00' })).toBe('invalid_datetime');
+  expect(reason({ time: '09:60' })).toBe('invalid_datetime');
+});
 test('service match ignores case and surrounding spaces', () =>
   expect(call({ service: '  dental CLEANING ' })).toMatchObject({ ok: true, service: 'Dental cleaning' }));
 test('a service named by its display name in another language books under its canonical name', () => {

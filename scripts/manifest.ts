@@ -146,7 +146,7 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     file: 'check-availability.json',
     node: 'Check date',
     source: 'src/nodes/compute-free-slots.ts',
-    why: 'reuses the date/hours checks from compute-free-slots so an invalid, past, or closed date is rejected before the Calendar call',
+    why: 'reuses the date/hours checks from compute-free-slots so an invalid, past, too-far, or closed date is rejected before the Calendar call',
   },
   {
     file: 'check-availability.json',

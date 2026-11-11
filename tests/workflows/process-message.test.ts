@@ -70,13 +70,13 @@ test('a handoff marks the patient handed_off without sending a name, so the name
 });
 
 test("both of process-message's alert calls pass the message_id from the trigger, so notify-team can record the alert", () => {
-  expect(inputsOf(node('Alert the team')).value.message_id).toBe("={{ $('When called').item.json.message_id }}");
+  expect(inputsOf(node('Alert the team')).value.message_id).toBe("={{ $('When called').first().json.message_id }}");
   expect(inputsOf(node('notify_team')).value.message_id).toBe("={{ $('When called').first().json.message_id }}");
 });
 
 test("a triage emergency alerts with triage's own reason, emergency, the one reason only an earlier emergency holds back", () => {
   expect(branches('Route by triage')[1]?.map((e) => e.node)).toEqual(['Alert the team']);
-  expect(inputsOf(node('Alert the team')).value.reason).toBe("={{ $('Triage message').item.json.notify_reason }}");
+  expect(inputsOf(node('Alert the team')).value.reason).toBe("={{ $('Triage message').first().json.notify_reason }}");
   const scores = { emergency: 0.9, asks_for_human: 0, complaint: 0, medical_advice: 0, manipulation: 0 };
   const thresholds = { emergency: 0.6, asks_for_human: 0.7, complaint: 0.7, medical_advice: 0.7, manipulation: 0.85 };
   expect(decideRoute({ scores, thresholds })).toMatchObject({ route: 'emergency', notify_reason: 'emergency' });
@@ -221,4 +221,22 @@ test('the generated Resolve language node detects Spanish and falls back to the 
   expect(runGenerated(jsCode, { text: 'How much is a dental cleaning?', type: 'text', ...config })).toEqual([{ json: { lang: 'en', lang_detected: true } }]);
   expect(runGenerated(jsCode, { text: '', type: 'other', ...config })).toEqual([{ json: { lang: 'es', lang_detected: false } }]);
   expect(runGenerated(jsCode, { text: 'ok', type: 'text', locale: { default: 'fr' } })).toEqual([{ json: { lang: 'en', lang_detected: false } }]);
+});
+
+// The patient is always answered: a side call that throws (notify-team's own load-context failing,
+// say) must not stop the run. The failed sub-run still reaches error-handler through its own
+// errorWorkflow, and the reply then reads the side call's empty result as a failure.
+test('an emergency or handoff alert that fails still reaches the agent, and an agent-failure alert that fails still sends the fallback reply', () => {
+  for (const name of ['Mark patient handed off', 'Alert the team', 'Report agent failure']) {
+    expect(node(name)?.onError, name).toBe('continueRegularOutput');
+  }
+  expect(String(node('Prepare prompt input')?.parameters.jsonOutput)).toContain("$('Alert the team').first().json.ok === true");
+  // A failed handoff mark passes on an error item, so the alert and the mark read the run's one
+  // message through .first(), never through item pairing that item may not carry.
+  for (const name of ['Mark patient handed off', 'Alert the team']) {
+    expect(JSON.stringify(inputsOf(node(name)).value), name).not.toContain("').item");
+  }
+  const fallback = String(node('Reply with fallback')?.parameters.jsonOutput);
+  expect(fallback).toContain('reply: $json.ok === true ? $(\'Load context\').first().json.business.replies.technical_issue[');
+  expect(fallback).toContain(': $(\'Load context\').first().json.business.replies.technical_issue_retry[');
 });

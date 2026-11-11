@@ -98,3 +98,10 @@ test('the limit check counts only events booked for this exact phone, as the des
   expect(runGenerated(jsCode('Check booking limit'), { ...booking, upcoming_bookings: 2, limits }))
     .toMatchObject([{ json: { ok: true, start: '2026-11-04T09:30:00.000-05:00' } }]);
 });
+
+// The Patients row must match the Calendar event, which Validate booking built from the trimmed values.
+test('Call upsert-patient maps the trimmed phone and name from Validate booking', () => {
+  const value = (node('Call upsert-patient')?.parameters.workflowInputs as { value: Record<string, unknown> }).value;
+  expect(value.phone).toBe("={{ $('Validate booking').first().json.phone }}");
+  expect(value.name).toBe("={{ $('Validate booking').first().json.name }}");
+});

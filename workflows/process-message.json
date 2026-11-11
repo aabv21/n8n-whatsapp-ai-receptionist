@@ -558,7 +558,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "phone": "={{ $('When called').item.json.phone }}",
+            "phone": "={{ $('When called').first().json.phone }}",
             "status": "handed_off"
           },
           "schema": [
@@ -599,7 +599,8 @@
       "position": [
         3200,
         500
-      ]
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -612,11 +613,11 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "reason": "={{ $('Triage message').item.json.notify_reason }}",
-            "phone": "={{ $('When called').item.json.phone }}",
-            "name": "={{ $('When called').item.json.name }}",
-            "recent_messages": "={{ $('Recent patient messages').item.json.recent.concat([$('Normalize text').item.json.text]) }}",
-            "message_id": "={{ $('When called').item.json.message_id }}"
+            "reason": "={{ $('Triage message').first().json.notify_reason }}",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ $('Recent patient messages').first().json.recent.concat([$('Normalize text').first().json.text]) }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
           },
           "schema": [
             {
@@ -672,7 +673,8 @@
       "position": [
         3440,
         300
-      ]
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -1193,7 +1195,8 @@
       "position": [
         4720,
         20
-      ]
+      ],
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -1253,7 +1256,7 @@
       "parameters": {
         "width": 3840,
         "height": 220,
-        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
+        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Mark patient handed off, Alert the team and Report agent failure continue on error, so a failed side call never costs the patient a reply; the failed sub-run still reaches error-handler through its own error workflow. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
       },
       "id": "90000000-0000-4000-8000-000000000023",
       "name": "Sticky Note",
