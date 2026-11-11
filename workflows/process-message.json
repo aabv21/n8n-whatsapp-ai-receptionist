@@ -1254,9 +1254,9 @@
     },
     {
       "parameters": {
-        "width": 3840,
-        "height": 220,
-        "content": "## Process message\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. Otherwise the text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Mark patient handed off, Alert the team and Report agent failure continue on error, so a failed side call never costs the patient a reply; the failed sub-run still reaches error-handler through its own error workflow. Every route except duplicate is saved before the result returns. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
+        "width": 2560,
+        "height": 160,
+        "content": "## Intake\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
       },
       "id": "90000000-0000-4000-8000-000000000023",
       "name": "Sticky Note",
@@ -1264,22 +1264,52 @@
       "typeVersion": 1,
       "position": [
         -200,
-        -300
+        -200
       ]
     },
     {
       "parameters": {
-        "width": 2560,
-        "height": 220,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets a language hint that, when detection fails, names the default without claiming the patient wrote in it, and the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back. Check reply (src/nodes/check-reply.ts) replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply, and one offering a discount or an unlisted peso amount with price_check, in the patient's language; it sets flags.reply_replaced and adds a confirmation line per booking this turn made, so a replacement never hides a booking. It's a pattern check, not a classifier. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't."
+        "width": 1200,
+        "height": 160,
+        "content": "## Triage and alerts\nThe text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Mark patient handed off, Alert the team and Report agent failure continue on error, so a failed side call never costs the patient a reply; the failed sub-run still reaches error-handler through its own error workflow."
       },
       "id": "90000000-0000-4000-8000-000000000024",
       "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
+        2400,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "width": 1000,
+        "height": 280,
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets a language hint that, when detection fails, names the default without claiming the patient wrote in it, and the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back."
+      },
+      "id": "90000000-0000-4000-8000-000000000040",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
         3640,
-        -300
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "width": 1440,
+        "height": 220,
+        "content": "## Reply check and result\nCheck reply (src/nodes/check-reply.ts) replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply, and one offering a discount or an unlisted peso amount with price_check, in the patient's language; it sets flags.reply_replaced and adds a confirmation line per booking this turn made, so a replacement never hides a booking. It's a pattern check, not a classifier. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't. Every route except duplicate is saved before the result returns."
+      },
+      "id": "90000000-0000-4000-8000-000000000041",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4680,
+        -260
       ]
     }
   ],

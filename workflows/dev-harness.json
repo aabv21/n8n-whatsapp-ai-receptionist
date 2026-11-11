@@ -506,21 +506,6 @@
       }
     },
     {
-      "id": "40000000-0000-4000-8000-000000000008",
-      "name": "Sticky Note",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -200,
-        -60
-      ],
-      "parameters": {
-        "width": 1180,
-        "height": 160,
-        "content": "## Dev harness\nToken-protected test RPC: POST /webhook/dev with { target, input }. Routes to a fixed sub-workflow by target and responds synchronously with that sub-workflow's own result, since the caller needs the result itself, not just an acknowledgment. raise-error always fails on purpose, to prove the error handler fires. An unmatched target answers 404."
-      }
-    },
-    {
       "id": "40000000-0000-4000-8000-00000000000a",
       "name": "Call upsert-patient",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -768,7 +753,7 @@
           "values": [
             {
               "lookupColumn": "phone",
-              "lookupValue": "={{ $('Receive dev call').item.json.body.input.phone }}"
+              "lookupValue": "={{ $('Receive dev call').first().json.body.input.phone }}"
             }
           ]
         },
@@ -840,7 +825,7 @@
       "typeVersion": 2.4,
       "position": [
         400,
-        1480
+        1560
       ],
       "parameters": {
         "conditions": {
@@ -874,7 +859,7 @@
       "typeVersion": 3.5,
       "position": [
         660,
-        1620
+        1680
       ],
       "parameters": {
         "mode": "raw",
@@ -889,7 +874,7 @@
       "typeVersion": 1.4,
       "position": [
         660,
-        1420
+        1500
       ],
       "parameters": {
         "source": "database",
@@ -915,7 +900,7 @@
       "typeVersion": 1.3,
       "position": [
         920,
-        1340
+        1540
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -927,11 +912,11 @@
         "operation": "getAll",
         "calendar": {
           "mode": "id",
-          "value": "={{ $('Load context for cleanup').item.json.config.google.calendar_id }}"
+          "value": "={{ $('Load context for cleanup').first().json.config.google.calendar_id }}"
         },
         "returnAll": true,
         "timeMin": "={{ $now.toISO() }}",
-        "timeMax": "={{ $now.plus({ days: 60 }).toISO() }}",
+        "timeMax": "={{ $now.plus({ days: $('Load context for cleanup').first().json.config.limits.max_booking_days_ahead + 1 }).toISO() }}",
         "options": {}
       },
       "credentials": {
@@ -948,7 +933,7 @@
       "typeVersion": 2.4,
       "position": [
         1160,
-        1340
+        1540
       ],
       "parameters": {
         "conditions": {
@@ -967,7 +952,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ ($json.description ?? '').includes('Phone: ' + $('Receive dev call').item.json.body.input.phone_prefix) }}",
+              "leftValue": "={{ ($json.description ?? '').includes('Phone: ' + $('Receive dev call').first().json.body.input.phone_prefix) }}",
               "rightValue": ""
             }
           ]
@@ -982,7 +967,7 @@
       "typeVersion": 1.3,
       "position": [
         1400,
-        1340
+        1540
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -993,7 +978,7 @@
         "operation": "delete",
         "calendar": {
           "mode": "id",
-          "value": "={{ $('Load context for cleanup').item.json.config.google.calendar_id }}"
+          "value": "={{ $('Load context for cleanup').first().json.config.google.calendar_id }}"
         },
         "eventId": "={{ $json.id }}",
         "options": {}
@@ -1012,7 +997,7 @@
       "typeVersion": 4.7,
       "position": [
         920,
-        1700
+        1900
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -1025,12 +1010,12 @@
         "documentId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ $('Load context for cleanup').item.json.config.google.patients_sheet_id }}"
+          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_sheet_id }}"
         },
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "={{ $('Load context for cleanup').item.json.config.google.patients_tab }}"
+          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_tab }}"
         },
         "filtersUI": {
           "values": []
@@ -1052,7 +1037,7 @@
       "typeVersion": 2.4,
       "position": [
         1160,
-        1700
+        1900
       ],
       "parameters": {
         "conditions": {
@@ -1071,7 +1056,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ String($json.phone ?? '').startsWith($('Receive dev call').item.json.body.input.phone_prefix) }}",
+              "leftValue": "={{ String($json.phone ?? '').startsWith($('Receive dev call').first().json.body.input.phone_prefix) }}",
               "rightValue": ""
             }
           ]
@@ -1086,7 +1071,7 @@
       "typeVersion": 1,
       "position": [
         1400,
-        1700
+        1900
       ],
       "parameters": {
         "type": "simple",
@@ -1108,7 +1093,7 @@
       "typeVersion": 4.7,
       "position": [
         1640,
-        1700
+        1900
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -1120,12 +1105,12 @@
         "documentId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ $('Load context for cleanup').item.json.config.google.patients_sheet_id }}"
+          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_sheet_id }}"
         },
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "={{ $('Load context for cleanup').item.json.config.google.patients_tab }}"
+          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_tab }}"
         },
         "toDelete": "rows",
         "startIndex": "={{ $json.row_number }}",
@@ -1145,7 +1130,7 @@
       "typeVersion": 2.7,
       "position": [
         920,
-        1980
+        2360
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -1155,7 +1140,7 @@
         "operation": "executeQuery",
         "query": "WITH d AS (DELETE FROM inbound_messages WHERE starts_with(phone, $1) RETURNING 1) SELECT count(*)::int AS messages FROM d",
         "options": {
-          "queryReplacement": "={{ $('Receive dev call').item.json.body.input.phone_prefix }}"
+          "queryReplacement": "={{ $('Receive dev call').first().json.body.input.phone_prefix }}"
         }
       },
       "credentials": {
@@ -1172,7 +1157,7 @@
       "typeVersion": 3.5,
       "position": [
         920,
-        2100
+        2480
       ],
       "parameters": {
         "mode": "raw",
@@ -1187,7 +1172,7 @@
       "typeVersion": 2.7,
       "position": [
         920,
-        2220
+        2600
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -1197,7 +1182,7 @@
         "operation": "executeQuery",
         "query": "WITH d AS (DELETE FROM n8n_chat_histories WHERE starts_with(session_id, 'test:' || $1) OR starts_with(session_id, $1) RETURNING 1) SELECT count(*)::int AS memories FROM d",
         "options": {
-          "queryReplacement": "={{ $('Receive dev call').item.json.body.input.phone_prefix }}"
+          "queryReplacement": "={{ $('Receive dev call').first().json.body.input.phone_prefix }}"
         }
       },
       "credentials": {
@@ -1214,7 +1199,7 @@
       "typeVersion": 3.5,
       "position": [
         920,
-        2340
+        2720
       ],
       "parameters": {
         "mode": "raw",
@@ -1229,7 +1214,7 @@
       "typeVersion": 3.2,
       "position": [
         1960,
-        1550
+        1750
       ],
       "parameters": {
         "mode": "combine",
@@ -1244,7 +1229,7 @@
       "typeVersion": 3.2,
       "position": [
         2200,
-        1700
+        2400
       ],
       "parameters": {
         "mode": "combine",
@@ -1259,7 +1244,7 @@
       "typeVersion": 3.2,
       "position": [
         2440,
-        1850
+        2540
       ],
       "parameters": {
         "mode": "combine",
@@ -1274,42 +1259,12 @@
       "typeVersion": 3.5,
       "position": [
         2680,
-        1850
+        2540
       ],
       "parameters": {
         "mode": "raw",
         "jsonOutput": "={{ { ok: $json.events !== null && $json.rows !== null && $json.messages !== null && $json.memories !== null, deleted: { events: $json.events, rows: $json.rows, messages: $json.messages, memories: $json.memories } } }}",
         "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000025",
-      "name": "Sticky Note1",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        360,
-        960
-      ],
-      "parameters": {
-        "width": 1000,
-        "height": 340,
-        "content": "## upsert-patient / find-patient\nupsert-patient forwards straight to its sub-workflow. find-patient loads context, looks up the phone by exact match (Always Output Data, so no match still yields one empty item), drops that placeholder, and wraps whatever's left into { rows }, which is [] for a first-time patient."
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000026",
-      "name": "Sticky Note2",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        360,
-        1360
-      ],
-      "parameters": {
-        "width": 2440,
-        "height": 1120,
-        "content": "## cleanup\nA phone_prefix must match ^\\d{8,}$ (digits only, 8+), or the request is refused with prefix_too_short before anything is deleted. Each of the four parts (Calendar events, Sheets rows, inbound_messages, n8n_chat_histories) continues on error, so one failing part doesn't block the others; a failed part reports null, and ok is true only when all four succeed. Calendar and Sheets match the prefix with a literal, case-sensitive startsWith/substring check in a Filter node, never a pattern built from the prefix, and the two Postgres deletes use starts_with($1), never LIKE, which a prefix like \"________\" would turn into a wildcard that deletes every row. Sheets rows are deleted one at a time by row_number descending, so a deletion can't shift the rows still queued. For Calendar and Sheets, a delete's success and error outputs both feed one Aggregate (Always Output Data, so zero matches counts as 0), tagged ok:true/ok:false, and count-cleanup-outcomes reduces it to one count, or null if any outcome failed, so exactly one item per part reaches the merge chain."
       }
     },
     {
@@ -1319,7 +1274,7 @@
       "typeVersion": 3.5,
       "position": [
         1400,
-        1500
+        1700
       ],
       "parameters": {
         "mode": "raw",
@@ -1334,7 +1289,7 @@
       "typeVersion": 3.5,
       "position": [
         1640,
-        1300
+        1500
       ],
       "parameters": {
         "mode": "raw",
@@ -1349,7 +1304,7 @@
       "typeVersion": 3.5,
       "position": [
         1640,
-        1420
+        1620
       ],
       "parameters": {
         "mode": "raw",
@@ -1364,7 +1319,7 @@
       "typeVersion": 1,
       "position": [
         1880,
-        1400
+        1600
       ],
       "alwaysOutputData": true,
       "parameters": {
@@ -1381,7 +1336,7 @@
       "typeVersion": 2,
       "position": [
         2120,
-        1400
+        1600
       ],
       "parameters": {
         "language": "javaScript",
@@ -1396,7 +1351,7 @@
       "typeVersion": 3.5,
       "position": [
         2360,
-        1400
+        1600
       ],
       "parameters": {
         "mode": "raw",
@@ -1411,7 +1366,7 @@
       "typeVersion": 3.5,
       "position": [
         1400,
-        1860
+        2060
       ],
       "parameters": {
         "mode": "raw",
@@ -1426,7 +1381,7 @@
       "typeVersion": 3.5,
       "position": [
         1880,
-        1660
+        1860
       ],
       "parameters": {
         "mode": "raw",
@@ -1441,7 +1396,7 @@
       "typeVersion": 3.5,
       "position": [
         1880,
-        1780
+        1980
       ],
       "parameters": {
         "mode": "raw",
@@ -1456,7 +1411,7 @@
       "typeVersion": 1,
       "position": [
         2120,
-        1760
+        1960
       ],
       "alwaysOutputData": true,
       "parameters": {
@@ -1473,7 +1428,7 @@
       "typeVersion": 2,
       "position": [
         2360,
-        1760
+        1960
       ],
       "parameters": {
         "language": "javaScript",
@@ -1488,7 +1443,7 @@
       "typeVersion": 3.5,
       "position": [
         2600,
-        1760
+        1960
       ],
       "parameters": {
         "mode": "raw",
@@ -1611,6 +1566,81 @@
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
         }
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000008",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -60
+      ],
+      "parameters": {
+        "width": 1180,
+        "height": 160,
+        "content": "## Dev harness\nToken-protected test RPC: POST /webhook/dev with { target, input }. Routes to a fixed sub-workflow by target and responds synchronously with that sub-workflow's own result, since the caller needs the result itself, not just an acknowledgment. raise-error always fails on purpose, to prove the error handler fires. An unmatched target answers 404."
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000025",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        360,
+        960
+      ],
+      "parameters": {
+        "width": 1000,
+        "height": 340,
+        "content": "## upsert-patient / find-patient\nupsert-patient forwards straight to its sub-workflow. find-patient loads context, looks up the phone by exact match (Always Output Data, so no match still yields one empty item), drops that placeholder, and wraps whatever's left into { rows }, which is [] for a first-time patient."
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000026",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        360,
+        1340
+      ],
+      "parameters": {
+        "width": 520,
+        "height": 460,
+        "content": "## cleanup: prefix guard\nA phone_prefix must match ^\\d{8,}$ (digits only, 8+), or the request is refused with prefix_too_short before anything is deleted."
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000040",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        900,
+        1340
+      ],
+      "parameters": {
+        "width": 1900,
+        "height": 860,
+        "content": "## cleanup: Calendar and Sheets\nEach of the four parts (Calendar events, Sheets rows, inbound_messages, n8n_chat_histories) continues on error, so one failing part doesn't block the others; a failed part reports null. Calendar and Sheets match the prefix with a literal, case-sensitive startsWith/substring check in a Filter node, never a pattern built from the prefix. The Calendar search spans now to config.limits.max_booking_days_ahead plus a day, so it reaches every booking the assistant could make. Sheets rows are deleted one at a time by row_number descending, so a deletion can't shift the rows still queued. For Calendar and Sheets, three inputs feed one Aggregate (Always Output Data, so zero matches counts as 0): a delete's success and error outputs, tagged ok:true/ok:false, and the search-failure tag; count-cleanup-outcomes reduces it to one count, or null if any outcome failed, so exactly one item per part reaches the merge chain."
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000041",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        900,
+        2220
+      ],
+      "parameters": {
+        "width": 1900,
+        "height": 620,
+        "content": "## cleanup: Postgres and result\nThe two Postgres deletes use starts_with($1), never LIKE, which a prefix like \"________\" would turn into a wildcard that deletes every row. Each continues on error into a null count. The merge chain adds both counts to the Calendar and Sheets result, and ok is true only when all four parts succeed."
       }
     }
   ],

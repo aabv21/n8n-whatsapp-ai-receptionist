@@ -5,6 +5,7 @@ import { CODE_NODES, WORKFLOWS } from '../../scripts/manifest.ts';
 import { run as decideRoute } from '../../src/nodes/decide-route.ts';
 import type { Business } from '../../src/nodes/types.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
+import { nodesOutsideTheirSticky, stickySections } from '../helpers/sticky-sections.ts';
 
 const wf = readWorkflow('workflows/process-message.json');
 const nodesOfType = (type: string): WorkflowNode[] => wf.nodes.filter((n) => n.type === type);
@@ -239,4 +240,16 @@ test('an emergency or handoff alert that fails still reaches the agent, and an a
   const fallback = String(node('Reply with fallback')?.parameters.jsonOutput);
   expect(fallback).toContain('reply: $json.ok === true ? $(\'Load context\').first().json.business.replies.technical_issue[');
   expect(fallback).toContain(': $(\'Load context\').first().json.business.replies.technical_issue_retry[');
+});
+
+const SECTIONS: Record<string, string[]> = {
+  '## Intake': ['Record inbound message', 'Is it a duplicate', 'Resolve language', 'Is it text', 'Count recent messages', 'Is the patient over the limit'],
+  '## Triage and alerts': ['Triage message', 'Save triage', 'Route by triage', 'Reply blocked', 'Mark patient handed off', 'Alert the team'],
+  '## Agent': ['Prepare prompt input', 'Build system prompt', 'AI Agent'],
+  '## Reply check and result': ['Collect tool calls', 'Check reply', 'Reply from agent', 'Report agent failure', 'Save route', 'Return result'],
+};
+
+test('sticky notes label each section, above or around the nodes they name', () => {
+  expect(stickySections(wf).map((s) => s.heading).sort()).toEqual(Object.keys(SECTIONS).sort());
+  expect(nodesOutsideTheirSticky(wf, SECTIONS)).toEqual([]);
 });

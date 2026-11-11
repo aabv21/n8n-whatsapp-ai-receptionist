@@ -81,3 +81,8 @@ test('config example carries the starting thresholds', () => expect(config).toEq
     alert_cooldown_minutes: 60, max_booking_days_ahead: 60, max_upcoming_bookings: 3,
   },
 }));
+
+// Compose's default 10 s would kill executions n8n is still finishing on a stop or restart.
+test('n8n gets its full 30 s graceful shutdown', () => {
+  expect(service('n8n')).toContain('stop_grace_period: 30s');
+});

@@ -136,7 +136,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1060,
+        840,
         140
       ],
       "parameters": {
@@ -487,7 +487,7 @@
       "typeVersion": 1.4,
       "position": [
         2500,
-        760
+        1020
       ],
       "parameters": {
         "source": "database",
@@ -542,7 +542,7 @@
       "typeVersion": 2.4,
       "position": [
         2740,
-        760
+        1020
       ],
       "parameters": {
         "conditions": {
@@ -576,7 +576,7 @@
       "typeVersion": 3.5,
       "position": [
         2980,
-        680
+        940
       ],
       "parameters": {
         "mode": "raw",
@@ -591,7 +591,7 @@
       "typeVersion": 3.5,
       "position": [
         2980,
-        840
+        1100
       ],
       "parameters": {
         "mode": "raw",
@@ -606,12 +606,57 @@
       "typeVersion": 1,
       "position": [
         -200,
+        -40
+      ],
+      "parameters": {
+        "width": 1160,
+        "height": 140,
+        "content": "## Validate offline\nValidate booking (src/nodes/validate-booking.ts) runs the ordered service, datetime, hours, slot-grid, notice, and horizon checks before Calendar, counting no bookings yet; an ok:false result or a missing booking limit in config.limits stops there."
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000040",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1000,
         -60
       ],
       "parameters": {
-        "width": 3660,
-        "height": 200,
-        "content": "## Book appointment\nValidate booking (src/nodes/validate-booking.ts) runs the ordered service, datetime, hours, slot-grid, notice, and horizon checks before Calendar, counting no bookings yet; an ok:false result or a missing booking limit in config.limits stops there. Get upcoming bookings reads Calendar from now to config.limits.max_booking_days_ahead (Always Output Data, so an empty calendar continues). Prepare limit check counts the events whose description holds this exact phone ('Phone: <phone>' plus a line break, the line Validate booking writes), and Check booking limit reruns the same source with that count, so a phone at config.limits.max_upcoming_bookings gets too_many_bookings. Recheck slot availability then queries Calendar for exactly [start, end), with Recurring Event Handling \"expand\" so a recurring hold is expanded, and Always Output Data. Any returned item with an id means the slot was taken since the first check, so it returns slot_taken without creating anything. Create calendar event uses Validate booking's summary, description, start, and end verbatim. A successful create upserts the patient as booked (last_appointment = start) and returns ok:true with the new event_id; any Calendar failure alerts the team through notify-team and reports calendar_unavailable, with team_notified set only when that alert sent. A successful create upserts the trimmed phone and name Validate booking returns, so the Patients row matches the event. NOTE: a booking returns ok: true without checking upsert-patient's result. The Calendar event is the booking, and upsert-patient alerts the team itself when Sheets fails. Upgrade path: return the Sheets failure alongside the event."
+        "width": 1160,
+        "height": 160,
+        "content": "## Booking limit\nGet upcoming bookings reads Calendar from now to config.limits.max_booking_days_ahead (Always Output Data, so an empty calendar continues). Prepare limit check counts the events whose description holds this exact phone ('Phone: <phone>' plus a line break, the line Validate booking writes), and Check booking limit reruns the same source with that count, so a phone at config.limits.max_upcoming_bookings gets too_many_bookings."
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000041",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        -120
+      ],
+      "parameters": {
+        "width": 1400,
+        "height": 220,
+        "content": "## Slot recheck and booking\nRecheck slot availability then queries Calendar for exactly [start, end), with Recurring Event Handling \"expand\" so a recurring hold is expanded, and Always Output Data. Any returned item with an id means the slot was taken since the first check, so it returns slot_taken without creating anything. Create calendar event uses Validate booking's summary, description, start, and end verbatim. A successful create upserts the patient as booked (last_appointment = start), with the trimmed phone and name Validate booking returns so the Patients row matches the event, and returns ok:true with the new event_id. NOTE: a booking returns ok: true without checking upsert-patient's result. The Calendar event is the booking, and upsert-patient alerts the team itself when Sheets fails. Upgrade path: return the Sheets failure alongside the event."
+      }
+    },
+    {
+      "id": "70000000-0000-4000-8000-000000000042",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2440,
+        740
+      ],
+      "parameters": {
+        "width": 760,
+        "height": 180,
+        "content": "## Calendar failure\nAny Calendar failure alerts the team through notify-team and reports calendar_unavailable, with team_notified set only when that alert sent."
       }
     }
   ],
