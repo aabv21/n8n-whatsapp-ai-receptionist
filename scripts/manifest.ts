@@ -112,8 +112,8 @@ export const CREDENTIALS: readonly CredentialEntry[] = [
   },
   {
     // notify-team and error-handler only send mail, so the sign-in asks Google for the send scope
-    // alone instead of n8n's default full-mailbox set. Field names from n8n 2.45.6's
-    // GmailOAuth2Api.credentials.js.
+    // alone instead of n8n's default full-mailbox set. Field names from n8n's
+    // GmailOAuth2Api.credentials.js (checked against n8n `2.45.7` on 2026-11-11).
     id: 'cmbCredGmail0001',
     name: 'Gmail',
     type: 'gmailOAuth2',

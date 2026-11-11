@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { promisify } from 'node:util';
 import { expect, test } from 'vitest';
 import { readWorkflow } from '../scripts/lib/workflow.ts';
 import { normalizeLocale } from '../src/nodes/shared/locale.ts';
@@ -85,4 +87,26 @@ test('config example carries the starting thresholds', () => expect(config).toEq
 // Compose's default 10 s would kill executions n8n is still finishing on a stop or restart.
 test('n8n gets its full 30 s graceful shutdown', () => {
   expect(service('n8n')).toContain('stop_grace_period: 30s');
+});
+
+// Prose names the pinned line ("the n8n 2.45 line"), so a Dependabot patch bump never makes the docs
+// wrong. An exact patch appears only in a dated note recording which image a claim was checked against.
+test('an n8n 2.45 patch appears only in a dated "checked against" note', async () => {
+  const { stdout } = await promisify(execFile)('git', ['ls-files', '--cached', '--others', '--exclude-standard']);
+  const skipped = (file: string): boolean =>
+    ['pnpm-lock.yaml', 'compose.yaml', 'tests/runtime.test.ts'].includes(file) || /^docs\/diagrams\/[^/]+\.(?:html|svg)$/.test(file);
+  const offenders: string[] = [];
+  for (const file of stdout.split('\n').filter((f) => f && !skipped(f))) {
+    let content: string;
+    try {
+      content = readFileSync(file, 'utf8');
+    } catch {
+      continue; // a file deleted in the working tree but still in the index
+    }
+    for (const match of content.matchAll(/2\.45\.\d+/g)) {
+      const before = content.slice(Math.max(0, match.index - 40), match.index + match[0].length + 20);
+      if (!/checked against n8n `2\.45\.\d+` on \d{4}-\d{2}-\d{2}/.test(before)) offenders.push(`${file}: ${match[0]}`);
+    }
+  }
+  expect(offenders).toEqual([]);
 });
