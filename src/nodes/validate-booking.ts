@@ -1,3 +1,4 @@
+import { isPositiveInteger } from './shared/limits.ts';
 import { atTime, openingWindow } from './shared/opening-hours.ts';
 import type { Business } from './types.ts';
 
@@ -14,26 +15,36 @@ export interface BookingInput {
   limits: { max_booking_days_ahead: number; max_upcoming_bookings: number };
 }
 
+/** Every reason a booking can be refused before Calendar, in the order they're checked. */
+export const BOOKING_REASONS = [
+  'missing_field',
+  'invalid_service',
+  'invalid_datetime',
+  'closed',
+  'outside_hours',
+  'off_grid',
+  'past',
+  'too_soon',
+  'too_far',
+  'too_many_bookings',
+] as const;
+
 export type BookingCheck =
-  | { ok: true; start: string; end: string; service: string; price_cop: number; summary: string; description: string }
   | {
-      ok: false;
-      reason:
-        | 'missing_field'
-        | 'invalid_service'
-        | 'invalid_datetime'
-        | 'closed'
-        | 'outside_hours'
-        | 'off_grid'
-        | 'past'
-        | 'too_soon'
-        | 'too_far'
-        | 'too_many_bookings';
-    };
+      ok: true;
+      start: string;
+      end: string;
+      service: string;
+      price_cop: number;
+      summary: string;
+      description: string;
+      /** The trimmed phone and name, which the Calendar event uses and upsert-patient must match. */
+      phone: string;
+      name: string;
+    }
+  | { ok: false; reason: (typeof BOOKING_REASONS)[number] };
 
 const TIME_RE = /^\d{2}:\d{2}$/;
-
-const isPositiveInteger = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 1;
 
 /** `dt.toISO()`, which is only null for an invalid DateTime; every instant here is built from a validated date and time. */
 function toISOString(dt: DateTime): string {
@@ -64,6 +75,7 @@ export function run(input: BookingInput): BookingCheck {
   if (!match) return { ok: false, reason: 'invalid_service' };
 
   if (!TIME_RE.test(time)) return { ok: false, reason: 'invalid_datetime' };
+  // Luxon would roll 24:00 into the next day and 09:60 into 10:00, so both are refused here.
   const hour = Number(time.slice(0, 2));
   const minute = Number(time.slice(3, 5));
   if (hour > 23 || minute > 59) return { ok: false, reason: 'invalid_datetime' };
@@ -94,5 +106,7 @@ export function run(input: BookingInput): BookingCheck {
     price_cop: match.price_cop,
     summary: `Appointment: ${match.name} - ${name}`,
     description: `Phone: ${phone}\nService: ${match.name}\nBooked by the WhatsApp assistant`,
+    phone,
+    name,
   };
 }

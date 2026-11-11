@@ -1,4 +1,7 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { isEnoent, isExecError } from '../scripts/lib/errors.ts';
 import { execFileWithInput, isWebhookLive, waitForWebhookLive } from '../scripts/lib/runtime.ts';
 
 // Proves `input` reaches the child's stdin, which `setup-credentials.ts` relies on to import
@@ -59,5 +62,24 @@ describe('waitForWebhookLive', () => {
 
   it('returns false when the budget elapses while every poll still answers 404', async () => {
     expect(await waitForWebhookLive('http://n8n.test', 'dev', 0, fakeFetch([404]))).toBe(false);
+  });
+});
+
+describe('error guards', () => {
+  it('isEnoent and isExecError are defined once, in scripts/lib/errors.ts', () => {
+    const files = readdirSync('scripts', { recursive: true, encoding: 'utf8' }).filter((f) => f.endsWith('.ts')).map((f) => join('scripts', f));
+    for (const name of ['function isEnoent', 'function isExecError']) {
+      const defining = files.filter((f) => readFileSync(f, 'utf8').includes(name));
+      expect(defining, name).toEqual([join('scripts', 'lib', 'errors.ts')]);
+    }
+  });
+
+  it("isExecError accepts execFileWithInput's rejection and refuses a plain Error", async () => {
+    const rejection: unknown = await execFileWithInput('sh', ['-c', 'exit 1']).catch((err: unknown) => err);
+    expect(isExecError(rejection)).toBe(true);
+    expect(isExecError(new Error('boom'))).toBe(false);
+    expect(isExecError({ stdout: 'only stdout' })).toBe(false);
+    expect(isEnoent(Object.assign(new Error('gone'), { code: 'ENOENT' }))).toBe(true);
+    expect(isEnoent(new Error('gone'))).toBe(false);
   });
 });

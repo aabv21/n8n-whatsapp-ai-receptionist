@@ -28,6 +28,12 @@ export function missingTriggerCredentials(wf: Workflow, available: ReadonlySet<s
 
 const WORKFLOWS_DIR = 'workflows';
 
+/** Why setup can't confirm n8n came back after its restart, or null when it did. */
+export function restartProblem(n8nUrl: string | undefined, healthy: boolean): string | null {
+  if (!n8nUrl) return 'N8N_URL is not set in .env, so setup could not check that n8n came back after the restart';
+  return healthy ? null : 'n8n did not become healthy after restart';
+}
+
 async function main(): Promise<void> {
   loadDotEnv();
 
@@ -69,9 +75,9 @@ async function main(): Promise<void> {
   if (published.length > 0) {
     await compose(['restart', 'n8n']);
     const n8nUrl = process.env.N8N_URL;
-    const healthy = n8nUrl ? await waitForHealthy(n8nUrl, 90_000) : false;
-    if (!healthy) {
-      failures.push('n8n did not become healthy after restart');
+    const problem = restartProblem(n8nUrl, n8nUrl ? await waitForHealthy(n8nUrl, 90_000) : false);
+    if (problem) {
+      failures.push(problem);
     } else {
       // /healthz turns healthy before the publication reconciler (every 10 s by default) registers
       // the new webhook route. The poll below is the proof; this wait spares it the common case.

@@ -112,8 +112,8 @@ export const CREDENTIALS: readonly CredentialEntry[] = [
   },
   {
     // notify-team and error-handler only send mail, so the sign-in asks Google for the send scope
-    // alone instead of n8n's default full-mailbox set. Field names from n8n 2.45.6's
-    // GmailOAuth2Api.credentials.js.
+    // alone instead of n8n's default full-mailbox set. Field names from n8n's
+    // GmailOAuth2Api.credentials.js (checked against n8n `2.45.7` on 2026-11-11).
     id: 'cmbCredGmail0001',
     name: 'Gmail',
     type: 'gmailOAuth2',
@@ -146,7 +146,7 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     file: 'check-availability.json',
     node: 'Check date',
     source: 'src/nodes/compute-free-slots.ts',
-    why: 'reuses the date/hours checks from compute-free-slots so an invalid, past, or closed date is rejected before the Calendar call',
+    why: 'reuses the date/hours checks from compute-free-slots so an invalid, past, too-far, or closed date is rejected before the Calendar call',
   },
   {
     file: 'check-availability.json',

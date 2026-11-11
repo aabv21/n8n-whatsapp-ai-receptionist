@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { isEnoent } from './errors.ts';
 
 export interface WorkflowNode {
   name: string;
@@ -21,10 +22,6 @@ export interface Workflow {
   connections: Record<string, unknown>;
   settings: Record<string, unknown>;
   [key: string]: unknown;
-}
-
-function isEnoent(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'code' in err && err.code === 'ENOENT';
 }
 
 /** Lists the `.json` files directly inside `dir`, sorted. A missing directory counts as empty. */

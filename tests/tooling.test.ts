@@ -5,7 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { buildWorkflows, hardenAgainstFrozenDefineProperty } from '../scripts/build-workflows.ts';
 import { checkWorkflow, hasCommentPlaceholder } from '../scripts/check-workflows.ts';
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
-import { missingTriggerCredentials } from '../scripts/import-workflows.ts';
+import { missingTriggerCredentials, restartProblem } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
 import { CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
 import { buildCredentials, buildImportCall, EXPORT_SCRIPT, existingCredentialIds, IMPORT_SCRIPT, skipExisting } from '../scripts/setup-credentials.ts';
@@ -229,4 +229,12 @@ test('existingCredentialIds throws a fixed message, not the unparseable export, 
   composeMock.mockResolvedValue({ stdout: corruptStdout, stderr: '' });
   await expect(existingCredentialIds()).rejects.toThrow('could not parse the credential listing from n8n export:credentials');
   await expect(existingCredentialIds()).rejects.not.toThrow(/cmbCredAppDb0001|truncated|migration lock/);
+});
+
+// Without N8N_URL setup can't poll /healthz at all, which is a configuration problem, not an unhealthy n8n.
+test('restartProblem names an unset N8N_URL instead of reporting n8n unhealthy', () => {
+  expect(restartProblem(undefined, false)).toBe('N8N_URL is not set in .env, so setup could not check that n8n came back after the restart');
+  expect(restartProblem('', false)).toBe('N8N_URL is not set in .env, so setup could not check that n8n came back after the restart');
+  expect(restartProblem('http://localhost:5678', false)).toBe('n8n did not become healthy after restart');
+  expect(restartProblem('http://localhost:5678', true)).toBeNull();
 });

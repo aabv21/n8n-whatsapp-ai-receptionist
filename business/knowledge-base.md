@@ -20,7 +20,7 @@ Cumbident doesn't accept insurance, but issues an invoice that patients can use 
 
 ## Cancellations
 
-Patients can cancel by WhatsApp. Please give at least 24 hours notice.
+Patients can cancel by WhatsApp. Please give at least 24 hours' notice.
 
 ## What the assistant can't do
 

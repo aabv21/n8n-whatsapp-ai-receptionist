@@ -186,7 +186,7 @@
     },
     {
       "kind": "region",
-      "label": "n8n 2.45.6",
+      "label": "n8n 2.45",
       "wraps": [
         "entry",
         "process",

@@ -4,6 +4,7 @@ import { readWorkflow } from '../../scripts/lib/workflow.ts';
 import { CODE_NODES } from '../../scripts/manifest.ts';
 import type { Business } from '../../src/nodes/types.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
+import { nodesOutsideTheirSticky, stickySections } from '../helpers/sticky-sections.ts';
 
 const wf = readWorkflow('workflows/book-appointment.json');
 const recheckSlot = wf.nodes.find((n) => n.name === 'Recheck slot availability');
@@ -97,4 +98,23 @@ test('the limit check counts only events booked for this exact phone, as the des
     .toEqual([{ json: { ok: false, reason: 'too_many_bookings' } }]);
   expect(runGenerated(jsCode('Check booking limit'), { ...booking, upcoming_bookings: 2, limits }))
     .toMatchObject([{ json: { ok: true, start: '2026-11-04T09:30:00.000-05:00' } }]);
+});
+
+// The Patients row must match the Calendar event, which Validate booking built from the trimmed values.
+test('Call upsert-patient maps the trimmed phone and name from Validate booking', () => {
+  const value = (node('Call upsert-patient')?.parameters.workflowInputs as { value: Record<string, unknown> }).value;
+  expect(value.phone).toBe("={{ $('Validate booking').first().json.phone }}");
+  expect(value.name).toBe("={{ $('Validate booking').first().json.name }}");
+});
+
+const SECTIONS: Record<string, string[]> = {
+  '## Validate offline': ['Validate booking', 'Decide whether to call Calendar', 'Return validation result'],
+  '## Booking limit': ['Get upcoming bookings', 'Check booking limit', 'Is the booking limit reached'],
+  '## Slot recheck and booking': ['Recheck slot availability', 'Is the slot already taken', 'Create calendar event', 'Call upsert-patient'],
+  '## Calendar failure': ['Notify calendar failure', 'Did the alert send'],
+};
+
+test('sticky notes label each section, above or around the nodes they name', () => {
+  expect(stickySections(wf).map((s) => s.heading).sort()).toEqual(Object.keys(SECTIONS).sort());
+  expect(nodesOutsideTheirSticky(wf, SECTIONS)).toEqual([]);
 });

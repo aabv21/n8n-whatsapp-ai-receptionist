@@ -77,6 +77,14 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
  */
 export const INVALID_TEAM_LOCALE_NOTE = 'Note: config.team_locale must be "en" or "es", so this email is in English.';
 
+/**
+ * Added, in English, to an alert sent while `config.limits.alert_cooldown_minutes` is missing or not
+ * an integer of 1 or more. notify-team still sends it, skipping the cooldown, so the team hears about
+ * an emergency and learns the setting needs fixing.
+ */
+export const INVALID_ALERT_COOLDOWN_NOTE =
+  'Note: config.limits.alert_cooldown_minutes must be an integer of 1 or more, so this alert was sent without the per-phone cooldown.';
+
 /** The messages for `config.team_locale` (English when it isn't set), and whether the setting was invalid. */
 export function teamMessages(teamLocale: unknown): { messages: TeamMessages; invalid: boolean } {
   const lang = localeSetting(teamLocale, 'en');

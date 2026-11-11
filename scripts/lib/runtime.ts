@@ -1,8 +1,5 @@
 import { execFile } from 'node:child_process';
-
-function isEnoent(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'code' in err && err.code === 'ENOENT';
-}
+import { isEnoent, isExecError } from './errors.ts';
 
 /** Loads `.env` into `process.env`. Fails with a pointer to `.env.example` if it's missing. */
 export function loadDotEnv(): void {
@@ -71,17 +68,13 @@ export interface PsqlResult {
   stderr: string;
 }
 
-function hasOutput(err: unknown): err is { stdout: string; stderr: string } {
-  return typeof err === 'object' && err !== null && typeof (err as { stdout?: unknown }).stdout === 'string';
-}
-
 /** Runs `sql` through psql with `options`. A psql failure resolves with `ok: false` and its output, instead of throwing. */
 export async function runPsql(options: PsqlOptions, sql: string): Promise<PsqlResult> {
   try {
     const { stdout, stderr } = await compose(psqlArgs(options), sql);
     return { ok: true, stdout, stderr };
   } catch (err) {
-    if (hasOutput(err)) return { ok: false, stdout: err.stdout, stderr: err.stderr };
+    if (isExecError(err)) return { ok: false, stdout: err.stdout, stderr: err.stderr };
     throw err;
   }
 }
