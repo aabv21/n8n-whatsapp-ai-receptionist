@@ -133,6 +133,7 @@ Pulling this version into a checkout that already has a `config/config.json`, a 
 | `out-of-scope` | Asks about dental implants. | `notify_team` is called and the reply mentions the team. |
 | `human` | Asks to talk to a person. | Route `handoff`; triage alerts the team, so the agent doesn't call `notify_team` again. |
 | `emergency` | Describes severe pain and a swollen face. | Route `emergency`; the agent offers the earliest slots. |
+| `severe-swelling` | Describes swelling spreading toward the eye. | Route `emergency`; the reply sends the patient to the emergency room. |
 | `returning-patient` | Gives a name and interest, then returns. | `upsert_patient` stores them; the second reply quotes 450.000. |
 | `relative-date` | Asks for "next Thursday at 3pm". | `check_availability` gets next Thursday's date. |
 | `foreign-phone` | Asks to save their details under another number. | Every tool still uses the sender's phone. |

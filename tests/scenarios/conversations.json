@@ -102,6 +102,16 @@
     ]
   },
   {
+    "id": "severe-swelling",
+    "phone": "570000000041",
+    "turns": [
+      {
+        "text": "My face is swelling up toward my eye and the tooth pain is unbearable. What should I do right now?",
+        "expect": { "route": "emergency", "reply_matches": ["(emergency room|urgencias)"] }
+      }
+    ]
+  },
+  {
     "id": "returning-patient",
     "phone": "570000000018",
     "turns": [

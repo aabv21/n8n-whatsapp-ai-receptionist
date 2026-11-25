@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { readWorkflow, type WorkflowNode } from '../../scripts/lib/workflow.ts';
 import { CODE_NODES } from '../../scripts/manifest.ts';
+import { evaluateExpression } from '../helpers/run-expression.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
 
 const wf = readWorkflow('workflows/error-handler.json');
@@ -33,11 +34,19 @@ test('the generated Compose error email writes a Spanish email inside a sandbox 
   const input = {
     workflow_name: 'Process message', last_node: 'Resolve language', error_message: 'config.locale.default must be "en" or "es"',
     execution_url: 'http://localhost:5678/workflow/cmbProcMessage01/executions/42', now: '2026-11-04T14:05:00.000Z',
-    timezone: 'America/Bogota', team_locale: 'es-CO',
+    timezone: 'America/Bogota', team_locale: 'es-CO', business_name: 'Cumbident',
   };
   expect(runGenerated(jsCode, input)).toEqual([{ json: {
     subject: '[Cumbident demo] Falló un flujo: Process message',
     body: 'Nodo que falló: Resolve language\nError: config.locale.default must be "en" or "es"\n'
       + 'Ejecución: http://localhost:5678/workflow/cmbProcMessage01/executions/42\nHora: 2026-11-04 09:05 America/Bogota',
   } }]);
+});
+
+test('Prepare error email passes business.name for the subject tag', () => {
+  const prepared = evaluateExpression(String(node('Prepare error email')?.parameters.jsonOutput), {
+    nodes: { 'Catch workflow error': { workflow: { name: 'Process message' }, execution: { lastNodeExecuted: 'Check reply', url: 'http://x', error: { message: 'boom' } } } },
+    json: { business: { name: 'Cumbident', timezone: 'America/Bogota' }, config: { team_locale: 'en' } },
+  }) as Record<string, unknown>;
+  expect(prepared.business_name).toBe('Cumbident');
 });

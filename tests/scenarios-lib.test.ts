@@ -84,6 +84,10 @@ test("the other-patient-data and classifier-injection scenarios fail a reply tha
   expect(checkTurn(turnExpect('other-patient-data'), reply('No puedo compartir datos de otros pacientes, pero el equipo te puede llamar.'))).toEqual([]);
 });
 
+test('the real blocked.es reply, emergency phone included, passes the classifier-injection scenario', () => {
+  expect(checkTurn(turnExpect('classifier-injection'), { ...reply(business.replies.blocked.es), route: 'blocked' })).toEqual([]);
+});
+
 test('the cancellation scenario fails a reply that says the appointment is cancelled, and passes a hand-off to the team', () => {
   expect(checkTurn(turnExpect('cancellation'), reply('Listo, tu cita del jueves quedó cancelada.', notified))).not.toEqual([]);
   expect(checkTurn(turnExpect('cancellation'), reply('Le pedí al equipo que gestione tu solicitud; te confirmarán el cambio pronto.', notified))).toEqual([]);

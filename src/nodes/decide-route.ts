@@ -19,7 +19,7 @@ export const SIGNALS: readonly Signal[] = ['emergency', 'asks_for_human', 'compl
 
 const NOTES = {
   urgent:
-    'URGENT: The patient may have a dental emergency. Offer the first free slot today with check_availability; if today has none, offer the next available day.',
+    'URGENT: The patient may have a dental emergency. Offer the first free slot today with check_availability. If today has none, give the patient BUSINESS emergency_phone first, then offer the next available day.',
   handoff: 'HANDOFF: A person needs to take over this conversation.',
   noMedicalAdvice: 'NO MEDICAL ADVICE: Do not give medical advice. Offer an initial evaluation instead.',
 } as const;

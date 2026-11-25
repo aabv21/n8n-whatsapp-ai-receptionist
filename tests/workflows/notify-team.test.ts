@@ -128,11 +128,11 @@ test('the generated Compose alert writes a Spanish alert inside a sandbox that f
   const jsCode = `Object.defineProperty = () => ({});\n${String(node('Compose alert')?.parameters.jsCode)}`;
   const input = {
     reason: 'emergency', phone: '570000000001', name: 'Laura Gomez', summary: 'Cara hinchada desde anoche',
-    recent_messages: ['Hola', 'Me duele mucho la muela'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es',
+    recent_messages: ['Hola', 'Me duele mucho la muela'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es', business_name: 'Cumbident',
     alert_cooldown_minutes: 60,
   };
   expect(runGenerated(jsCode, input)).toEqual([{ json: {
-    subject: '[Cumbident] Urgencia odontológica: Laura Gomez',
+    subject: 'URGENTE [Cumbident] Urgencia odontológica: Laura Gomez',
     body: 'Motivo: Urgencia odontológica\nNombre: Laura Gomez\nTeléfono: https://wa.me/570000000001\nResumen: Cara hinchada desde anoche\n'
       + 'Hora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nHola\nMe duele mucho la muela',
   } }]);
@@ -142,7 +142,7 @@ test('the generated Compose alert adds the cooldown note in the frozen sandbox',
   const jsCode = `Object.defineProperty = () => ({});\n${String(node('Compose alert')?.parameters.jsCode)}`;
   const input = {
     reason: 'emergency', phone: '570000000001', name: 'Laura Gomez', summary: 'Cara hinchada desde anoche',
-    recent_messages: ['Hola'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es',
+    recent_messages: ['Hola'], now: '2026-11-04T14:05:00.000Z', timezone: 'America/Bogota', team_locale: 'es', business_name: 'Cumbident',
     alert_cooldown_minutes: 'x',
   };
   const [item] = runGenerated(jsCode, input) as [{ json: { body: string } }];
@@ -157,4 +157,12 @@ test('Prepare alert passes an undefined cooldown, never throws, when config.limi
   }) as Record<string, unknown>;
   expect(prepared).toMatchObject({ reason: 'tool_failure', team_locale: 'en' });
   expect(prepared.alert_cooldown_minutes).toBeUndefined();
+});
+
+test('Prepare alert passes business.name for the subject tag', () => {
+  const prepared = evaluateExpression(String(node('Prepare alert')?.parameters.jsonOutput), {
+    nodes: { 'Receive alert request': { reason: 'emergency', phone: '570000000001', name: '', summary: 'x', recent_messages: [] } },
+    json: { business: { name: 'Cumbident', timezone: 'America/Bogota' }, config: { team_locale: 'en', limits: { alert_cooldown_minutes: 60 } } },
+  }) as Record<string, unknown>;
+  expect(prepared.business_name).toBe('Cumbident');
 });

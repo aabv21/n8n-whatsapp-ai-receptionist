@@ -10,6 +10,8 @@ export interface ErrorEmailInput {
   timezone: string;
   /** `config.team_locale`. */
   team_locale: unknown;
+  /** `business.name`, the subject's brand tag; a missing one leaves a bare `[demo]`. */
+  business_name: unknown;
 }
 
 /**
@@ -26,5 +28,6 @@ export function run(input: ErrorEmailInput): { subject: string; body: string } {
     `${messages.time}: ${localTime(input.now, input.timezone)}`,
   ];
   if (invalid) lines.push('', INVALID_TEAM_LOCALE_NOTE);
-  return { subject: `[Cumbident demo] ${messages.workflowFailed}: ${plain(input.workflow_name)}`, body: lines.join('\n') };
+  const brand = plain(input.business_name).trim();
+  return { subject: `${brand ? `[${brand} demo]` : '[demo]'} ${messages.workflowFailed}: ${plain(input.workflow_name)}`, body: lines.join('\n') };
 }

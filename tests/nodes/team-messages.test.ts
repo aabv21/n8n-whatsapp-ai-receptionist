@@ -14,6 +14,7 @@ const alert: AlertInput = {
   timezone: 'America/Bogota',
   team_locale: 'en',
   alert_cooldown_minutes: 60,
+  business_name: 'Cumbident',
 };
 
 const failure: ErrorEmailInput = {
@@ -24,6 +25,7 @@ const failure: ErrorEmailInput = {
   now: '2026-11-04T14:05:00.000Z',
   timezone: 'America/Bogota',
   team_locale: 'en',
+  business_name: 'Cumbident',
 };
 
 test('every team message and alert reason is written in every language', () => {
@@ -37,8 +39,8 @@ test('every team message and alert reason is written in every language', () => {
   }
 });
 
-test('an English alert reads exactly as before', () => expect(composeAlert(alert)).toEqual({
-  subject: '[Cumbident] Dental emergency: Laura Gomez',
+test('an English emergency alert puts URGENT first and the business name in the tag', () => expect(composeAlert(alert)).toEqual({
+  subject: 'URGENT [Cumbident] Dental emergency: Laura Gomez',
   body: 'Reason: Dental emergency\nName: Laura Gomez\nPhone: https://wa.me/570000000001\nSummary: Swollen face since last night\n'
     + 'Time: 2026-11-04 09:05 America/Bogota\n\nRecent messages:\nHola\nMe duele mucho la muela',
 }));
@@ -53,7 +55,7 @@ test('a Spanish alert translates every label and reason, and leaves what the pat
 test('a missing name, summary, or message list reads as such, and the subject falls back to the phone', () => {
   const sparse = { ...alert, name: '', summary: undefined, recent_messages: undefined } as unknown as AlertInput;
   expect(composeAlert(sparse)).toEqual({
-    subject: '[Cumbident] Dental emergency: 570000000001',
+    subject: 'URGENT [Cumbident] Dental emergency: 570000000001',
     body: 'Reason: Dental emergency\nName: (not given)\nPhone: https://wa.me/570000000001\nSummary: (none)\n'
       + 'Time: 2026-11-04 09:05 America/Bogota\n\nRecent messages:\n',
   });
@@ -74,7 +76,7 @@ test('a missing team_locale, from a config written before it existed, sends the 
 
 test('an invalid team_locale still sends the alert, in English, and says the setting is wrong', () => {
   const sent = composeAlert({ ...alert, team_locale: 'fr' });
-  expect(sent.subject).toBe('[Cumbident] Dental emergency: Laura Gomez');
+  expect(sent.subject).toBe('URGENT [Cumbident] Dental emergency: Laura Gomez');
   expect(sent.body.startsWith('Reason: Dental emergency\n')).toBe(true);
   expect(sent.body.endsWith('\n\nNote: config.team_locale must be "en" or "es", so this email is in English.')).toBe(true);
 });
@@ -113,7 +115,21 @@ test('a Spanish failure email translates every label, and leaves the error itsel
 test('a failure email with missing details or an invalid team_locale still goes out', () => {
   const sparse = { now: failure.now, timezone: failure.timezone, team_locale: 'xx' } as unknown as ErrorEmailInput;
   expect(composeErrorEmail(sparse)).toEqual({
-    subject: '[Cumbident demo] Workflow failed: ',
+    subject: '[demo] Workflow failed: ',
     body: 'Failed node: \nError: \nExecution: \nTime: 2026-11-04 09:05 America/Bogota\n\nNote: config.team_locale must be "en" or "es", so this email is in English.',
   });
 });
+
+test('a Spanish emergency alert starts with URGENTE', () =>
+  expect(composeAlert({ ...alert, team_locale: 'es' }).subject).toBe('URGENTE [Cumbident] Urgencia odontológica: Laura Gomez'));
+
+test('a non-emergency alert has no urgency marker', () =>
+  expect(composeAlert({ ...alert, reason: 'complaint' }).subject).toBe('[Cumbident] Complaint: Laura Gomez'));
+
+test('the brand comes from business.name, and a missing one drops the tag instead of guessing', () => {
+  expect(composeAlert({ ...alert, business_name: 'Sonrisa Norte' }).subject).toBe('URGENT [Sonrisa Norte] Dental emergency: Laura Gomez');
+  expect(composeAlert({ ...alert, business_name: undefined }).subject).toBe('URGENT Dental emergency: Laura Gomez');
+});
+
+test('a failure email without a business name is tagged [demo]', () =>
+  expect(composeErrorEmail({ ...failure, business_name: undefined }).subject).toBe('[demo] Workflow failed: Process message'));

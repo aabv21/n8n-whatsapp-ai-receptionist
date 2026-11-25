@@ -17,6 +17,7 @@ export interface Business {
   name: string;
   description: string;
   address: string;
+  emergency_phone: string;
   timezone: string;
   currency: string;
   hours: Record<Weekday, [string, string] | null>;
