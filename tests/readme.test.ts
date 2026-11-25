@@ -17,7 +17,6 @@ function leafPaths(value: unknown, prefix = ''): string[] {
 test('the README follows the design order', () => {
   const headings = [...readme.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   expect(headings).toEqual([
-    'Video',
     'Architecture',
     'What it does',
     'Status',
@@ -57,7 +56,22 @@ test('every config key the workflows read is documented', () => {
 test('the live-check list is numbered and covers the checks only a live run can prove', () => {
   const live = section('Test scenarios').split('\n### Pending live checks\n')[1] ?? '';
   const items = live.split('\n').filter((line) => /^\d+\. /.test(line));
-  expect(items).toHaveLength(26);
-  expect(items.map((line) => Number(line.split('.')[0]))).toEqual(Array.from({ length: 26 }, (_, i) => i + 1));
-  for (const text of ['jev-1.14.0', '--tool-failure', 'Workflow failed: Dev harness', 'too_many_bookings', '413']) expect(live, text).toContain(text);
+  expect(items).toHaveLength(27);
+  expect(items.map((line) => Number(line.split('.')[0]))).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
+  for (const text of ['jev-1.14.0', '--tool-failure', 'Workflow failed: Dev harness', 'too_many_bookings', '413', '+57 605 000 0000']) expect(live, text).toContain(text);
+});
+
+test('the quick start names its requirements and the first call to make', () => {
+  const quick = section('Quick start');
+  for (const text of ['Node 24', 'pnpm 11', 'Docker', "node scripts/dev-call.ts load-context '{}'"]) expect(quick, text).toContain(text);
+});
+
+test('the README links both diagrams', () => {
+  expect(readme).toContain('docs/diagrams/architecture.svg');
+  expect(readme).toContain('docs/diagrams/message-sequence.svg');
+});
+
+test('Limitations names the scope and the known gaps a client asks about', () => {
+  const limits = section('Limitations');
+  for (const text of ['`Create calendar event`', '`replied_at`', 'After a handoff', 'Scope: no appointment reminders']) expect(limits, text).toContain(text);
 });

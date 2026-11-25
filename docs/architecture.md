@@ -65,7 +65,7 @@ Message lifecycle: [interactive page](diagrams/message-sequence.html) · [source
 7. **Agent with tool calls**: The system prompt gets the business facts, the knowledge base, the current Bogota time, a hint naming the message's language, and the triage notes. The URGENT note tells the agent to give the patient `business.emergency_phone` when today has no free slot. A TEAM ALERTED note joins them only when the alert sent, not when `notify-team`'s cooldown held it back. The agent runs up to 6 iterations, and its tools take the phone from the workflow input. `book_appointment` books in two passes: `Validate booking` checks the request against the hours, the slot grid, notice, and the booking horizon with no Calendar call, then the workflow reads the upcoming events and checks the phone's count against `max_upcoming_bookings`, re-reads the exact slot, and only then creates the event. If the agent fails or returns no text, the team gets a `tool_failure` alert, and the patient gets a fixed apology with route `fallback`.
 8. **Reply check**: `Check reply` (`src/nodes/check-reply.ts`) replaces a reply that gives a dose or names a medicine with the fixed `medical_advice` reply, and one that offers a discount or quotes a peso amount that isn't a listed price with the fixed `price_check` reply, both in the message's language, setting `flags.reply_replaced`. A replaced reply keeps one fixed confirmation line for each appointment `book_appointment` booked that turn, with its service, date, and time written out in that language, so a replacement never hides a booking. The lines are followed by one address line, and Spanish times read in 12-hour form (`a las 9:30 a. m.`). `process-message` then saves the route and returns `{ reply, route, flags, tool_calls }`.
 9. **Reply**: `whatsapp-entry` sends any non-empty reply through the WhatsApp node, with 3 tries 2000 ms apart.
-10. **Mark replied**: Only a send that succeeds sets `replied_at`, which records that Meta accepted the message, not that the phone received it.
+10. **Mark replied**: Only a send that succeeds sets `replied_at`, which records that Meta accepted the message; [Known limits](#known-limits-of-the-current-design) says what that doesn't prove.
 
 The limits in steps 3 and 4 are the defaults in `config/config.example.json`.
 
@@ -126,7 +126,7 @@ The current design accepts these gaps:
 - `upsert-patient` reads the row, merges, and then writes, so two upserts for one phone at the same moment can lose one update.
 - `Create calendar event` retries without a client-supplied event ID, so a create that succeeded but returned an error can leave a second event.
 - A slow TypeSafe adds up to about 7 s before triage fails open: 2 tries with a 3000 ms timeout each, plus a 1000 ms wait. A reply can then take longer than 10 s end to end.
-- A booking returns `ok: true` without checking `upsert-patient`'s result. The Calendar event is the booking, and `upsert-patient` alerts the team itself when Sheets fails.
+- A booking returns `ok: true` without checking `upsert-patient`'s result, so it doesn't check the Patients sheet write. The Calendar event is the booking, and `upsert-patient` alerts the team itself when Sheets fails.
 
 ## Scaling limits and what to change
 
