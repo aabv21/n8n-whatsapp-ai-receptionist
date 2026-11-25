@@ -61,3 +61,7 @@ test('a missing thresholds object fails with the same fixed message, not a TypeE
     expect(() => run({ scores: low, thresholds: missing as unknown as Scores })).toThrow('config.triage.thresholds must give every signal a number in (0, 1]');
   }
 });
+
+test('the urgent note tells the agent to give the emergency phone when today has no slot', () => {
+  expect(decide({ ...low, emergency: 0.9 }).notes[0]).toContain('BUSINESS emergency_phone');
+});

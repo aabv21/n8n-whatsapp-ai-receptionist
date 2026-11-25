@@ -1,6 +1,6 @@
 name: Release
 
-# A merged pull request into main titled `release: vX.Y.Z` (optionally followed by a summary)
+# A merged pull request into main from develop or a release/ branch, titled `release: vX.Y.Z` (optionally followed by a summary)
 # gets the tag vX.Y.Z on its merge commit and a GitHub release with generated notes.
 on:
   pull_request:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   release:
     name: Tag and publish
-    if: github.event.pull_request.merged && startsWith(github.event.pull_request.title, 'release:')
+    if: github.event.pull_request.merged && startsWith(github.event.pull_request.title, 'release:') && (github.event.pull_request.head.ref == 'develop' || startsWith(github.event.pull_request.head.ref, 'release/'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

@@ -99,23 +99,28 @@ function allowedPrices(business: Business, toolCalls: readonly ToolCall[]): Set<
   return prices;
 }
 
-const CONFIRMATIONS: Record<Lang, { locale: string; date: string; time: string; line: (service: string, date: string, time: string) => string }> = {
+const CONFIRMATIONS: Record<
+  Lang,
+  { locale: string; date: string; line: (service: string, date: string, at: DateTime) => string; address: (address: string) => string }
+> = {
   en: {
     locale: 'en-US',
     date: 'EEEE, MMMM d, yyyy',
-    time: 'h:mm a',
-    line: (service, date, time) => `Your appointment is booked: ${service} on ${date} at ${time}.`,
+    line: (service, date, at) => `Your appointment is booked: ${service} on ${date} at ${at.toFormat('h:mm a')}.`,
+    address: (address) => `Address: ${address}`,
   },
   es: {
     locale: 'es-CO',
     date: "EEEE d 'de' MMMM 'de' yyyy",
-    time: 'H:mm',
-    line: (service, date, time) => `Su cita quedó agendada: ${service}, el ${date} a las ${time}.`,
+    // Spanish says "a la 1" and "a las 2". The abbreviation's own period ends the sentence.
+    line: (service, date, at) =>
+      `Su cita quedó agendada: ${service}, el ${date} a ${at.hour % 12 === 1 ? 'la' : 'las'} ${at.toFormat('h:mm')} ${at.hour < 12 ? 'a. m.' : 'p. m.'}`,
+    address: (address) => `Dirección: ${address}`,
   },
 };
 
 /**
- * One fixed line per appointment `book_appointment` booked this turn, built from the tool's own
+ * One fixed line per appointment `book_appointment` booked this turn, then one address line, built from the tool's own
  * result: its service, by its display name when the price list has one, and its start in the
  * business timezone, in the patient's language. A result without a readable start or service
  * gets no line.
@@ -132,8 +137,9 @@ function bookingConfirmations(business: Business, toolCalls: readonly ToolCall[]
     if (!at.isValid) continue;
     const listed = business.services.find((s) => s.name === service);
     const shown = listed?.name_i18n ? pick(listed.name_i18n, lang) : service;
-    lines.push(format.line(shown, at.toFormat(format.date), at.toFormat(format.time)));
+    lines.push(format.line(shown, at.toFormat(format.date), at));
   }
+  if (lines.length > 0) lines.push(format.address(business.address));
   return lines;
 }
 

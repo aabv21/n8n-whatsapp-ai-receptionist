@@ -2,6 +2,7 @@
   "name": "Cumbident",
   "description": "Dental studio in Barranquilla, Colombia",
   "address": "Calle 84 # 45-20, Office 302, Barranquilla, Colombia",
+  "emergency_phone": "+57 605 000 0000",
   "timezone": "America/Bogota",
   "currency": "COP",
   "hours": {
@@ -27,16 +28,16 @@
   ],
   "replies": {
     "non_text": {
-      "en": "Thanks for your message! I can only read text for now. Please type your question and I'll help right away.",
-      "es": "¡Gracias por su mensaje! Por ahora solo puedo leer texto. Escríbame su pregunta y con gusto le ayudo."
+      "en": "Thanks for your message! I can only read text for now. Please type your question: I can help with prices, opening hours, and booking a visit. If it's urgent, call +57 605 000 0000.",
+      "es": "¡Gracias por su mensaje! Por ahora solo puedo leer texto. Escríbame su pregunta: puedo ayudarle con precios, horarios y citas. Si es urgente, llame al +57 605 000 0000."
     },
     "blocked": {
-      "en": "I can only help with questions about Cumbident's services, prices, and appointments.",
-      "es": "Solo puedo ayudarle con preguntas sobre los servicios, los precios y las citas de Cumbident."
+      "en": "I can only help with Cumbident's services, prices, opening hours, and appointments. To talk to our team, call +57 605 000 0000.",
+      "es": "Solo puedo ayudarle con los servicios, los precios, los horarios y las citas de Cumbident. Para hablar con nuestro equipo, llame al +57 605 000 0000."
     },
     "rate_limited": {
-      "en": "You've sent a lot of messages in a short time. Please wait a few minutes and try again.",
-      "es": "Ha enviado muchos mensajes en poco tiempo. Por favor, espere unos minutos e intente de nuevo."
+      "en": "You've sent a lot of messages in a short time. Please wait a few minutes and try again, or call our team at +57 605 000 0000.",
+      "es": "Ha enviado muchos mensajes en poco tiempo. Por favor, espere unos minutos e intente de nuevo, o llame a nuestro equipo al +57 605 000 0000."
     },
     "technical_issue": {
       "en": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon.",

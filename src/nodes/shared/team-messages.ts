@@ -7,6 +7,7 @@ export type AlertReason = (typeof ALERT_REASONS)[number];
 
 export interface TeamMessages {
   reasons: Record<AlertReason, string>;
+  urgent: string;
   reason: string;
   name: string;
   notGiven: string;
@@ -33,6 +34,7 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       tool_failure: 'Assistant tool failure',
       other: 'Needs attention',
     },
+    urgent: 'URGENT',
     reason: 'Reason',
     name: 'Name',
     notGiven: '(not given)',
@@ -56,6 +58,7 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       tool_failure: 'Falla de una herramienta del asistente',
       other: 'Requiere atención',
     },
+    urgent: 'URGENTE',
     reason: 'Motivo',
     name: 'Nombre',
     notGiven: '(no lo indicó)',

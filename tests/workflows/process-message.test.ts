@@ -169,11 +169,11 @@ test("the generated Check reply node keeps this turn's booking confirmation when
   const booking = { ok: true, event_id: 'evt-1', start: '2026-11-04T09:30:00.000-05:00', end: '2026-11-04T10:15:00.000-05:00', service: 'Dental cleaning', price_cop: 120000 };
   const input = { reply: 'Listo. Toma ibuprofeno.', flags: {}, tool_calls: [{ tool: 'book_appointment', input: {}, output: booking }], business, lang: 'es' };
   expect(runGenerated(jsCode, input)).toEqual([{ json: {
-    reply: `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Limpieza dental, el miércoles 4 de noviembre de 2026 a las 9:30.`,
+    reply: `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Limpieza dental, el miércoles 4 de noviembre de 2026 a las 9:30 a. m.\nDirección: ${business.address}`,
     flags: { reply_replaced: true },
   } }]);
   expect(runGenerated(jsCode, { ...input, lang: 'en' })).toEqual([{ json: {
-    reply: `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.`,
+    reply: `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.\nAddress: ${business.address}`,
     flags: { reply_replaced: true },
   } }]);
 });

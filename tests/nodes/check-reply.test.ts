@@ -127,17 +127,17 @@ test('a service without display names is shown by its canonical name', () => {
 test("a replaced reply keeps this turn's booking confirmation, built from book_appointment's own result", () => {
   const reply = 'Listo, tu limpieza quedó para el miércoles a las 9:30. Mientras tanto puedes tomar ibuprofeno.';
   expect(check(reply, [booked('2026-11-04T09:30:00.000-05:00')])).toEqual({
-    reply: `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.`,
+    reply: `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.\nAddress: ${business.address}`,
     flags: { ...flags, reply_replaced: true },
   });
   expect(check('Listo, agendada. Te queda en $99.000.', [booked('2026-11-04T09:30:00.000-05:00')]).reply)
-    .toBe(`${business.replies.price_check.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.`);
+    .toBe(`${business.replies.price_check.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.\nAddress: ${business.address}`);
 });
 
 test('the confirmation gives the booking in the business timezone, one line per booking made this turn', () => {
   const calls = [booked('2026-11-04T14:30:00.000Z'), booked('2026-11-05T08:00:00.000-05:00', 'Teeth whitening')];
   expect(check('Toma ibuprofeno.', calls).reply).toBe(
-    `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.\nYour appointment is booked: Teeth whitening on Thursday, November 5, 2026 at 8:00 AM.`,
+    `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Wednesday, November 4, 2026 at 9:30 AM.\nYour appointment is booked: Teeth whitening on Thursday, November 5, 2026 at 8:00 AM.\nAddress: ${business.address}`,
   );
 });
 
@@ -164,21 +164,32 @@ test('a Spanish conversation gets the Spanish fixed reply, and its booking confi
   expect(check('Te lo dejo en $225.000.', [], 'es').reply).toBe(business.replies.price_check.es);
   const calls = [booked('2026-11-04T14:30:00.000Z'), booked('2026-11-07T13:15:00.000-05:00', 'Teeth whitening')];
   expect(check('Toma ibuprofeno.', calls, 'es').reply).toBe(
-    `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Limpieza dental, el miércoles 4 de noviembre de 2026 a las 9:30.\nSu cita quedó agendada: Blanqueamiento dental, el sábado 7 de noviembre de 2026 a las 13:15.`,
+    `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Limpieza dental, el miércoles 4 de noviembre de 2026 a las 9:30 a. m.\nSu cita quedó agendada: Blanqueamiento dental, el sábado 7 de noviembre de 2026 a la 1:15 p. m.\nDirección: ${business.address}`,
   );
 });
 
 test('a service the price list does not name is shown as the tool returned it', () =>
   expect(check('Toma ibuprofeno.', [booked('2026-11-04T09:30:00.000-05:00', 'Something new')], 'es').reply).toBe(
-    `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Something new, el miércoles 4 de noviembre de 2026 a las 9:30.`));
+    `${business.replies.medical_advice.es}\n\nSu cita quedó agendada: Something new, el miércoles 4 de noviembre de 2026 a las 9:30 a. m.\nDirección: ${business.address}`));
 
 test('an afternoon booking reads in 12-hour time in English', () =>
   expect(check('Toma ibuprofeno.', [booked('2026-11-07T13:15:00.000-05:00')]).reply).toBe(
-    `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Saturday, November 7, 2026 at 1:15 PM.`));
+    `${business.replies.medical_advice.en}\n\nYour appointment is booked: Dental cleaning on Saturday, November 7, 2026 at 1:15 PM.\nAddress: ${business.address}`));
 
 test('a missing or unsupported language falls back to English', () => {
   for (const lang of [undefined, 'fr', 'es-CO']) {
     const input = { reply: 'Toma ibuprofeno.', flags, tool_calls: [], business, lang } as unknown as Parameters<typeof run>[0];
     expect(run(input).reply, String(lang)).toBe(lang === 'es-CO' ? business.replies.medical_advice.es : business.replies.medical_advice.en);
   }
+});
+
+test('a reply giving the emergency phone is kept, not read as a price', () =>
+  expectKept(['If it is urgent, call +57 605 000 0000.', 'Si es urgente, llame al +57 605 000 0000.']));
+
+test('noon reads 12:00 p. m. in Spanish', () =>
+  expect(check('Toma ibuprofeno.', [booked('2026-11-04T12:00:00.000-05:00')], 'es').reply).toContain('a las 12:00 p. m.'));
+
+test('the address follows the confirmations once, however many bookings this turn made', () => {
+  const calls = [booked('2026-11-04T09:30:00.000-05:00'), booked('2026-11-05T08:00:00.000-05:00', 'Teeth whitening')];
+  expect(check('Toma ibuprofeno.', calls).reply.split('Address: ')).toHaveLength(2);
 });

@@ -68,7 +68,7 @@ It is a portfolio demo: every file should read as production-quality, not a prot
 - `node scripts/init-env.ts` — writes `.env` from `.env.example`, filling only the local-stack and dev-harness secrets with random hex and leaving every third-party value blank; it refuses to run if `.env` exists. The quick start and CI (which has no repo secrets) both run it.
 - `node scripts/check-dev-response.ts` — asserts the exact answers of two credential-free dev-harness calls, `retention` and a past-date `check-availability`, and exits 1 on the first mismatch. CI's `n8n` job uses it to prove n8n runs both a plain node path and a generated Code node.
 - `node scripts/check-db.ts` — runs psql in the `postgres` container and prints `ok` or `FAIL` per check of `app_runtime`'s denials and exact grants, every workflow statement, and the migration ledger, exiting 1 on any failure. [docs/database.md](docs/database.md#proving-it-check-db) lists the checks.
-- Regenerate a diagram after you edit its source in `docs/diagrams/`, with [archify](https://github.com/tt-a1i/archify)'s 2.17 skill package (`2.17.0-dev.1`) kept outside the repo. [docs/architecture.md](docs/architecture.md#regenerating-the-diagrams) has the validate, deliver, export, and visual-check steps.
+- Regenerate a diagram after you edit its source in `docs/diagrams/`, with [archify](https://github.com/tt-a1i/archify)'s 2.17 skill package (`2.17.0-dev.1`) kept outside the repo. [docs/architecture.md](docs/architecture.md#regenerating-the-diagrams) has the validate, deliver, export, and visual-check steps. archify v3.2.0 rejects `message-sequence.json`, whose notes fall below its readability budget at 1700 px, so validate that one with the 2.17 package.
 - n8n's `import:workflow`, `export:workflow`, `import:credentials`, `export:credentials`, and `publish:workflow` CLI commands need no owner account, `--userId`, or `--projectId` (checked against n8n `2.45.7` on 2026-11-11). `publish:workflow` only takes effect after an n8n restart, which `pnpm run setup` does only when it published something; see "Changing a workflow".
 
 ## Changing a workflow
@@ -159,7 +159,7 @@ Package management is pnpm, pinned in `package.json`'s `packageManager` to an ex
 
 - `main` holds released code and is the default branch; `develop` is the integration branch. Both take changes only through a pull request with CI green, and repository rulesets block direct pushes, force pushes, and deletion.
 - Work on a short-lived branch from `develop` (`feat/…`, `fix/…`, `docs/…`, `chore/…`) and open the pull request into `develop`, titled in Conventional Commits form. It's squash-merged, so the title becomes the commit.
-- A release is a pull request from `develop` into `main` titled `release: vX.Y.Z` (a summary may follow), merged with a merge commit. `.github/workflows/release.yml` then tags the merge commit `vX.Y.Z` and publishes a GitHub release with generated notes; a `release:` title without a version makes neither.
+- A release is a pull request from `develop`, or from a `release/vX.Y.Z` branch when `main` has commits of its own, into `main` titled `release: vX.Y.Z` (a summary may follow), merged with a merge commit. `.github/workflows/release.yml` then tags the merge commit `vX.Y.Z` and publishes a GitHub release with generated notes; a `release:` title without a version makes neither.
 - Dependabot opens its pull requests against `develop`.
 
 ## Definition of done

@@ -131,3 +131,17 @@ test('argument errors tell the agent to fix its own call, never to send the pati
   expect(line).not.toContain('invalid_input');
   expect(lines.find((l) => l.includes('invalid_input'))).toMatch(/^- Any other error/);
 });
+
+test("the clinic's emergency phone is a placeholder that reads as fake", () =>
+  expect(business.emergency_phone).toBe('+57 605 000 0000'));
+
+test('blocked, rate_limited, and non_text each end with a way forward: the emergency phone', () => {
+  for (const key of ['blocked', 'rate_limited', 'non_text'] as const)
+    for (const lang of LANGS) expect(business.replies[key][lang], `${key}.${lang}`).toContain(business.emergency_phone);
+});
+
+test('the prompt gives the emergency phone when today has no slot, and sends severe cases to the emergency room', () => {
+  const notes = section('Triage notes');
+  expect(notes).toContain('BUSINESS emergency_phone');
+  expect(notes).toMatch(/nearest emergency room/);
+});

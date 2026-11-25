@@ -2,12 +2,6 @@
 
 An n8n WhatsApp assistant that answers a dental studio's questions, books appointments in Google Calendar, and hands patients to staff when needed.
 
-**Demo**
-
-## Video
-
-A 60–120 second walkthrough is added here after recording.
-
 ## Architecture
 
 ![System architecture: WhatsApp reaches n8n through a one-path ngrok tunnel, and n8n's workflows call Postgres, Google, Anthropic, and TypeSafe](docs/diagrams/architecture.svg)
@@ -15,6 +9,7 @@ A 60–120 second walkthrough is added here after recording.
 - The [architecture doc](docs/architecture.md) follows a message from webhook to reply, lists what each failure does, and explains the design decisions.
 - The [red-team doc](docs/red-team.md) maps where a patient's text reaches a model, lists the adversarial inputs the assistant is checked against, and names the guard behind each one.
 - The [testing doc](docs/testing.md) lists every test suite and what CI runs.
+- The [message sequence](docs/diagrams/message-sequence.svg) follows one message from the webhook to the reply.
 
 ## What it does
 
@@ -45,6 +40,8 @@ A 60–120 second walkthrough is added here after recording.
 
 ## Quick start
 
+**Requirements:** Node 24 or later, pnpm 11 (`corepack enable` on Node 24; Node 25 and newer don't ship Corepack, so use pnpm's standalone installer from https://pnpm.io/installation), and Docker with Compose v2. The offline run needs no account; Meta, Google, Anthropic, and TypeSafe are needed only for the live checks.
+
 ```bash
 node scripts/init-env.ts
 cp config/config.example.json config/config.json
@@ -53,7 +50,7 @@ docker compose up -d --wait
 pnpm run setup
 ```
 
-`init-env.ts` writes `.env` with random local secrets and leaves every third-party value blank. `pnpm run setup` applies the database migrations, imports the credentials whose `.env` values are filled, and publishes the workflows, holding back one whose trigger needs a credential that isn't set. Without credentials, the platform workflows and every tool's offline checks already run; [Offline dev-harness checks](#offline-dev-harness-checks) lists the calls and their expected answers.
+`init-env.ts` writes `.env` with random local secrets and leaves every third-party value blank. `pnpm run setup` applies the database migrations, imports the credentials whose `.env` values are filled, and publishes the workflows, holding back one whose trigger needs a credential that isn't set. Without credentials, the platform workflows and every tool's offline checks already run; [Offline dev-harness checks](#offline-dev-harness-checks) lists the calls and their expected answers. To see it run, call `node scripts/dev-call.ts load-context '{}'`: it prints the business facts and config the workflows read.
 
 ## Configuration
 
@@ -133,6 +130,7 @@ Pulling this version into a checkout that already has a `config/config.json`, a 
 | `out-of-scope` | Asks about dental implants. | `notify_team` is called and the reply mentions the team. |
 | `human` | Asks to talk to a person. | Route `handoff`; triage alerts the team, so the agent doesn't call `notify_team` again. |
 | `emergency` | Describes severe pain and a swollen face. | Route `emergency`; the agent offers the earliest slots. |
+| `severe-swelling` | Describes swelling spreading toward the eye. | Route `emergency`; the reply sends the patient to the emergency room. |
 | `returning-patient` | Gives a name and interest, then returns. | `upsert_patient` stores them; the second reply quotes 450.000. |
 | `relative-date` | Asks for "next Thursday at 3pm". | `check_availability` gets next Thursday's date. |
 | `foreign-phone` | Asks to save their details under another number. | Every tool still uses the sender's phone. |
@@ -219,18 +217,26 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
 24. **Queue mode:** `docker compose -f compose.yaml -f compose.queue.yaml up -d --wait --scale n8n-worker=2` starts it; `docker compose ps` shows `redis` and two workers healthy, and `docker inspect --format '{{.Name}} {{.HostConfig.SecurityOpt}} {{.HostConfig.CapDrop}}' $(docker compose ps -q redis n8n-worker)` shows `no-new-privileges` on `redis` and `[ALL]` on each worker. `node scripts/dev-call.ts retention '{}'` returns `{"success":true}`, and `docker compose logs n8n-worker` shows the job. Return with `docker compose -f compose.yaml -f compose.queue.yaml down && docker compose --profile tunnel up -d --wait`.
 25. **Open red-team questions:** **Manual action:** answer each item in [Questions only a live run can answer](docs/red-team.md#questions-only-a-live-run-can-answer) from the runs above, and record the answer in that doc.
 26. **Cost:** after one full `pnpm run scenarios`, **Manual action:** read the input and output tokens in the Anthropic Console (Usage) and divide by the agent turns. Replace the estimate under Cost per message.
+27. **Emergency out of hours:** run on a Sunday, or after 17:00 America/Bogota:
+
+    ```sh
+    node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-closed-1","phone":"570000000006","name":"Test","type":"text","text":"Me sangra mucho la encía y tengo la cara hinchada.","received_at":"<now, ISO 8601>"}'
+    ```
+
+    Expect route `emergency` and a reply containing `+57 605 000 0000`. Then run `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
 
 ## Cost per message
 
-An offline estimate, dated 2026-11-11, for one text message that reaches the agent:
+An offline estimate, dated 2026-11-25, for one text message that reaches the agent:
 
-- The built system prompt is 8,993 characters, about 2,248 tokens (`src/nodes/build-system-prompt.ts` over the committed business files, at 4 characters per token).
-- The agent makes 2 model calls, each with the prompt plus about 600 tokens of memory (10 messages) and tool definitions, and about 400 output tokens with adaptive thinking.
+- The built system prompt is 9,638 characters, about 2,410 tokens (`src/nodes/build-system-prompt.ts` over the committed business files, at 4 characters per token).
+- A plain answer makes 2 model calls, and a full booking turn makes up to 7, because `upsert_patient`, `check_availability` and `book_appointment` each add a round trip and every call repays the prompt. Each call carries the prompt plus about 600 tokens of memory (10 messages) and tool definitions, and about 400 output tokens with adaptive thinking.
 - Claude Haiku 5.5 costs $0.10 per million input tokens and $0.50 per million output tokens; Jev reads about 300 input tokens at $0.042 per million.
 
-`(2,248 + 600) × 2 × $0.10/M + 400 × 2 × $0.50/M + 300 × $0.042/M` ≈ **$0.001 per message**, about $1 per 1,000 messages.
+- `(2,410 + 600) × 2 × $0.10/M + 400 × 2 × $0.50/M + 300 × $0.042/M` ≈ **$0.001** for a plain answer
+- `(2,410 + 600) × 7 × $0.10/M + 400 × 7 × $0.50/M + 300 × $0.042/M` ≈ **$0.0035** for a full booking turn
 
-Live verification replaces this with measured usage.
+So a message costs about $0.001 to $0.004: roughly $1 to $4 per 1,000 messages. Live check 26 replaces this with measured usage.
 
 ## Design decisions and production notes
 
@@ -267,6 +273,12 @@ Return with `docker compose -f compose.yaml -f compose.queue.yaml down && docker
 - There's no cancel tool; a cancellation goes to the team.
 - Only `messages[0]` of each WhatsApp change is read.
 - The reply check is a pattern check, not a classifier.
+- `Create calendar event` retries without a client-supplied event ID, so a create that succeeded but returned an error can leave a second event.
+- Tool calls per message have no cap: `maxIterations: 6` bounds the agent's turns, not the calls within one.
+- The upcoming-booking limit counts only events the assistant booked; an event staff create or edit by hand isn't counted.
+- `replied_at` and the Patients sheet write have limits the [architecture doc](docs/architecture.md#known-limits-of-the-current-design) owns: a send is marked when Meta accepts it, and a booking doesn't check the sheet write.
+- After a handoff, the assistant keeps answering the patient's next messages while the team replies from its own channel.
+- Scope: no appointment reminders, text messages only (a voice note or photo gets a fixed reply), one calendar, and one appointment length for every service.
 - Retention covers Postgres only; the Patients sheet and Calendar keep their data until staff delete it.
 
 ## License
