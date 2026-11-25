@@ -107,6 +107,6 @@ Update the doc a change touches, in the same pull request:
 | [`docs/testing.md`](docs/testing.md) | Every suite, the stack checks, the harness targets, scenarios, what CI runs | Adds or removes a test file, a suite or a CI step |
 | [`docs/supply-chain.md`](docs/supply-chain.md) | pnpm settings, updating a dependency, images, CI tools, Dependabot | Touches a dependency, an image or a CI tool |
 | [`docs/languages.md`](docs/languages.md) | How replies and team emails pick a language, and how to add one | Touches language handling |
-| `docs/diagrams/` | Five archify sources, each with a `.html` page and an `.svg` image: `architecture`, `message-intake`, `message-reply`, `message-lifecycle` and `personal-data` | Changes what a diagram shows. Edit only the `.json`, then regenerate. |
+| `docs/diagrams/` | Five archify sources, each with a `.html` page and an `.svg` image: `docs/diagrams/architecture.json`, `docs/diagrams/message-intake.json`, `docs/diagrams/message-reply.json`, `docs/diagrams/message-lifecycle.json` and `docs/diagrams/personal-data.json` | Changes what a diagram shows. Edit only the `.json`, then regenerate. |
 
 `docs/diagrams/*.delivery.json` receipts hold local absolute paths and are gitignored. Never force-add one.

@@ -6,7 +6,7 @@ This page follows a patient's WhatsApp message from webhook to reply, then cover
 
 System architecture: [interactive page](diagrams/architecture.html) · [source](diagrams/architecture.json)
 
-The diagram tool [archify](https://github.com/tt-a1i/archify) generates both diagrams on this page from their JSON sources, and [Regenerating the diagrams](#regenerating-the-diagrams) below shows how. Each interactive page adds search, focus, and both color themes; open it in a browser.
+The diagram tool [archify](https://github.com/tt-a1i/archify) generates every diagram on this page from its JSON source, and [Regenerating the diagrams](#regenerating-the-diagrams) below shows how. Each interactive page adds search, focus, and both color themes; open it in a browser.
 
 ## What the system does and where it runs
 
@@ -50,11 +50,21 @@ The business content lives in four files that n8n reads from read-only mounts: `
 
 ## How a message becomes a reply
 
-A text message goes through ten steps from the WhatsApp Trigger to the reply, and the numbers match the bands in this sequence diagram:
+A text message goes through ten steps from the WhatsApp Trigger to the reply, and the numbers match the bands in the two sequence diagrams below, steps 1 to 6 in intake and 7 to 10 in reply, and the lifecycle diagram shows the states a message passes through and how it ends. Three failures send no reply, because `process-message` throws into `error-handler`: Postgres down at the record step, an invalid `triage.thresholds`, and a WhatsApp send that still fails after its 3 tries:
 
-![Message lifecycle: signature check, normalize, record and dedupe, language and rate limit, triage, route, agent with tool calls, reply check, reply, and mark replied](diagrams/message-sequence.svg)
+![Message intake: signature check, normalize, record and dedupe, language and rate limit, triage, and route](diagrams/message-intake.svg)
 
-Message lifecycle: [interactive page](diagrams/message-sequence.html) · [source](diagrams/message-sequence.json)
+Message intake: [interactive page](diagrams/message-intake.html) · [source](diagrams/message-intake.json)
+
+![Message reply: the agent with tool calls, reply check, send, and mark replied](diagrams/message-reply.svg)
+
+Message reply: [interactive page](diagrams/message-reply.html) · [source](diagrams/message-reply.json)
+
+Two things the diagram leaves to text. `Check reply` replaces a dose or an unlisted price with a fixed reply before the send. And when `process-message` throws, `error-handler` emails the team and the patient gets no reply.
+
+![Message lifecycle: the states a message passes through, and the ways out](diagrams/message-lifecycle.svg)
+
+Message lifecycle: [interactive page](diagrams/message-lifecycle.html) · [source](diagrams/message-lifecycle.json)
 
 1. **Signature check**: Meta posts the webhook to the tunnel, which forwards only the trigger's path. The trigger computes a hash-based message authentication code (HMAC-SHA256) of the raw body with the app secret. It compares the result with `X-Hub-Signature-256`, and a mismatch starts nothing; otherwise n8n starts the execution and then answers 200.
 2. **Normalize**: One webhook call from Meta can hold more than one change, each with its own `messages` array. `whatsapp-entry` drops changes without a message, plus reactions and system messages. For the rest, it maps `messages[0]` to the `process-message` input, with `type: other` and empty text for anything but text, and runs `process-message` once per change.
@@ -181,6 +191,10 @@ The `/webhook/dev` targets are `load-context`, `notify-team`, `raise-error`, `ch
 
 From outside the host, only the trigger's path reaches n8n, and only signed requests start a run. Inside, the model never picks whose data a tool touches. Postgres keeps personal data for `retention_days`; the Sheet and Calendar keep theirs until staff delete them. The diagram shows where it goes, and the list below covers each control:
 
+![Personal data flow: what each service receives and how long it keeps it](diagrams/personal-data.svg)
+
+Personal data flow: [interactive page](diagrams/personal-data.html) · [source](diagrams/personal-data.json)
+
 - **Webhook signature**: In n8n's `WhatsAppTrigger.node.js` (checked against n8n `2.45.7` on 2026-11-11), the trigger verifies every request except a GET with `hub.challenge`. It computes HMAC-SHA256 of the raw body with the app secret (`META_APP_SECRET`) and compares it with `X-Hub-Signature-256`. A mismatch starts no execution, and n8n still answers 200 `{"message":"Webhook call received"}`.
 - **Signature caveats**: Both come from upstream. The comparison isn't constant-time, and Meta signs no timestamp, so someone who captures a request can replay it. The `message_id` dedupe answers a replay with `duplicate` only within `retention_days`; after that, retention has deleted the original row.
 - **Verify token**: Meta's subscription check uses the trigger node's `id` as the verify token, and the committed workflow JSON makes that ID public. Someone who knows it can only make n8n echo `hub.challenge`, because creating a subscription needs the app's credentials.
@@ -260,13 +274,20 @@ Each decision names the option it chose, the one it passed over, and why:
 
 Each diagram's source is a JSON file in `docs/diagrams/`; archify renders the `*.html` page from it, and the `*.svg` image is that page's own export. Edit only the JSON, then regenerate the other two.
 
-The diagram tool is [archify](https://github.com/tt-a1i/archify), a Node.js command-line tool that needs no install. Keep it outside this repo, so `pnpm run lint` doesn't scan its files, and set `ARCHIFY` to its `bin/archify.mjs`. These sources were last validated, delivered, and exported with archify's 2.17 skill package (`2.17.0-dev.1`). archify v3.2.0 renders the architecture diagram too, but its stricter desktop-readability budget rejects the sequence diagram's small message notes at its 1700 px width.
+The diagram tool is [archify](https://github.com/tt-a1i/archify), a Node.js command-line tool that needs no install. Keep it outside this repo, so `pnpm run lint` doesn't scan its files, and set `ARCHIFY` to its `bin/archify.mjs`. These sources were validated, delivered and exported with archify v3.2.0.
 
-Run the commands from the repo root, because each source's `meta.output` path is relative to it. `architecture.json` has type `architecture`, and `message-sequence.json` has type `sequence`. For the architecture diagram:
+Run the commands from the repo root, because each source's `meta.output` path is relative to it. The five sources and their types:
 
-1. `node "$ARCHIFY" validate architecture docs/diagrams/architecture.json --quality showcase --json`, after every edit, until it reports all 9 artifact checks passing with 0 composition errors and 0 warnings.
-2. `node "$ARCHIFY" deliver architecture docs/diagrams/architecture.json docs/diagrams/architecture.html --quality showcase --json` writes the page.
-3. Open the page in a browser, choose **Export**, then **SVG**, and save the download over `docs/diagrams/architecture.svg`, which `README.md` and this page embed.
-4. `node "$ARCHIFY" visual-check <copy>.html --json` checks a copy of the page in a real browser at four desktop sizes. It writes PNG screenshots next to the page, so run it on a copy outside the repo.
+| Source | Type |
+|---|---|
+| `architecture.json` | `architecture` |
+| `message-intake.json`, `message-reply.json` | `sequence` |
+| `message-lifecycle.json` | `lifecycle` |
+| `personal-data.json` | `dataflow` |
 
-For the sequence diagram, run the same steps with type `sequence` and the `message-sequence` files; only this page embeds its SVG.
+For one diagram, with its `<type>` and `<name>`:
+
+1. `node "$ARCHIFY" validate <type> docs/diagrams/<name>.json --quality showcase --json`, after every edit, until it reports all 9 artifact checks passing with 0 composition errors and 0 warnings.
+2. `node "$ARCHIFY" deliver <type> docs/diagrams/<name>.json docs/diagrams/<name>.html --quality showcase --json` writes the page.
+3. Open the page in a browser, choose **Export**, then **SVG**, and save the download over `docs/diagrams/<name>.svg`, which the docs embed.
+4. `node "$ARCHIFY" visual-check <copy>.html --json` checks a copy of the page in a real browser at four desktop sizes. It writes PNG screenshots next to the page, so run it on a copy in an empty directory outside the repo. The two sequence diagrams are taller than one 1440 by 900 screen, so it reports a page scroll for them.

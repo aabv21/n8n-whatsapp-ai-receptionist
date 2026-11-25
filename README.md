@@ -10,7 +10,8 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 - The [red-team doc](docs/red-team.md) maps where a patient's text reaches a model, lists the adversarial inputs the assistant is checked against, and names the guard behind each one.
 - The [HTTP surface](docs/architecture.md#http-surface) lists every path n8n answers, who reaches it and what it returns.
 - The [testing doc](docs/testing.md) lists every test suite and what CI runs.
-- The [message sequence](docs/diagrams/message-sequence.svg) follows one message from the webhook to the reply.
+- The [message intake](docs/diagrams/message-intake.svg) and [message reply](docs/diagrams/message-reply.svg) diagrams follow one message from the webhook to the reply.
+- The [message lifecycle](docs/diagrams/message-lifecycle.svg) shows every state a message can end in, and the [personal data flow](docs/diagrams/personal-data.svg) shows what each service receives.
 
 ## What it does
 

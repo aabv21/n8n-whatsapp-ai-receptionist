@@ -69,3 +69,14 @@ test('the docs use straight quotes and no em dashes', () => {
   }
   expect(offenders).toEqual([]);
 });
+
+test('every diagram source is cited in docs/architecture.md and AGENTS.md', () => {
+  const architecture = readFileSync('docs/architecture.md', 'utf8');
+  const agents = readFileSync('AGENTS.md', 'utf8');
+  const sources = readdirSync('docs/diagrams')
+    .filter((name) => /^[^.]+\.json$/.test(name))
+    .map((name) => name.replace(/\.json$/, ''));
+  expect(sources.length).toBeGreaterThan(0);
+  const missing = sources.flatMap((name) => [architecture, agents].flatMap((text, i) => (text.includes(`diagrams/${name}.`) ? [] : [`${name} missing from ${i === 0 ? 'docs/architecture.md' : 'AGENTS.md'}`])));
+  expect(missing).toEqual([]);
+});

@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "WhatsApp Message Intake",
+    "locale": "en",
+    "output": "docs/diagrams/message-intake.html",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1000,
+      1094
+    ]
+  },
+  "participants": [
+    {
+      "id": "meta",
+      "type": "external",
+      "label": "WhatsApp",
+      "brand": "whatsapp"
+    },
+    {
+      "id": "tunnel",
+      "type": "security",
+      "label": "ngrok"
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "whatsapp-entry"
+    },
+    {
+      "id": "process",
+      "type": "backend",
+      "label": "process-message"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "brand": "postgresql"
+    },
+    {
+      "id": "jev",
+      "type": "backend",
+      "label": "triage-message"
+    },
+    {
+      "id": "notify",
+      "type": "backend",
+      "label": "notify-team"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 302,
+      "label": "1 Signature check"
+    },
+    {
+      "from": 308,
+      "to": 384,
+      "label": "2 Normalize"
+    },
+    {
+      "from": 390,
+      "to": 504,
+      "label": "3 Record and dedupe"
+    },
+    {
+      "from": 510,
+      "to": 662,
+      "label": "4 Language and rate limit"
+    },
+    {
+      "from": 668,
+      "to": 820,
+      "label": "5 Triage"
+    },
+    {
+      "from": 826,
+      "to": 978,
+      "label": "6 Route"
+    }
+  ],
+  "messages": [
+    {
+      "id": "message-intake-1",
+      "from": "meta",
+      "to": "tunnel",
+      "y": 196,
+      "label": "signed POST",
+      "variant": "security"
+    },
+    {
+      "id": "message-intake-2",
+      "from": "tunnel",
+      "to": "entry",
+      "y": 234,
+      "label": "one path only",
+      "variant": "security"
+    },
+    {
+      "id": "message-intake-3",
+      "from": "entry",
+      "to": "meta",
+      "y": 272,
+      "label": "200 (bad HMAC: no run)",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-4",
+      "from": "entry",
+      "to": "process",
+      "y": 354,
+      "label": "messages[0], per change",
+      "variant": "emphasis"
+    },
+    {
+      "id": "message-intake-5",
+      "from": "process",
+      "to": "db",
+      "y": 436,
+      "label": "INSERT, ON CONFLICT"
+    },
+    {
+      "id": "message-intake-6",
+      "from": "db",
+      "to": "process",
+      "y": 474,
+      "label": "0 rows: duplicate",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-7",
+      "from": "process",
+      "to": "entry",
+      "y": 556,
+      "label": "non_text: fixed reply",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-8",
+      "from": "process",
+      "to": "db",
+      "y": 594,
+      "label": "count text in 10 min"
+    },
+    {
+      "id": "message-intake-9",
+      "from": "db",
+      "to": "process",
+      "y": 632,
+      "label": "over 20: one notice",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-10",
+      "from": "process",
+      "to": "jev",
+      "y": 714,
+      "label": "5 yes/no questions"
+    },
+    {
+      "id": "message-intake-11",
+      "from": "jev",
+      "to": "process",
+      "y": 752,
+      "label": "route + notes (fails open)",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-12",
+      "from": "process",
+      "to": "db",
+      "y": 790,
+      "label": "save triage"
+    },
+    {
+      "id": "message-intake-13",
+      "from": "process",
+      "to": "notify",
+      "y": 872,
+      "label": "emergency, handoff: alert"
+    },
+    {
+      "id": "message-intake-14",
+      "from": "notify",
+      "to": "db",
+      "y": 910,
+      "label": "cooldown, mark alert"
+    },
+    {
+      "id": "message-intake-15",
+      "from": "process",
+      "to": "entry",
+      "y": 948,
+      "label": "blocked: fixed reply",
+      "variant": "return"
+    }
+  ]
+}
