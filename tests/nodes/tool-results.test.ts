@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { readWorkflow } from '../../scripts/lib/workflow.ts';
 import type { ToolCall } from '../../src/nodes/collect-tool-calls.ts';
-import { BOOK_APPOINTMENT_TOOL, toolResults } from '../../src/nodes/shared/tool-results.ts';
+import { BOOK_APPOINTMENT_TOOL, CANCEL_APPOINTMENT_TOOL, RESCHEDULE_APPOINTMENT_TOOL, toolResults } from '../../src/nodes/shared/tool-results.ts';
 
 test("toolResults keeps only the named tool's object outputs, in order", () => {
   const calls: ToolCall[] = [
@@ -17,5 +17,5 @@ test("toolResults keeps only the named tool's object outputs, in order", () => {
 
 test("the tool names check-reply reads match process-message's tool nodes", () => {
   const tools = readWorkflow('workflows/process-message.json').nodes.filter((n) => n.type === '@n8n/n8n-nodes-langchain.toolWorkflow');
-  expect(tools.map((t) => t.name)).toContain(BOOK_APPOINTMENT_TOOL);
+  for (const tool of [BOOK_APPOINTMENT_TOOL, CANCEL_APPOINTMENT_TOOL, RESCHEDULE_APPOINTMENT_TOOL]) expect(tools.map((t) => t.name)).toContain(tool);
 });

@@ -34,8 +34,11 @@ test('each agent tool calls its sub-workflow with the phone from the trigger, ne
   const tools = nodesOfType('@n8n/n8n-nodes-langchain.toolWorkflow');
   expect(tools.map((t) => `${t.name} ${String((t.parameters.workflowId as { value: unknown }).value)}`).sort()).toEqual([
     'book_appointment cmbBookAppt00001',
+    'cancel_appointment cmbChangeAppt001',
     'check_availability cmbCheckAvail001',
+    'my_appointments cmbChangeAppt001',
     'notify_team cmbNotifyTeam001',
+    'reschedule_appointment cmbChangeAppt001',
     'upsert_patient cmbUpsertPatient',
   ]);
   for (const tool of tools) {
@@ -100,6 +103,9 @@ const FROM_AI_ALLOWLIST: Record<string, string[]> = {
   book_appointment: ['date', 'name', 'service', 'time'],
   upsert_patient: ['name', 'service_of_interest'],
   notify_team: ['reason', 'summary'],
+  my_appointments: [],
+  cancel_appointment: ['date', 'time'],
+  reschedule_appointment: ['date', 'new_date', 'new_time', 'time'],
 };
 const fromAiKeys = (value: string): string[] => [...value.matchAll(/\$fromAI\(\s*['"`]([^'"`]+)['"`]/g)].map((m) => m[1] ?? '');
 const TRIGGER_ONLY = /^=\{\{ \$\('When called'\)\.first\(\)\.json\.\w+ \}\}$/;
@@ -487,4 +493,16 @@ test('the failed-check condition is true for a Jev error, missing scores and a n
   expect(failed(decide({}))).toBe(true);
   expect(failed(decide({ emergency: 'high' }))).toBe(true);
   expect(failed(decide({ emergency: 0.1 }))).toBe(false);
+});
+
+test('each change tool fixes its own action, so the model can\'t pick another', () => {
+  const actions: Record<string, string> = { my_appointments: 'list', cancel_appointment: 'cancel', reschedule_appointment: 'reschedule' };
+  for (const [name, action] of Object.entries(actions)) {
+    const { value } = inputsOf(node(name));
+    expect(value.action, name).toBe(action);
+    expect(value.phone, name).toBe("={{ $('When called').first().json.phone }}");
+  }
+  // Fields a tool doesn't take from the model are blank, never missing.
+  expect(inputsOf(node('my_appointments')).value).toMatchObject({ date: '', time: '', new_date: '', new_time: '' });
+  expect(inputsOf(node('cancel_appointment')).value).toMatchObject({ new_date: '', new_time: '' });
 });

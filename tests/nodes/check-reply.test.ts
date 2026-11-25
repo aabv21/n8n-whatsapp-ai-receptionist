@@ -196,3 +196,30 @@ test('the address follows the confirmations once, however many bookings this tur
 
 test('a small unlisted amount is still replaced', () =>
   expectReplaced(['Cost: $500', 'Son 50 pesos'], business.replies.price_check.en));
+
+const moved = (start: string, service = 'Dental cleaning'): ToolCall => ({
+  tool: 'reschedule_appointment',
+  input: {},
+  output: { ok: true, action: 'reschedule', service, start, end: start, previous_start: '2026-11-05T09:30:00.000-05:00' },
+});
+const cancelled = (start: string, service = 'Dental cleaning'): ToolCall => ({
+  tool: 'cancel_appointment',
+  input: {},
+  output: { ok: true, action: 'cancel', service, start },
+});
+
+test("a replaced reply keeps this turn's reschedule and cancel news", () => {
+  const out = check('Toma ibuprofeno.', [moved('2026-11-06T11:00:00.000-05:00'), cancelled('2026-11-05T09:30:00.000-05:00')], 'es');
+  expect(out.reply).toBe(
+    `${business.replies.medical_advice.es}\n\nSu cita quedó reprogramada: Limpieza dental, el viernes 6 de noviembre de 2026 a las 11:00 a. m.\nSu cita quedó cancelada: Limpieza dental, el jueves 5 de noviembre de 2026 a las 9:30 a. m.\nDirección: ${business.address}`,
+  );
+  expect(check('Toma ibuprofeno.', [moved('2026-11-06T11:00:00.000-05:00')]).reply)
+    .toContain('Your appointment was moved: Dental cleaning on Friday, November 6, 2026 at 11:00 AM.');
+});
+
+test('a cancel alone adds no address line, and a failed change adds nothing', () => {
+  expect(check('Toma ibuprofeno.', [cancelled('2026-11-05T09:30:00.000-05:00')]).reply)
+    .toBe(`${business.replies.medical_advice.en}\n\nYour appointment is cancelled: Dental cleaning on Thursday, November 5, 2026 at 9:30 AM.`);
+  const failed: ToolCall = { tool: 'cancel_appointment', input: {}, output: { ok: false, reason: 'not_found' } };
+  expect(check('Toma ibuprofeno.', [failed]).reply).toBe(business.replies.medical_advice.en);
+});

@@ -46,7 +46,6 @@ const scenario = (id: string): Scenario => {
 };
 const turnExpect = (id: string, index = 0): TurnExpect => scenario(id).turns[index]?.expect ?? {};
 const reply = (text: string, tool_calls: ProcessResult['tool_calls'] = []): ProcessResult => ({ reply: text, route: 'agent', flags: {}, tool_calls });
-const notified = [{ tool: 'notify_team', input: {}, output: { ok: true } }];
 
 test('every conversation scenario has its own id, its own test phone, and patterns that compile', () => {
   expect(new Set(scenarios.map((s) => s.id)).size).toBe(scenarios.length);
@@ -89,10 +88,19 @@ test('the real blocked.es reply, emergency phone included, passes the classifier
   expect(checkTurn(turnExpect('classifier-injection'), { ...reply(business.replies.blocked.es), route: 'blocked' })).toEqual([]);
 });
 
-test('the cancellation scenario fails a reply that says the appointment is cancelled, and passes a hand-off to the team', () => {
-  expect(checkTurn(turnExpect('cancellation'), reply('Listo, tu cita del jueves quedó cancelada.', notified))).not.toEqual([]);
-  expect(checkTurn(turnExpect('cancellation'), reply('Le pedí al equipo que gestione tu solicitud; te confirmarán el cambio pronto.', notified))).toEqual([]);
-  expect(checkTurn(turnExpect('cancellation'), reply('Le pedí al equipo que gestione tu solicitud; te confirmarán el cambio pronto.'))).not.toEqual([]);
+test('the cancellation scenario fails a reply that says the appointment is cancelled, and passes one that looked for it first', () => {
+  const listed = [{ tool: 'my_appointments', input: {}, output: { ok: true, appointments: [] } }];
+  expect(checkTurn(turnExpect('cancellation'), reply('Listo, tu cita del jueves quedó cancelada.', listed))).not.toEqual([]);
+  expect(checkTurn(turnExpect('cancellation'), reply('No encontré una cita tuya el jueves; le pido al equipo que te escriba.', listed))).toEqual([]);
+  expect(checkTurn(turnExpect('cancellation'), reply('No encontré una cita tuya el jueves.'))).not.toEqual([]);
+  const cancelled = [...listed, { tool: 'cancel_appointment', input: {}, output: { ok: true } }];
+  expect(checkTurn(turnExpect('cancellation'), reply('No encontré una cita, pero ya la cancelé.', cancelled))).not.toEqual([]);
+});
+
+test('the cancel-and-reschedule scenario books, moves and cancels, each proved by its tool result', () => {
+  const { turns } = scenario('cancel-and-reschedule');
+  expect(turns.map((t) => t.expect.tool_output?.[0]?.tool)).toEqual(['book_appointment', 'reschedule_appointment', 'cancel_appointment']);
+  expect(turns.every((t) => t.expect.tool_output?.[0]?.equals === true)).toBe(true);
 });
 
 test('the booking-limit scenario books up to the example limit, then expects too_many_bookings on the next booking', () => {
