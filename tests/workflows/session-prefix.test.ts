@@ -9,5 +9,5 @@ test("the chat-memory session prefix is the same literal everywhere it's used", 
   const prefix = /=== 'test' \? '([^']+)'/.exec(sessionKey)?.[1] ?? '';
   expect(prefix).toBe('test:');
   expect(queryOf('retention-cleanup.json', 'Delete expired chat memory')).toContain(`'${prefix}' || m.phone`);
-  expect(queryOf('dev-harness.json', 'Delete test memories')).toContain(`'${prefix}' || $1`);
+  expect(queryOf('dev-cleanup.json', 'Delete test memories')).toContain(`'${prefix}' || $1`);
 });

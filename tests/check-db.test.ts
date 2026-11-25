@@ -102,8 +102,8 @@ describe('workflow statements', () => {
 
   it('finds every Postgres query node in workflows/', () => {
     expect(statements.map(key).sort()).toEqual([
-      'dev-harness.json › Delete test memories',
-      'dev-harness.json › Delete test messages',
+      'dev-cleanup.json › Delete test memories',
+      'dev-cleanup.json › Delete test messages',
       'notify-team.json › Check alert cooldown',
       'notify-team.json › Mark team alerted',
       'process-message.json › Count recent messages',

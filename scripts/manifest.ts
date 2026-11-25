@@ -32,6 +32,7 @@ export const WORKFLOWS: readonly WorkflowEntry[] = [
   { id: LOAD_CONTEXT_ID, name: 'Load context', file: 'load-context.json' },
   { id: ERROR_WORKFLOW_ID, name: 'Error handler', file: 'error-handler.json' },
   { id: 'cmbNotifyTeam001', name: 'Notify team', file: 'notify-team.json' },
+  { id: 'cmbDevCleanup001', name: 'Dev cleanup', file: 'dev-cleanup.json' },
   { id: 'cmbDevHarness001', name: 'Dev harness', file: 'dev-harness.json', webhookPath: 'dev' },
   { id: 'cmbCheckAvail001', name: 'Check availability', file: 'check-availability.json' },
   { id: 'cmbUpsertPatient', name: 'Upsert patient', file: 'upsert-patient.json' },
@@ -216,15 +217,15 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
   },
   {
     // Why one decision point per delete part: see src/nodes/count-cleanup-outcomes.ts.
-    file: 'dev-harness.json',
+    file: 'dev-cleanup.json',
     node: 'Count event outcomes',
     source: 'src/nodes/count-cleanup-outcomes.ts',
-    why: 'counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression',
+    why: "keeps the one rule, any failed delete makes this part's count null, as a tested function beside the Aggregate that fixes the merge race; a Set expression could hold it, but would leave the rule outside the unit tests",
   },
   {
-    file: 'dev-harness.json',
+    file: 'dev-cleanup.json',
     node: 'Count row outcomes',
     source: 'src/nodes/count-cleanup-outcomes.ts',
-    why: 'counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression',
+    why: "keeps the one rule, any failed delete makes this part's count null, as a tested function beside the Aggregate that fixes the merge race; a Set expression could hold it, but would leave the rule outside the unit tests",
   },
 ];

@@ -54,7 +54,7 @@ Run this before every commit that touches TypeScript, and before every commit th
 Most rules name what guards them; the rest are review rules.
 
 - Secrets live only in `.env` and n8n credentials (gitleaks in CI). No script prints credential data.
-- Test data uses the `5700000000` phone prefix and `example.com`. `cleanup` deletes by `starts_with` and refuses a short prefix (`tests/workflows/dev-harness.test.ts`).
+- Test data uses the `5700000000` phone prefix and `example.com`. `cleanup` deletes by `starts_with` and refuses a short prefix (`tests/workflows/dev-cleanup.test.ts`).
 - Postgres nodes connect as `app_runtime`. Only the chat-memory node connects as the owner (`tests/tooling.test.ts`, `scripts/check-db.ts`). A new table gets its grants in its own migration.
 - Every workflow sets `saveManualExecutions: false` (`tests/workflows/execution-data.test.ts`).
 - n8n stays on the 2.45 line, by digest, and prose names an exact patch only in a dated "checked against" note (`tests/runtime.test.ts`). Never move to an unstable `3.x` tag before one is stable, and when a bump touches the code a note describes, re-check that note's claim in the new image.

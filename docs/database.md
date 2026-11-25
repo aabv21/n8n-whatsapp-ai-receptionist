@@ -43,8 +43,8 @@ The twelve Postgres node statements run as `app_runtime`. The last four rows are
 | `whatsapp-entry` › Mark replied | `UPDATE inbound_messages SET replied_at = now() WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `retention-cleanup` › Delete expired chat memory | `DELETE FROM n8n_chat_histories h WHERE NOT EXISTS (SELECT 1 FROM inbound_messages m WHERE (h.session_id = m.phone OR h.session_id = 'test:' \|\| m.phone) AND m.received_at >= now() - make_interval(days => $1))` | `DELETE`, `SELECT` on `n8n_chat_histories`; `SELECT` on `inbound_messages` | a full read of `n8n_chat_histories`, an anti-join that must judge every row (see item 3); the subquery's age range reads `inbound_messages_received_at_idx` |
 | `retention-cleanup` › Delete expired messages | `DELETE FROM inbound_messages WHERE received_at < now() - make_interval(days => $1)` | `DELETE`, `SELECT` | `inbound_messages_received_at_idx`, as a range |
-| `dev-harness` › Delete test messages | `DELETE FROM inbound_messages WHERE starts_with(phone, $1) RETURNING 1`, counted | `DELETE`, `SELECT` | a full read; test tooling (see item 3) |
-| `dev-harness` › Delete test memories | `DELETE FROM n8n_chat_histories WHERE starts_with(session_id, 'test:' \|\| $1) OR starts_with(session_id, $1) RETURNING 1`, counted | `DELETE`, `SELECT` | a full read; test tooling (see item 3) |
+| `dev-cleanup` › Delete test messages | `DELETE FROM inbound_messages WHERE starts_with(phone, $1) RETURNING 1`, counted | `DELETE`, `SELECT` | a full read; test tooling (see item 3) |
+| `dev-cleanup` › Delete test memories | `DELETE FROM n8n_chat_histories WHERE starts_with(session_id, 'test:' \|\| $1) OR starts_with(session_id, $1) RETURNING 1`, counted | `DELETE`, `SELECT` | a full read; test tooling (see item 3) |
 | `process-message` › Postgres Chat Memory, once per execution | `CREATE TABLE IF NOT EXISTS "n8n_chat_histories" (…)` | `CREATE` on schema `public`: the owner | n/a |
 | same, loading the history | `SELECT message FROM "n8n_chat_histories" WHERE session_id = $1 ORDER BY id` | the owner | `n8n_chat_histories_session_idx` |
 | same, saving each turn | `INSERT INTO "n8n_chat_histories" (session_id, message) VALUES ($1, $2)` | the owner, including the `id` sequence | primary key |
@@ -93,7 +93,7 @@ Every statement a production path runs is served by the primary key or an index,
 Two documented exceptions read a whole table, on purpose:
 
 - **Delete expired chat memory** is an anti-join: it keeps a history row only while its phone has a recent message, so it must read every row of `n8n_chat_histories`, and it scans by nature. Its inner side, the recent messages, is a range on `inbound_messages_received_at_idx`. It runs once a day, and retention itself bounds the table it scans.
-- **The dev harness's two deletes** are test tooling, not a production path. They match a phone prefix with `starts_with`, which a B-tree under the database's default collation can't serve, and they only ever touch test data.
+- **The `dev-cleanup` workflow's two deletes** are test tooling, not a production path. They match a phone prefix with `starts_with`, which a B-tree under the database's default collation can't serve, and they only ever touch test data.
 
 ### 4. Queries
 
@@ -136,7 +136,7 @@ The ledger already skips applied files, so a second `pnpm run setup` prints `no 
 | `n8n_chat_histories` | phone (in `session_id`), the conversation | `retention-cleanup` | the same run, once its phone has no message left inside `retention_days` |
 | `schema_migrations` | none | nothing | it's the ledger |
 
-The dev harness's `cleanup` target deletes test rows by phone prefix whenever it's called.
+The dev harness's `cleanup` target, through the `dev-cleanup` workflow, deletes test rows by phone prefix whenever it's called.
 
 **n8n execution data:** `compose.yaml` keeps `EXECUTIONS_DATA_PRUNE=true` and `EXECUTIONS_DATA_MAX_AGE=168`, so n8n deletes executions after 168 hours. A manual execution, started from the editor, is saved by default with every node's input and output. Every workflow in `workflows/` sets `settings.saveManualExecutions: false`, and `tests/workflows/execution-data.test.ts` asserts it for every file.
 

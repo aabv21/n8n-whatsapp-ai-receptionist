@@ -109,8 +109,8 @@ export const PROBES: readonly Probe[] = [
   { file: 'whatsapp-entry.json', node: 'Mark replied', params: [PROBE_ID] },
   { file: 'retention-cleanup.json', node: 'Delete expired chat memory', params: ['30'] },
   { file: 'retention-cleanup.json', node: 'Delete expired messages', params: ['30'] },
-  { file: 'dev-harness.json', node: 'Delete test memories', params: [PROBE_PHONE] },
-  { file: 'dev-harness.json', node: 'Delete test messages', params: [PROBE_PHONE] },
+  { file: 'dev-cleanup.json', node: 'Delete test memories', params: [PROBE_PHONE] },
+  { file: 'dev-cleanup.json', node: 'Delete test messages', params: [PROBE_PHONE] },
 ];
 
 const label = (s: { file: string; node: string }): string => `${s.file} › ${s.node}`;
