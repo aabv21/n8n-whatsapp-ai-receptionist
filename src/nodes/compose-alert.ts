@@ -6,6 +6,7 @@ export interface AlertInput {
   phone: string;
   name: string;
   summary: string;
+  /** Strings, read as the patient's, or `{ role, text }` entries from the chat memory. */
   recent_messages: unknown[];
   /** The current time as ISO 8601, from the workflow, since a Code node reads no clock. */
   now: string;
@@ -31,7 +32,12 @@ export function run(input: AlertInput): { subject: string; body: string } {
   const brand = plain(input.business_name).trim();
   const name = plain(input.name);
   const phone = plain(input.phone);
-  const recent = Array.isArray(input.recent_messages) ? input.recent_messages.map(plain) : [];
+  const recent = (Array.isArray(input.recent_messages) ? input.recent_messages : []).flatMap((entry): string[] => {
+    const turn = typeof entry === 'object' && entry !== null ? (entry as { role?: unknown; text?: unknown }) : { role: 'patient', text: entry };
+    // Continuation lines are indented so a patient's multi-line message can't pose as a labeled line.
+    const text = plain(turn.text).replace(/\r?\n/g, '\n  ');
+    return text.trim() === '' ? [] : [`${turn.role === 'assistant' ? messages.assistant : messages.patient}: ${text}`];
+  });
   const lines = [
     `${messages.reason}: ${reason}`,
     `${messages.name}: ${name || messages.notGiven}`,

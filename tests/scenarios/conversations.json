@@ -315,10 +315,24 @@
         "expect": { "tool_output": [{ "tool": "notify_team", "field": "ok", "equals": true }] }
       },
       {
-        "text": "And do you also do veneers?",
+        "text": "Sorry, one more time: do you do dental implants?",
         "expect": {
           "tool_output": [{ "tool": "notify_team", "field": "suppressed", "equals": true }],
           "reply_matches": ["(already|earlier)", "^(?![\\s\\S]*\\b(forwarded|passed (it|this) on)\\b)"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "first-message",
+    "phone": "570000000044",
+    "turns": [
+      {
+        "text": "Hola",
+        "expect": {
+          "route": "agent",
+          "tools_exclude": ["book_appointment"],
+          "reply_matches": ["(precio|price)", "(horario|hour)", "(cita|agend|book)", "30"]
         }
       }
     ]

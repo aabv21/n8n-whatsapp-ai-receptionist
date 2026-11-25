@@ -29,17 +29,19 @@ The trade-off is that `app`'s password sits in n8n's encrypted credential store,
 
 ## Every statement and what covers it
 
-The twelve Postgres node statements run as `app_runtime`. The last four rows are the Chat Memory node's, which run as `app`. Each `UPDATE`'s and `DELETE`'s `WHERE`, and the insert's conflict check, read columns, so they need `SELECT` as well; this was checked against Postgres 17 with a role that held only the write privilege. The "Served by" column comes from `EXPLAIN` on Postgres 17.11.
+The fourteen Postgres node statements run as `app_runtime`. The last four rows are the Chat Memory node's, which run as `app`. Each `UPDATE`'s and `DELETE`'s `WHERE`, and the insert's conflict check, read columns, so they need `SELECT` as well; this was checked against Postgres 17 with a role that held only the write privilege. The "Served by" column comes from `EXPLAIN` on Postgres 17.11.
 
 | Workflow › node | Statement | Privileges it needs | Served by |
 |---|---|---|---|
 | `process-message` › Record inbound message | `INSERT INTO inbound_messages … ON CONFLICT (message_id) DO NOTHING RETURNING 1`, counted | `INSERT`; `SELECT` for the conflict check | primary key, as the conflict arbiter |
 | `process-message` › Count recent messages | `SELECT count(*) … WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND body IS NOT NULL` | `SELECT` | `inbound_messages_phone_received_idx` |
+| `process-message` › Recent conversation | `SELECT coalesce(jsonb_agg(… ORDER BY id), '[]') FROM (SELECT id, message FROM n8n_chat_histories WHERE session_id = $1 ORDER BY id DESC LIMIT 6) t`, one `{ role, text }` per chat-memory line | `SELECT` on `n8n_chat_histories` | `n8n_chat_histories_session_idx` |
+| `process-message` › Check handoff pause | `WITH c AS (…), h AS (SELECT max(received_at) AS at … WHERE phone = $1 AND message_id <> $2 AND (route = 'handoff' OR (route = 'fallback' AND triage->>'route' = 'handoff')) AND received_at > now() - make_interval(hours => $3)) SELECT h.at IS NOT NULL AS paused, NOT EXISTS (… earlier in-flight or `handoff_paused` messages after `h.at`, ordered by `(received_at, message_id)`) AS first_paused FROM h` | `SELECT` | `inbound_messages_phone_received_idx` |
 | `process-message` › Recent patient messages | `SELECT … WHERE phone = $1 AND message_id <> $2 AND body IS NOT NULL ORDER BY received_at DESC LIMIT 3` | `SELECT` | `inbound_messages_phone_received_idx` |
 | `process-message` › Save triage | `UPDATE inbound_messages SET triage = $2::jsonb WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `process-message` › Save route | `UPDATE inbound_messages SET route = $2 WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
-| `notify-team` › Check alert cooldown | `SELECT EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->>'team_alerted' = 'true' AND ($3::text IS DISTINCT FROM 'emergency' OR triage->>'alerted_reason' = 'emergency')) AS alerted`, where `$3` is this alert's reason, so only an earlier emergency holds back an emergency | `SELECT` | `inbound_messages_phone_received_idx` |
-| `notify-team` › Mark team alerted | `UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) \|\| jsonb_build_object('team_alerted', true, 'alerted_reason', $2::text) WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
+| `notify-team` › Check alert cooldown | a `SELECT CASE WHEN $3::text IN ('emergency', 'triage_failed') THEN EXISTS (…) ELSE EXISTS (…) OR (capped reasons only: count of alerts in the last hour) >= $5 END AS alerted` over `triage->'alerted_reasons'`, where `$3` is this alert's reason, `$2` the cooldown minutes (0 when invalid), `$4` the emergency dedupe and `$5` the hourly cap; [the failure table](architecture.md#what-happens-when-something-fails) owns the rule | `SELECT` | `inbound_messages_phone_received_idx` |
+| `notify-team` › Mark team alerted | `UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) \|\| jsonb_build_object('team_alerted', true, 'alerted_reason', $2::text, 'alerted_reasons', coalesce(triage->'alerted_reasons', '[]'::jsonb) \|\| jsonb_build_array($2::text)) WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `whatsapp-entry` › Mark replied | `UPDATE inbound_messages SET replied_at = now() WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `retention-cleanup` › Delete expired chat memory | `DELETE FROM n8n_chat_histories h WHERE NOT EXISTS (SELECT 1 FROM inbound_messages m WHERE (h.session_id = m.phone OR h.session_id = 'test:' \|\| m.phone) AND m.received_at >= now() - make_interval(days => $1))` | `DELETE`, `SELECT` on `n8n_chat_histories`; `SELECT` on `inbound_messages` | a full read of `n8n_chat_histories`, an anti-join that must judge every row (see item 3); the subquery's age range reads `inbound_messages_received_at_idx` |
 | `retention-cleanup` › Delete expired messages | `DELETE FROM inbound_messages WHERE received_at < now() - make_interval(days => $1)` | `DELETE`, `SELECT` | `inbound_messages_received_at_idx`, as a range |
@@ -75,7 +77,7 @@ NOTE: Grants are table-level. Column-level `UPDATE` grants would stop a leaked r
 ### 2. Schema
 
 - **Primary keys:** every table has one: `inbound_messages (message_id)`, `n8n_chat_histories (id)`, and `schema_migrations (filename)`.
-- **CHECKs on enumerated columns:** `channel` has had one since the baseline (`whatsapp`, `test`). `002_route_check.sql` adds one on `route`, listing exactly what `process-message`'s "Save route" writes: `src/nodes/decide-route.ts`'s `agent`, `blocked`, `emergency`, and `handoff`, plus `process-message`'s own `fallback`, `non_text`, and `rate_limited`, or `NULL`. `tests/db-migrate.test.ts` derives that list from the node and the workflow, so neither can drift from the constraint.
+- **CHECKs on enumerated columns:** `channel` has had one since the baseline (`whatsapp`, `test`). `002_route_check.sql` added one on `route`, and `004_handoff_paused_route.sql` replaces it, listing exactly what `process-message`'s "Save route" writes: `src/nodes/decide-route.ts`'s `agent`, `blocked`, `emergency`, and `handoff`, plus `process-message`'s own `fallback`, `non_text`, `rate_limited`, and `handoff_paused`, or `NULL`. `tests/db-migrate.test.ts` derives that list from the node and the workflow, so neither can drift from the constraint.
 - **`NOT NULL`:** set on every required value: `channel`, `phone`, `received_at`, `session_id`, `message`, and `applied_at`. Four columns are nullable on purpose:
   - `body`: `NULL` for a non-text message;
   - `triage`: `NULL` until it's saved;
@@ -122,6 +124,8 @@ A file must be safe to run twice:
 - `001` creates the role through `\gexec` only `WHERE NOT EXISTS`.
 - `002` adds its constraint inside a `DO` block guarded on `pg_constraint`.
 - `003` creates its index `IF NOT EXISTS`. An index belongs to its table's owner, so it needs no `SET ROLE`. A plain `CREATE INDEX` blocks writes while it builds, which is brief at this size; a large production table would need `CREATE INDEX CONCURRENTLY`, which can't run inside a transaction, as a separate step.
+- `004` drops its constraint `IF EXISTS` and adds it back with `handoff_paused` in the list, so a second run ends with the same constraint. The add scans `inbound_messages` once under a brief exclusive lock, which is milliseconds at this table's size.
+- `005` backfills `alerted_reasons` only for a mark that has no list yet, so a second run changes nothing.
 - `GRANT` and `REVOKE` are idempotent.
 
 The ledger already skips applied files, so a second `pnpm run setup` prints `no pending migrations`. A migration that creates a table starts with `\getenv owner APP_DB_USER` and `SET LOCAL ROLE :"owner";`, so `app` owns the table, not the superuser. `001` reads `APP_RUNTIME_DB_USER` once, so renaming the role later takes a new migration.
@@ -206,7 +210,7 @@ These steps take a volume created before `db/migrations/` existed to the current
 
    Don't regenerate `.env` with `node scripts/init-env.ts` on an existing volume. It would replace `N8N_ENCRYPTION_KEY` and every role password, which locks n8n out of its credentials and its own database. If you skip this step, `pnpm run db:migrate` stops before it touches anything and names the missing variables.
 3. **Start the stack with `docker compose up -d --wait`.** This recreates `postgres` with the two new variables in its environment. `db-migrate` doesn't depend on that, since it forwards the current `.env` values itself, but the service definition changed.
-4. **Run `pnpm run setup`.** It applies `001_runtime_role.sql`, `002_route_check.sql`, and `003_received_at_index.sql`, sets `app_runtime`'s password, and imports the credentials. `App DB` now connects as `app_runtime`, and the new `App DB (chat memory)` connects as `app`. Then it publishes the workflows and restarts n8n.
+4. **Run `pnpm run setup`.** It applies `001_runtime_role.sql`, `002_route_check.sql`, `003_received_at_index.sql`, `004_handoff_paused_route.sql`, and `005_alerted_reasons.sql`, sets `app_runtime`'s password, and imports the credentials. `App DB` now connects as `app_runtime`, and the new `App DB (chat memory)` connects as `app`. Then it publishes the workflows and restarts n8n.
 5. **No credential refresh is needed.** `setup-credentials` re-imports every credential that isn't Google OAuth2 on every run. Only the Calendar, Sheets, and Gmail types are skipped when they already exist. After step 4, n8n's only session on `app` is `app_runtime`.
 6. **Run `node scripts/check-db.ts`.** A second `pnpm run setup` prints `no pending migrations`.
 
@@ -223,7 +227,10 @@ These steps take a volume created before `db/migrations/` existed to the current
 | SET ROLE to the owner is denied | `permission denied to set role` |
 | no role attribute, membership, column grant, or TEMP/CREATE on app beyond the grant list | Checked as the superuser: `app_runtime` holds none of `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, or `BYPASSRLS`; `pg_auth_members` lists it as a member of nothing; `has_any_column_privilege` finds no column privilege its table grants don't cover; and it has no `TEMP` or `CREATE` on `app` |
 | table privileges are exactly the grant list | `app_runtime`'s privileges on every table and sequence in `public` equal `RUNTIME_GRANTS`: none missing, none extra |
-| every workflow Postgres statement runs | all ten statements run as `app_runtime`, inside one transaction it rolls back |
+| Recent conversation reads a human line, an ai line and an ai line of blocks as the alert thread | One transaction, rolled back: the owner inserts three chat-memory lines, and the workflow's own SQL, run as `app_runtime`, returns them in order with only the `text` block of the last |
+| An alert is held back by the same reason, an emergency or failed check only by its dedupe window, and the rest by an hourly cap | One transaction, rolled back: after a `non_text` mark, `non_text` is held back (`t`) and `human_requested` and a first `emergency` are not (`f`); after an `emergency` mark, a repeat emergency inside the dedupe window is held back and one outside a 0-minute window is not; a reason past a cap of 1 is held back and an emergency is not; and a `triage_failed` alert behaves like an emergency and never counts toward the cap |
+| every workflow Postgres statement runs | every statement runs as `app_runtime`, inside one transaction it rolls back |
+| Check handoff pause pauses after a handoff, and one message in a same-second burst gets the line | One transaction, rolled back: after a recorded `handoff`, two in-flight messages with one timestamp return `t\|t` for the first and `t\|f` for the second, a later message after the first is saved returns `t\|f`, and a handoff saved as `fallback` after a failed agent run still pauses (`t\|t`) |
 | Record inbound message inserts a message_id once, and Count recent messages counts only the window | One transaction, rolled back: the same `message_id` inserted twice returns 1 then 0, a second `message_id` returns 1, and the window count of 10 minutes returns 1 (the old row stays outside it) |
 | `schema_migrations` lists every file in `db/migrations` | every file is recorded |
 

@@ -135,9 +135,21 @@ test('argument errors tell the agent to fix its own call, never to send the pati
 test("the clinic's emergency phone is a placeholder that reads as fake", () =>
   expect(business.emergency_phone).toBe('+57 605 000 0000'));
 
-test('blocked, rate_limited, and non_text each end with a way forward: the emergency phone', () => {
-  for (const key of ['blocked', 'rate_limited', 'non_text'] as const)
+test('blocked, rate_limited, non_text, and handed_off each end with a way forward: the emergency phone', () => {
+  for (const key of ['blocked', 'rate_limited', 'non_text', 'handed_off', 'emergency_paused'] as const)
     for (const lang of LANGS) expect(business.replies[key][lang], `${key}.${lang}`).toContain(business.emergency_phone);
+});
+
+test('the first-message rule greets, names three things, and states the retention from BUSINESS', () => {
+  const rule = section('First message');
+  expect(rule).toContain('chat_retention_days');
+  expect(rule).toContain('automated assistant');
+  // An emergency comes first: the urgent guidance is answered before the greeting and the retention line.
+  expect(rule).toMatch(/URGENT[^.]*first/);
+  for (const thing of ['prices', 'opening hours', 'booking a visit']) expect(rule, thing).toContain(thing);
+  expect(rule).not.toMatch(/\d/);
+  expect(prompt.indexOf('## First message')).toBeGreaterThan(prompt.indexOf('## Identity and language'));
+  expect(prompt.indexOf('## First message')).toBeLessThan(prompt.indexOf('## Knowledge limits'));
 });
 
 test('the prompt gives the emergency phone when today has no slot, and sends severe cases to the emergency room', () => {

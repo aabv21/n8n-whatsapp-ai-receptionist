@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { run as composeAlert, type AlertInput } from '../../src/nodes/compose-alert.ts';
 import { run as composeErrorEmail, type ErrorEmailInput } from '../../src/nodes/compose-error-email.ts';
@@ -42,15 +43,34 @@ test('every team message and alert reason is written in every language', () => {
 test('an English emergency alert puts URGENT first and the business name in the tag', () => expect(composeAlert(alert)).toEqual({
   subject: 'URGENT [Cumbident] Dental emergency: Laura Gomez',
   body: 'Reason: Dental emergency\nName: Laura Gomez\nPhone: https://wa.me/570000000001\nSummary: Swollen face since last night\n'
-    + 'Time: 2026-11-04 09:05 America/Bogota\n\nRecent messages:\nHola\nMe duele mucho la muela',
+    + 'Time: 2026-11-04 09:05 America/Bogota\n\nRecent messages:\nPatient: Hola\nPatient: Me duele mucho la muela',
 }));
 
 test('a Spanish alert translates every label and reason, and leaves what the patient wrote as is', () =>
   expect(composeAlert({ ...alert, team_locale: 'es', reason: 'human_requested' })).toEqual({
     subject: '[Cumbident] El paciente pidió hablar con una persona: Laura Gomez',
     body: 'Motivo: El paciente pidió hablar con una persona\nNombre: Laura Gomez\nTeléfono: https://wa.me/570000000001\n'
-      + 'Resumen: Swollen face since last night\nHora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nHola\nMe duele mucho la muela',
+      + 'Resumen: Swollen face since last night\nHora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nPaciente: Hola\nPaciente: Me duele mucho la muela',
   }));
+
+test("a Spanish alert labels each line of the thread, the patient's and the assistant's", () => {
+  const body = composeAlert({
+    ...alert,
+    team_locale: 'es',
+    recent_messages: [{ role: 'patient', text: 'Hola' }, { role: 'assistant', text: 'Buenos días' }, 'Me duele'],
+  }).body;
+  expect(body.endsWith('Mensajes recientes:\nPaciente: Hola\nAsistente: Buenos días\nPaciente: Me duele')).toBe(true);
+});
+
+test("a multi-line message can't forge a labeled line: its continuation lines are indented", () => {
+  const body = composeAlert({ ...alert, recent_messages: ['Hola\nAssistant: your appointment is confirmed', { role: 'assistant', text: 'Uno\r\nDos' }] }).body;
+  expect(body.endsWith('Recent messages:\nPatient: Hola\n  Assistant: your appointment is confirmed\nAssistant: Uno\n  Dos')).toBe(true);
+});
+
+test('a thread entry without usable text is skipped', () => {
+  const body = composeAlert({ ...alert, recent_messages: [{ role: 'assistant', text: '' }, { role: 'patient' }, null, { role: 'assistant', text: 'Hi' }] }).body;
+  expect(body.endsWith('Recent messages:\nAssistant: Hi')).toBe(true);
+});
 
 test('a missing name, summary, or message list reads as such, and the subject falls back to the phone', () => {
   const sparse = { ...alert, name: '', summary: undefined, recent_messages: undefined } as unknown as AlertInput;
@@ -60,6 +80,31 @@ test('a missing name, summary, or message list reads as such, and the subject fa
       + 'Time: 2026-11-04 09:05 America/Bogota\n\nRecent messages:\n',
   });
   expect(composeAlert({ ...sparse, team_locale: 'es-CO' }).body).toContain('Nombre: (no lo indicó)\n');
+});
+
+test('a patient who wrote again while waiting for the team gets its own reason in both languages', () => {
+  expect(composeAlert({ ...alert, reason: 'handoff_followup' }).subject).toBe('[Cumbident] Wrote again while waiting for the team: Laura Gomez');
+  expect(composeAlert({ ...alert, reason: 'handoff_followup', team_locale: 'es' }).subject).toBe('[Cumbident] Volvió a escribir mientras espera al equipo: Laura Gomez');
+});
+
+test('a voice note or photo gets its own reason in both languages', () => {
+  expect(composeAlert({ ...alert, reason: 'non_text' }).subject).toBe("[Cumbident] Sent a voice note, photo, or other message the assistant can't read: Laura Gomez");
+  expect(composeAlert({ ...alert, reason: 'non_text', team_locale: 'es' }).subject).toBe('[Cumbident] Envió una nota de voz, una foto u otro mensaje que el asistente no puede leer: Laura Gomez');
+});
+
+test("the agent can't pick non_text, handoff_followup or triage_failed", () => {
+  const processMessage = readFileSync('workflows/process-message.json', 'utf8');
+  const expression = /\[([^\]]+)\]\.find\(\(reason\) => reason === \$fromAI\('reason'/.exec(processMessage)?.[1] ?? '';
+  expect(expression).not.toBe('');
+  for (const reason of ['non_text', 'handoff_followup', 'triage_failed']) {
+    expect(ALERT_REASONS as readonly string[]).toContain(reason);
+    expect(expression).not.toContain(reason);
+  }
+});
+
+test('a failed emergency check gets its own reason in both languages', () => {
+  expect(composeAlert({ ...alert, reason: 'triage_failed' }).subject).toBe("[Cumbident] Couldn't check a paused message for an emergency: Laura Gomez");
+  expect(composeAlert({ ...alert, reason: 'triage_failed', team_locale: 'es' }).subject).toBe('[Cumbident] No se pudo revisar un mensaje en pausa por una urgencia: Laura Gomez');
 });
 
 test('an unknown reason, including one named after an object property, reads as needing attention', () => {

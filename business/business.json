@@ -39,6 +39,14 @@
       "en": "You've sent a lot of messages in a short time. Please wait a few minutes and try again, or call our team at +57 605 000 0000.",
       "es": "Ha enviado muchos mensajes en poco tiempo. Por favor, espere unos minutos e intente de nuevo, o llame a nuestro equipo al +57 605 000 0000."
     },
+    "handed_off": {
+      "en": "Our team has your conversation and will write to you here soon. If it's urgent, call +57 605 000 0000.",
+      "es": "Nuestro equipo ya tiene su conversación y le escribirá por aquí pronto. Si es urgente, llame al +57 605 000 0000."
+    },
+    "emergency_paused": {
+      "en": "This sounds urgent. Please call +57 605 000 0000 now. If you have severe swelling, or trouble breathing or swallowing, go to the nearest emergency room.",
+      "es": "Esto parece urgente. Por favor, llame ahora al +57 605 000 0000. Si tiene una inflamación fuerte, o dificultad para respirar o tragar, acuda de inmediato a urgencias."
+    },
     "technical_issue": {
       "en": "Sorry, I'm having a technical issue right now. Our team has been notified and will reach out to you soon.",
       "es": "Lo siento, en este momento tengo un problema técnico. Nuestro equipo ya está enterado y se comunicará con usted pronto."
