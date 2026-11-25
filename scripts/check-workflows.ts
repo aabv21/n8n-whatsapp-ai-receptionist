@@ -61,7 +61,7 @@ export function sqlComments(query: string): string[] {
   return comments;
 }
 
-/** True when a `$` followed by a digit appears inside a SQL comment -- see AGENTS.md's Conventions. */
+/** True when a `$` followed by a digit appears inside a SQL comment -- see AGENTS.md's rules. */
 export function hasCommentPlaceholder(query: string): boolean {
   return sqlComments(query).some((comment) => DOLLAR_DIGIT_RE.test(comment));
 }

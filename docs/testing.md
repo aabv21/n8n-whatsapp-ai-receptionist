@@ -50,7 +50,7 @@ This page lists every test suite in the repo: its command, what it covers, and h
 - `readme.test.ts` — the README's section order, the five-command quick start, a Test scenarios row per conversation, the Patients columns and every config key under Configuration, the quick start's requirements and first call, links to both diagrams, the Limitations a client asks about, and the 27 numbered live checks.
 - `scenarios-lib.test.ts` — the scenario grader (`triageAccuracy`, `checkTurn`, `nextWeekday`) and the conversation fixtures' ids, phones, and patterns, including the adversarial ones.
 - `supply-chain.test.ts` — pnpm's effective supply-chain config, the exact pnpm 11 pin, no `package-lock.json` or `npm` instructions, digest-pinned images, `no-new-privileges` and dropped capabilities, and hash-pinned zizmor.
-- `hygiene.test.ts` — no tracked file points at a plan task, a brief, a ruling, or a review finding instead of stating its reason.
+- `hygiene.test.ts` — no tracked file points at a plan task, a brief, a ruling, or a review finding instead of stating its reason; `AGENTS.md` stays a short guide (at most 160 lines, none over 400 characters) that points to every doc in `docs/`.
 
 Three helpers in `tests/helpers/` aren't test files: `run-generated.ts` runs a generated Code node's `jsCode` the way n8n's sandbox does, `run-expression.ts` evaluates one `={{ … }}` field expression with `$()`, `$json`, and `$now` in scope, and `sticky-sections.ts` reads each sticky note's heading and x-span. `tests/fixtures/nodes/double-value.ts` is the one-line Code-node source the build tests compile.
 

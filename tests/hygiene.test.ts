@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { expect, test } from 'vitest';
 
@@ -40,4 +40,19 @@ test('no tracked file points at a plan task, a brief, a ruling, or a review find
     });
   }
   expect(offenders).toEqual([]);
+});
+
+test('AGENTS.md is a short guide: at most 160 lines, none over 400 characters', () => {
+  const lines = readFileSync('AGENTS.md', 'utf8').split('\n');
+  expect(lines.length).toBeLessThanOrEqual(160);
+  const long = lines.flatMap((line, index) => (line.length > 400 ? [`AGENTS.md:${String(index + 1)} (${String(line.length)} characters)`] : []));
+  expect(long).toEqual([]);
+});
+
+test('AGENTS.md points to every doc in docs/', () => {
+  const agents = readFileSync('AGENTS.md', 'utf8');
+  const missing = readdirSync('docs')
+    .filter((name) => name.endsWith('.md'))
+    .filter((name) => !agents.includes(`docs/${name}`));
+  expect(missing).toEqual([]);
 });
