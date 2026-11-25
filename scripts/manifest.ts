@@ -37,6 +37,7 @@ export const WORKFLOWS: readonly WorkflowEntry[] = [
   { id: 'cmbCheckAvail001', name: 'Check availability', file: 'check-availability.json' },
   { id: 'cmbUpsertPatient', name: 'Upsert patient', file: 'upsert-patient.json' },
   { id: 'cmbBookAppt00001', name: 'Book appointment', file: 'book-appointment.json' },
+  { id: 'cmbChangeAppt001', name: 'Change appointment', file: 'change-appointment.json' },
   { id: 'cmbTriageMsg0001', name: 'Triage message', file: 'triage-message.json' },
   { id: 'cmbProcMessage01', name: 'Process message', file: 'process-message.json' },
   { id: 'cmbWhatsappEntry', name: 'WhatsApp entry', file: 'whatsapp-entry.json' },
@@ -166,6 +167,18 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     node: 'Check booking limit',
     source: 'src/nodes/validate-booking.ts',
     why: "reruns validate-booking's ordered checks with the phone's upcoming-booking count, so the limit follows the same rules as the first pass",
+  },
+  {
+    file: 'change-appointment.json',
+    node: 'Check change request',
+    source: 'src/nodes/plan-appointment-change.ts',
+    why: 'ordered checks of the action, the dates, the new slot, ownership and notice must yield one plan, the same function before and after the Calendar read',
+  },
+  {
+    file: 'change-appointment.json',
+    node: 'Plan appointment change',
+    source: 'src/nodes/plan-appointment-change.ts',
+    why: 'ordered checks of the action, the dates, the new slot, ownership and notice must yield one plan, the same function before and after the Calendar read',
   },
   {
     file: 'triage-message.json',

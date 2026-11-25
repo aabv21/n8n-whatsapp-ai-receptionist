@@ -29,6 +29,7 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 - **`triage-message`** asks TypeSafe's Jev five yes/no questions, or only the emergency one when `emergency_only` is true (the handoff pause), and applies `config.triage.thresholds`. It fails open: a Jev error or an incomplete answer returns `route: "agent"` with `flags.triage_failed: true`.
 - **`check-availability`** offers up to 3 free slots on one day from the opening hours, minimum notice, and Calendar's busy events. An invalid, past, closed, or too-far date (past `config.limits.max_booking_days_ahead`) is refused before any Calendar call, and on the last day inside that horizon it offers only slots `book-appointment` would accept.
 - **`book-appointment`** validates the service, date, time, hours, slot grid, notice, and booking horizon offline, counts the phone's upcoming bookings against `config.limits.max_upcoming_bookings`, re-checks the exact slot, creates the event, and upserts the patient as `booked` with the trimmed phone and name the event uses.
+- **`change-appointment`** lists, cancels or moves the appointments the assistant booked for the sender's phone. It matches an event only when its description holds exactly that phone line and the assistant's booking line, so an appointment staff made by hand, or one for another phone, is never touched. A move passes the same hours, slot-grid, notice and horizon checks as a new booking and re-reads the new slot first. A change within `business.change_notice_hours` of the appointment returns `too_late_to_change`. A cancel marks the patient `cancelled`; a move keeps them `booked`.
 - **`upsert-patient`** merges the patient's row in the Patients sheet by phone. A missing, blank, or whitespace-only field keeps the stored value, an `inquiry` never downgrades a stored status, `last_contact` is today in `business.timezone`, and every value is written raw.
 - **`notify-team`** emails the team a plain-text alert in `config.team_locale`'s language, at most once per phone and reason per `config.limits.alert_cooldown_minutes`; [the architecture doc](docs/architecture.md#what-happens-when-something-fails) has the exceptions. Without a valid `alert_cooldown_minutes`, alerts still send without the same-reason cooldown (the emergency dedupe and the hourly cap still apply), and each one carries a line naming the setting.
 - **`load-context`** reads the four mounted files into one item. A missing file fails its read and the calling run, so it shows in the executions list instead of answering with no context.
@@ -185,6 +186,7 @@ node scripts/dev-call.ts cleanup '{"phone_prefix":"57"}'
 node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'
 node scripts/dev-call.ts book-appointment '{"phone":"570000000001","name":"Test Patient","service":"Dental implants","date":"<next Wednesday>","time":"09:30"}'
 node scripts/dev-call.ts book-appointment '{"phone":"570000000001","name":"Test Patient","service":"Dental cleaning","date":"<next Wednesday>","time":"09:30"}'
+node scripts/dev-call.ts change-appointment '{"action":"reschedule","phone":"570000000001","date":"2020-01-06","time":"09:30","new_date":"2020-01-05","new_time":"09:30"}'
 node scripts/dev-call.ts triage-message '{"text":"Can I please talk to a real person?","recent_messages":[]}'
 node scripts/dev-call.ts process-message '{"channel":"test","message_id":"t-1","phone":"570000000002","name":"Test","type":"text","text":"How much is a dental cleaning?","received_at":"<now, as ISO 8601>"}'
 node scripts/dev-call.ts retention '{}'
@@ -196,6 +198,7 @@ node scripts/dev-call.ts retention '{}'
 - `upsert-patient` returns `{"ok":false,"reason":"sheets_unavailable"}` until a Sheets credential exists. With one, an `inquiry` keeps a stored `booked` status.
 - `cleanup` with `57` is refused with `prefix_too_short` before touching anything. With `5700000000` it returns `ok: false`, `null` for `events` and `rows`, and the two Postgres counts.
 - The first `book-appointment` returns `{"ok":false,"reason":"invalid_service"}` without Calendar; the second returns `calendar_unavailable`.
+- `change-appointment` returns `{"ok":false,"reason":"closed"}` for a move to a Sunday, without Calendar.
 - `triage-message` returns `scores: null`, `route: "agent"`, and `flags.triage_failed: true` until a TypeSafe credential exists.
 - `process-message` returns route `fallback` with the `technical_issue_retry` reply; the same `message_id` again returns `{"reply":null,"route":"duplicate","flags":{},"tool_calls":[]}`.
 - `retention` returns `{"success":true}`.

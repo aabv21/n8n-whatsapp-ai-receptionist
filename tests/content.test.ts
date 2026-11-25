@@ -157,3 +157,8 @@ test('the prompt gives the emergency phone when today has no slot, and sends sev
   expect(notes).toContain('BUSINESS emergency_phone');
   expect(notes).toMatch(/nearest emergency room/);
 });
+
+test('change_notice_hours is 24, matching the knowledge base\'s 24 hours\' notice', () => {
+  expect(business.change_notice_hours).toBe(24);
+  expect(kb).toMatch(/24 hours' notice/);
+});

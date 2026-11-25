@@ -52,3 +52,16 @@ test("Validate input's status list is PATIENT_STATUSES", () => {
   const list = /\[('[^\]]+)\]\.includes\(/.exec(condition)?.[1] ?? '';
   expect([...list.matchAll(/'([^']+)'/g)].map((m) => m[1])).toEqual([...PATIENT_STATUSES]);
 });
+
+test('cancelled is a status, and an inquiry never downgrades it', () => {
+  expect(PATIENT_STATUSES).toContain('cancelled');
+  expect(merged({ status: 'cancelled' }, { ...stored, status: 'booked' }).status).toBe('cancelled');
+  expect(merged({ status: 'inquiry' }, { ...stored, status: 'cancelled' }).status).toBe('cancelled');
+  expect(merged({ status: 'booked' }, { ...stored, status: 'cancelled' }).status).toBe('booked');
+});
+
+test('a cancelled update clears the last appointment, because the patient has none left to attend', () => {
+  expect(merged({ status: 'cancelled' })).toMatchObject({ status: 'cancelled', last_appointment: '' });
+  // Any other status still keeps a stored appointment when the update leaves it blank.
+  expect(merged({ status: 'booked' }).last_appointment).toBe(stored.last_appointment);
+});

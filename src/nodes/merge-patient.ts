@@ -1,5 +1,5 @@
 /** The statuses a Patients row can hold; `Validate input` accepts exactly these. */
-export const PATIENT_STATUSES = ['inquiry', 'booked', 'handed_off'] as const;
+export const PATIENT_STATUSES = ['inquiry', 'booked', 'handed_off', 'cancelled'] as const;
 
 export interface MergePatientInput {
   /** The update the agent or the booking flow sent. */
@@ -28,7 +28,7 @@ const keepStored = (update: unknown, stored: unknown): string => text(update) ||
  * The row to write: the update over the stored row, field by field. A blank field keeps its
  * stored value, because Google Sheets writes an empty string for a mapped column that's blank. An
  * `inquiry` keeps a stored non-empty status, so the assistant's routine upsert never downgrades
- * `booked` or `handed_off`. `last_contact` is `today`.
+ * `booked`, `handed_off` or `cancelled`. `last_contact` is `today`. A `cancelled` update clears the last appointment.
  */
 export function run(input: MergePatientInput): MergedPatient {
   const { update, stored, today } = input;
@@ -39,6 +39,7 @@ export function run(input: MergePatientInput): MergedPatient {
     status: update.status === 'inquiry' && storedStatus !== '' ? storedStatus : update.status,
     name: keepStored(update.name, stored.name),
     service_of_interest: keepStored(update.service_of_interest, stored.service_of_interest),
-    last_appointment: keepStored(update.last_appointment, stored.last_appointment),
+    // A cancelled patient has no appointment left to attend, so the stored one is cleared rather than kept.
+    last_appointment: update.status === 'cancelled' ? '' : keepStored(update.last_appointment, stored.last_appointment),
   };
 }
