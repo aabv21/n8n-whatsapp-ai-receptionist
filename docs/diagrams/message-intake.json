@@ -9,7 +9,7 @@
     "column_fit": "spread",
     "viewBox": [
       1000,
-      1094
+      1322
     ]
   },
   "participants": [
@@ -69,17 +69,17 @@
     },
     {
       "from": 510,
-      "to": 662,
-      "label": "4 Language and rate limit"
+      "to": 890,
+      "label": "4 Language, limit, pause"
     },
     {
-      "from": 668,
-      "to": 820,
+      "from": 896,
+      "to": 1048,
       "label": "5 Triage"
     },
     {
-      "from": 826,
-      "to": 978,
+      "from": 1054,
+      "to": 1206,
       "label": "6 Route"
     }
   ],
@@ -134,67 +134,110 @@
     {
       "id": "message-intake-7",
       "from": "process",
-      "to": "entry",
+      "to": "notify",
       "y": 556,
-      "label": "non_text: fixed reply",
-      "variant": "return"
+      "label": "non_text: alert the team"
     },
     {
       "id": "message-intake-8",
       "from": "process",
-      "to": "db",
+      "to": "entry",
       "y": 594,
-      "label": "count text in 10 min"
+      "label": "non_text: fixed reply",
+      "variant": "return"
     },
     {
       "id": "message-intake-9",
+      "from": "process",
+      "to": "db",
+      "y": 632,
+      "label": "count text in 10 min"
+    },
+    {
+      "id": "message-intake-10",
       "from": "db",
       "to": "process",
-      "y": 632,
+      "y": 670,
       "label": "over 20: one notice",
       "variant": "return"
     },
     {
-      "id": "message-intake-10",
-      "from": "process",
-      "to": "jev",
-      "y": 714,
-      "label": "5 yes/no questions"
-    },
-    {
       "id": "message-intake-11",
-      "from": "jev",
-      "to": "process",
-      "y": 752,
-      "label": "route + notes (fails open)",
-      "variant": "return"
+      "from": "process",
+      "to": "db",
+      "y": 708,
+      "label": "last 6 memory lines"
     },
     {
       "id": "message-intake-12",
       "from": "process",
       "to": "db",
-      "y": 790,
-      "label": "save triage"
+      "y": 746,
+      "label": "handoff in the last 12 h?"
     },
     {
       "id": "message-intake-13",
       "from": "process",
-      "to": "notify",
-      "y": 872,
-      "label": "emergency, handoff: alert"
+      "to": "jev",
+      "y": 784,
+      "label": "paused: emergency question only"
     },
     {
       "id": "message-intake-14",
-      "from": "notify",
-      "to": "db",
-      "y": 910,
-      "label": "cooldown, mark alert"
+      "from": "process",
+      "to": "notify",
+      "y": 822,
+      "label": "paused: urgent alert, or one re-alert"
     },
     {
       "id": "message-intake-15",
       "from": "process",
       "to": "entry",
-      "y": 948,
+      "y": 860,
+      "label": "paused: urgent reply, or one line",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-16",
+      "from": "process",
+      "to": "jev",
+      "y": 942,
+      "label": "5 yes/no questions"
+    },
+    {
+      "id": "message-intake-17",
+      "from": "jev",
+      "to": "process",
+      "y": 980,
+      "label": "route + notes (fails open)",
+      "variant": "return"
+    },
+    {
+      "id": "message-intake-18",
+      "from": "process",
+      "to": "db",
+      "y": 1018,
+      "label": "save triage"
+    },
+    {
+      "id": "message-intake-19",
+      "from": "process",
+      "to": "notify",
+      "y": 1100,
+      "label": "emergency, handoff: alert"
+    },
+    {
+      "id": "message-intake-20",
+      "from": "notify",
+      "to": "db",
+      "y": 1138,
+      "label": "cooldown, mark alert"
+    },
+    {
+      "id": "message-intake-21",
+      "from": "process",
+      "to": "entry",
+      "y": 1176,
       "label": "blocked: fixed reply",
       "variant": "return"
     }
