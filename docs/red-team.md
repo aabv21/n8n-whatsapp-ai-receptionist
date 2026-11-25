@@ -11,7 +11,8 @@ The static review behind this page read the prompts, the tool schemas, the Code-
 - the WhatsApp message body, cut to `config.limits.max_text_chars` (2,000 by default) by `Normalize text`;
 - the WhatsApp profile name (`contacts[0].profile.name`);
 - the patient's own chat memory, the last 10 exchanges;
-- up to 3 of the patient's earlier messages, which go to Jev with the latest one.
+- up to 3 of the patient's earlier messages, which go to Jev with the latest one;
+- the last 6 chat-memory lines, the patient's and the assistant's own replies, which reach the team's alert email as plain text, each line labeled `Patient` or `Assistant`.
 
 **Where it reaches a model:**
 

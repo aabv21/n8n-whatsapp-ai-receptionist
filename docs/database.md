@@ -29,12 +29,13 @@ The trade-off is that `app`'s password sits in n8n's encrypted credential store,
 
 ## Every statement and what covers it
 
-The twelve Postgres node statements run as `app_runtime`. The last four rows are the Chat Memory node's, which run as `app`. Each `UPDATE`'s and `DELETE`'s `WHERE`, and the insert's conflict check, read columns, so they need `SELECT` as well; this was checked against Postgres 17 with a role that held only the write privilege. The "Served by" column comes from `EXPLAIN` on Postgres 17.11.
+The thirteen Postgres node statements run as `app_runtime`. The last four rows are the Chat Memory node's, which run as `app`. Each `UPDATE`'s and `DELETE`'s `WHERE`, and the insert's conflict check, read columns, so they need `SELECT` as well; this was checked against Postgres 17 with a role that held only the write privilege. The "Served by" column comes from `EXPLAIN` on Postgres 17.11.
 
 | Workflow › node | Statement | Privileges it needs | Served by |
 |---|---|---|---|
 | `process-message` › Record inbound message | `INSERT INTO inbound_messages … ON CONFLICT (message_id) DO NOTHING RETURNING 1`, counted | `INSERT`; `SELECT` for the conflict check | primary key, as the conflict arbiter |
 | `process-message` › Count recent messages | `SELECT count(*) … WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND body IS NOT NULL` | `SELECT` | `inbound_messages_phone_received_idx` |
+| `process-message` › Recent conversation | `SELECT coalesce(jsonb_agg(… ORDER BY id), '[]') FROM (SELECT id, message FROM n8n_chat_histories WHERE session_id = $1 ORDER BY id DESC LIMIT 6) t`, one `{ role, text }` per chat-memory line | `SELECT` on `n8n_chat_histories` | `n8n_chat_histories_session_idx` |
 | `process-message` › Recent patient messages | `SELECT … WHERE phone = $1 AND message_id <> $2 AND body IS NOT NULL ORDER BY received_at DESC LIMIT 3` | `SELECT` | `inbound_messages_phone_received_idx` |
 | `process-message` › Save triage | `UPDATE inbound_messages SET triage = $2::jsonb WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |
 | `process-message` › Save route | `UPDATE inbound_messages SET route = $2 WHERE message_id = $1` | `UPDATE`, `SELECT` | primary key |

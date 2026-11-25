@@ -77,6 +77,7 @@ Message lifecycle: [interactive page](diagrams/message-lifecycle.html) · [sourc
 5. **Triage**: `triage-message` sends the text and up to 3 earlier messages to Jev. The thresholds pick one route: manipulation means `blocked`, an emergency means `emergency`, a request for a person or a complaint means `handoff`, and anything else means `agent`. Missing or invalid scores fail open: the route is `agent`, with `triage_failed: true`.
 6. **Route**: `blocked` gets a fixed reply and stops; that reply, `rate_limited` and `non_text` each end with `business.emergency_phone`, so the patient always has a way forward.
    - `emergency` alerts the team, and `handoff` marks the patient `handed_off` and then alerts; both continue to the agent, as `agent` does.
+   - An alert's recent messages are the last 6 lines of the patient's chat memory, each labeled `Patient` or `Assistant`, plus the current message, so the team reads the assistant's own replies in the thread.
    - Before it sends, `notify-team` asks Postgres whether this phone's messages already carry a recent alert, and after a send it records the alert and its reason on the message's `triage` JSON.
 7. **Agent with tool calls**: The system prompt gets the business facts, the knowledge base, the current Bogota time, a hint naming the message's language, and the triage notes.
    - The URGENT note tells the agent to give the patient `business.emergency_phone` when today has no free slot.

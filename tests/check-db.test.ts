@@ -107,6 +107,7 @@ describe('workflow statements', () => {
       'notify-team.json › Check alert cooldown',
       'notify-team.json › Mark team alerted',
       'process-message.json › Count recent messages',
+      'process-message.json › Recent conversation',
       'process-message.json › Recent patient messages',
       'process-message.json › Record inbound message',
       'process-message.json › Save route',

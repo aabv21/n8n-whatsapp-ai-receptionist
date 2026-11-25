@@ -243,10 +243,19 @@ test('an emergency or handoff alert that fails still reaches the agent, and an a
   expect(fallback).toContain(': $(\'Load context\').first().json.business.replies.technical_issue_retry[');
 });
 
+test('the team alert carries the last six chat-memory lines plus this message', () => {
+  const query = String(node('Recent conversation')?.parameters.query);
+  expect(query).toContain('LIMIT 6');
+  expect(query).toContain('session_id = $1');
+  expect(inputsOf(node('Alert the team')).value.recent_messages).toBe(
+    "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
+  );
+});
+
 const SECTIONS: Record<string, string[]> = {
   '## Intake': [
     'Record inbound message', 'Is it a duplicate', 'Return duplicate', 'Prepare language check', 'Resolve language', 'Is it text', 'Reply non-text',
-    'Count recent messages', 'Is the patient over the limit', 'Reply rate limited', 'Recent patient messages',
+    'Count recent messages', 'Is the patient over the limit', 'Reply rate limited', 'Recent conversation', 'Recent patient messages',
   ],
   '## Triage and alerts': ['Triage message', 'Save triage', 'Route by triage', 'Reply blocked', 'Mark patient handed off', 'Alert the team'],
   '## Agent': [

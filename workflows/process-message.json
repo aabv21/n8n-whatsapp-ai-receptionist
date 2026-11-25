@@ -331,7 +331,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2240,
+        2480,
         300
       ],
       "retryOnFail": true,
@@ -386,7 +386,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2480,
+        2720,
         300
       ]
     },
@@ -403,7 +403,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2720,
+        2960,
         300
       ],
       "retryOnFail": true,
@@ -528,7 +528,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.5,
       "position": [
-        2960,
+        3200,
         300
       ]
     },
@@ -543,7 +543,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3200,
+        3440,
         100
       ]
     },
@@ -597,7 +597,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        3200,
+        3440,
         500
       ],
       "onError": "continueRegularOutput"
@@ -616,7 +616,7 @@
             "reason": "={{ $('Triage message').first().json.notify_reason }}",
             "phone": "={{ $('When called').first().json.phone }}",
             "name": "={{ $('When called').first().json.name }}",
-            "recent_messages": "={{ $('Recent patient messages').first().json.recent.concat([$('Normalize text').first().json.text]) }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
             "message_id": "={{ $('When called').first().json.message_id }}"
           },
           "schema": [
@@ -671,7 +671,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        3440,
+        3680,
         300
       ],
       "onError": "continueRegularOutput"
@@ -687,7 +687,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3680,
+        3920,
         300
       ]
     },
@@ -702,7 +702,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3920,
+        4160,
         300
       ]
     },
@@ -721,7 +721,7 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4160,
+        4400,
         300
       ],
       "onError": "continueErrorOutput"
@@ -744,7 +744,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.6,
       "position": [
-        3700,
+        3940,
         580
       ],
       "credentials": {
@@ -766,7 +766,7 @@
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.4,
       "position": [
-        3840,
+        4080,
         580
       ],
       "credentials": {
@@ -818,7 +818,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        3980,
+        4220,
         580
       ]
     },
@@ -891,7 +891,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4120,
+        4360,
         580
       ]
     },
@@ -963,7 +963,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4260,
+        4500,
         580
       ]
     },
@@ -1044,7 +1044,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4400,
+        4640,
         580
       ]
     },
@@ -1078,7 +1078,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        4480,
+        4720,
         300
       ]
     },
@@ -1093,7 +1093,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4720,
+        4960,
         200
       ]
     },
@@ -1108,7 +1108,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4960,
+        5200,
         200
       ]
     },
@@ -1123,7 +1123,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5200,
+        5440,
         200
       ]
     },
@@ -1138,7 +1138,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        5440,
+        5680,
         200
       ]
     },
@@ -1193,7 +1193,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        4720,
+        4960,
         20
       ],
       "onError": "continueRegularOutput"
@@ -1209,7 +1209,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4960,
+        5200,
         20
       ]
     },
@@ -1226,7 +1226,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        5720,
+        5960,
         400
       ],
       "retryOnFail": true,
@@ -1248,13 +1248,13 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        5960,
+        6200,
         300
       ]
     },
     {
       "parameters": {
-        "width": 2580,
+        "width": 2820,
         "height": 940,
         "content": "## Intake\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it.",
         "color": 4
@@ -1280,7 +1280,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2420,
+        2660,
         -200
       ]
     },
@@ -1296,7 +1296,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        3640,
+        3880,
         -320
       ]
     },
@@ -1312,9 +1312,35 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        4680,
+        4920,
         -260
       ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT coalesce(jsonb_agg(jsonb_build_object('role', CASE WHEN message->>'type' = 'human' THEN 'patient' ELSE 'assistant' END, 'text', CASE jsonb_typeof(message->'data'->'content') WHEN 'string' THEN message->'data'->>'content' ELSE (SELECT string_agg(b->>'text', '') FROM jsonb_array_elements(message->'data'->'content') b WHERE b->>'type' = 'text') END) ORDER BY id), '[]'::jsonb) AS thread FROM (SELECT id, message FROM n8n_chat_histories WHERE session_id = $1 ORDER BY id DESC LIMIT 6) t",
+        "options": {
+          "queryReplacement": "={{ ($('When called').first().json.channel === 'test' ? 'test:' : '') + $('When called').first().json.phone }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000042",
+      "name": "Recent conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2240,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
     }
   ],
   "connections": {
@@ -1442,7 +1468,7 @@
         ],
         [
           {
-            "node": "Recent patient messages",
+            "node": "Recent conversation",
             "type": "main",
             "index": 0
           }
@@ -1790,6 +1816,17 @@
           {
             "node": "AI Agent",
             "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recent conversation": {
+      "main": [
+        [
+          {
+            "node": "Recent patient messages",
+            "type": "main",
             "index": 0
           }
         ]

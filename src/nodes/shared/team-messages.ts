@@ -16,6 +16,8 @@ export interface TeamMessages {
   none: string;
   time: string;
   recentMessages: string;
+  patient: string;
+  assistant: string;
   workflowFailed: string;
   failedNode: string;
   error: string;
@@ -43,6 +45,8 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
     none: '(none)',
     time: 'Time',
     recentMessages: 'Recent messages',
+    patient: 'Patient',
+    assistant: 'Assistant',
     workflowFailed: 'Workflow failed',
     failedNode: 'Failed node',
     error: 'Error',
@@ -67,6 +71,8 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
     none: '(ninguno)',
     time: 'Hora',
     recentMessages: 'Mensajes recientes',
+    patient: 'Paciente',
+    assistant: 'Asistente',
     workflowFailed: 'Falló un flujo',
     failedNode: 'Nodo que falló',
     error: 'Error',

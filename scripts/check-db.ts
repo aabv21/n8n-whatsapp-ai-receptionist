@@ -101,6 +101,7 @@ const PROBE_PHONE = '570000000099';
 export const PROBES: readonly Probe[] = [
   { file: 'process-message.json', node: 'Record inbound message', params: [PROBE_ID, 'test', PROBE_PHONE, 'check-db probe', '2026-01-01T00:00:00Z'] },
   { file: 'process-message.json', node: 'Count recent messages', params: [PROBE_PHONE, '10'] },
+  { file: 'process-message.json', node: 'Recent conversation', params: ['test:' + PROBE_PHONE] },
   { file: 'process-message.json', node: 'Recent patient messages', params: [PROBE_PHONE, 'check-db-other'] },
   { file: 'process-message.json', node: 'Save triage', params: [PROBE_ID, '{"scores":null}'] },
   { file: 'process-message.json', node: 'Save route', params: [PROBE_ID, 'agent'] },

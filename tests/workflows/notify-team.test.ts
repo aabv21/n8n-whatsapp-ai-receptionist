@@ -134,7 +134,7 @@ test('the generated Compose alert writes a Spanish alert inside a sandbox that f
   expect(runGenerated(jsCode, input)).toEqual([{ json: {
     subject: 'URGENTE [Cumbident] Urgencia odontológica: Laura Gomez',
     body: 'Motivo: Urgencia odontológica\nNombre: Laura Gomez\nTeléfono: https://wa.me/570000000001\nResumen: Cara hinchada desde anoche\n'
-      + 'Hora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nHola\nMe duele mucho la muela',
+      + 'Hora: 2026-11-04 09:05 America/Bogota\n\nMensajes recientes:\nPaciente: Hola\nPaciente: Me duele mucho la muela',
   } }]);
 });
 
