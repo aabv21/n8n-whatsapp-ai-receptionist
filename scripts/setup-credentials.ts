@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { isExecError } from './lib/errors.ts';
+import { isExecError, runMain } from './lib/errors.ts';
 import { compose, loadDotEnv } from './lib/runtime.ts';
 import { CREDENTIALS } from './manifest.ts';
 
@@ -126,8 +126,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

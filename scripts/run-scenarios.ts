@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { DateTime } from 'luxon';
 import type { Scores } from '../src/nodes/decide-route.ts';
 import { callDev } from './lib/dev-client.ts';
+import { errorMessage, runMain } from './lib/errors.ts';
 import { BOGOTA, checkTurn, resolveTokens, triageAccuracy, triageRequest, type AccuracyRow, type ProcessResult, type Scenario, type TriageItem } from './lib/scenarios.ts';
 
 const CLEANUP_PREFIX = '5700000000';
@@ -72,10 +73,6 @@ function isTomorrowSunday(now: DateTime): boolean {
 async function cleanup(label: string): Promise<void> {
   const result = await callDev('cleanup', { phone_prefix: CLEANUP_PREFIX });
   console.log(`cleanup (${label}): ${JSON.stringify(result)}`);
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -268,8 +265,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

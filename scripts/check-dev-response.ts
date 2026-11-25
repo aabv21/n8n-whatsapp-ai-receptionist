@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { callDev } from './lib/dev-client.ts';
+import { runMain } from './lib/errors.ts';
 
 /**
  * True only when `result` is exactly `{ success: true }`, the Postgres node's own result for a
@@ -41,8 +42,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

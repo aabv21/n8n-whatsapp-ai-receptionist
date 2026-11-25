@@ -5,6 +5,7 @@ import { compose, loadDotEnv, waitForHealthy, waitForWebhookLive } from './lib/r
 import { listJsonFiles, readWorkflow, type Workflow } from './lib/workflow.ts';
 import { CREDENTIALS, WORKFLOWS, type WorkflowEntry } from './manifest.ts';
 import { buildCredentials } from './setup-credentials.ts';
+import { errorMessage, runMain } from './lib/errors.ts';
 
 /**
  * IDs of credentials that a trigger node in `wf` needs but `available` doesn't have, in node
@@ -68,7 +69,7 @@ async function main(): Promise<void> {
       await compose(['exec', '-T', 'n8n', 'n8n', 'publish:workflow', `--id=${entry.id}`]);
       published.push(entry);
     } catch (err) {
-      failures.push(`publish failed for ${entry.file}: ${err instanceof Error ? err.message : String(err)}`);
+      failures.push(`publish failed for ${entry.file}: ${errorMessage(err)}`);
     }
   }
 
@@ -98,8 +99,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

@@ -1,9 +1,11 @@
 import { readdirSync } from 'node:fs';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MIGRATIONS_DIR, missingEnv, missingEnvError, orderMigrations, pendingMigrations } from './db-migrate.ts';
+import { missingEnv, missingEnvError } from './lib/env.ts';
+import { MIGRATIONS_DIR, orderMigrations, pendingMigrations } from './lib/migrations.ts';
 import { loadDotEnv, runPsql, type PsqlOptions, type PsqlResult } from './lib/runtime.ts';
 import { listJsonFiles, readWorkflow, type Workflow } from './lib/workflow.ts';
+import { runMain } from './lib/errors.ts';
 
 /** What the runtime role may do, table by table: exactly what `001_runtime_role.sql` grants. */
 export const RUNTIME_GRANTS: Readonly<Record<string, readonly string[]>> = {
@@ -323,8 +325,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

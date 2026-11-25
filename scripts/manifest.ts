@@ -197,6 +197,12 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     why: 'matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions',
   },
   {
+    file: 'upsert-patient.json',
+    node: 'Merge patient fields',
+    source: 'src/nodes/merge-patient.ts',
+    why: 'the merge rules (blank keeps the stored value, inquiry never downgrades a status) are product rules, kept as one typed, unit-tested function instead of an expression',
+  },
+  {
     file: 'notify-team.json',
     node: 'Compose alert',
     source: 'src/nodes/compose-alert.ts',
