@@ -5,6 +5,13 @@ export interface TriageItem {
   text: string;
   lang: 'en' | 'es';
   expect: Partial<Record<Signal, boolean>>;
+  /** Earlier messages from the same patient, which Jev reads as context. */
+  recent?: string[];
+}
+
+/** The `triage-message` input for `item`. */
+export function triageRequest(item: TriageItem): { text: string; recent_messages: string[] } {
+  return { text: item.text, recent_messages: item.recent ?? [] };
 }
 
 export interface AccuracyRow {
@@ -88,11 +95,14 @@ export function nextWeekday(now: DateTime, weekday: number): string {
 }
 
 /**
- * Replaces every `{{next_thursday}}` token inside `value`, at any depth, with that date. A JSON
+ * Replaces every `{{next_thursday}}` and `{{thursday_after_next}}` token inside `value`, at any depth, with that date. A JSON
  * round-trip does the deep walk, since every scenario fixture is JSON-shaped to begin with.
  */
 export function resolveTokens<T>(value: T, now: DateTime): T {
-  const serialized = JSON.stringify(value).replaceAll('{{next_thursday}}', nextWeekday(now, THURSDAY));
+  const nextThursday = DateTime.fromISO(nextWeekday(now, THURSDAY), { zone: BOGOTA });
+  const serialized = JSON.stringify(value)
+    .replaceAll('{{next_thursday}}', nextThursday.toFormat('yyyy-LL-dd'))
+    .replaceAll('{{thursday_after_next}}', nextThursday.plus({ days: 7 }).toFormat('yyyy-LL-dd'));
   return JSON.parse(serialized) as T;
 }
 

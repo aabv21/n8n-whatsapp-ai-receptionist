@@ -224,6 +224,7 @@ These steps take a volume created before `db/migrations/` existed to the current
 | no role attribute, membership, column grant, or TEMP/CREATE on app beyond the grant list | Checked as the superuser: `app_runtime` holds none of `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `REPLICATION`, or `BYPASSRLS`; `pg_auth_members` lists it as a member of nothing; `has_any_column_privilege` finds no column privilege its table grants don't cover; and it has no `TEMP` or `CREATE` on `app` |
 | table privileges are exactly the grant list | `app_runtime`'s privileges on every table and sequence in `public` equal `RUNTIME_GRANTS`: none missing, none extra |
 | every workflow Postgres statement runs | all ten statements run as `app_runtime`, inside one transaction it rolls back |
+| Record inbound message inserts a message_id once, and Count recent messages counts only the window | One transaction, rolled back: the same `message_id` inserted twice returns 1 then 0, a second `message_id` returns 1, and the window count of 10 minutes returns 1 (the old row stays outside it) |
 | `schema_migrations` lists every file in `db/migrations` | every file is recorded |
 
 - **What counts as a denial.** Only the expected one passes. A statement that succeeds fails the check, and so does psql failing for any other reason, such as a missing role or a stopped container.

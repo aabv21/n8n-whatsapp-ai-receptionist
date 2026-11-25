@@ -14,3 +14,9 @@ test('Score message with Jev makes 2 tries, 1000 ms apart, with config.triage.ti
   const outputs = (wf.connections['Score message with Jev'] as { main: { node: string }[][] }).main;
   expect(outputs[1]?.map((e) => e.node)).toEqual(['Blank scores on Jev failure']);
 });
+
+test("Jev's criteria say a call-back to book is not a human request, and a mild lasting ache is not an emergency", () => {
+  const body = String(node('Score message with Jev')?.parameters.jsonBody);
+  expect(body).toContain('or asks to be called back only to book an appointment.');
+  expect(body).toContain('or a mild ache that has lasted days with no swelling, bleeding, or fever.');
+});

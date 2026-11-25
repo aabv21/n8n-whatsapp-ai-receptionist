@@ -134,6 +134,48 @@ export function probeScript(statements: readonly WorkflowStatement[], probes: re
   return `${lines.join('\n')}\n`;
 }
 
+/** What `behaviorScript` prints: the first insert, the same message_id again, a second message inside the window, then the window count. */
+export const BEHAVIOR_EXPECTED: readonly string[] = ['1', '0', '1', '1'];
+const BEHAVIOR_PHONE = '570000000098';
+
+/**
+ * A psql script that checks what two statements do, beyond running: "Record inbound message"
+ * inserts a `message_id` once, and "Count recent messages" counts only the window. It binds the
+ * workflows' own SQL, prints one value per call, and rolls everything back.
+ */
+export function behaviorScript(statements: readonly WorkflowStatement[]): string {
+  const find = (node: string): string => {
+    const statement = statements.find((s) => s.file === 'process-message.json' && s.node === node);
+    if (!statement) throw new Error(`process-message.json › ${node} is missing, so check-db cannot probe its behavior`);
+    return statement.query.trim().replace(/;$/, '');
+  };
+  const insert = find('Record inbound message');
+  const count = find('Count recent messages');
+  const bind = (...params: string[]): string => `\\bind ${params.map(psqlLiteral).join(' ')} \\g`;
+  const old = ['check-db-behavior-a', 'test', BEHAVIOR_PHONE, 'behavior probe', '2026-01-01T00:00:00Z'] as const;
+  return [
+    '\\pset tuples_only on',
+    '\\pset format unaligned',
+    'BEGIN;',
+    'SELECT now()::text AS probe_now \\gset',
+    insert, bind(...old),
+    insert, bind(...old),
+    insert, "\\bind 'check-db-behavior-b' 'test' '570000000098' 'behavior probe' :'probe_now' \\g",
+    count, bind(BEHAVIOR_PHONE, '10'),
+    'ROLLBACK;',
+  ].join('\n') + '\n';
+}
+
+/** `stdout` of `behaviorScript` compared with `BEHAVIOR_EXPECTED`, as one problem per mismatch. */
+export function behaviorProblems(stdout: string): string[] {
+  const got = stdout.split('\n').filter(Boolean);
+  const names = ['insert 1 inserted', 'repeat insert', 'second insert', 'window count'];
+  return BEHAVIOR_EXPECTED.flatMap((want, index) => {
+    const have = got.at(index);
+    return have === want ? [] : [`${names.at(index) ?? 'probe'} returned ${have ?? 'nothing'}, expected ${want}`];
+  });
+}
+
 /** Every privilege the runtime role holds on a table or sequence in `public`, as `name:PRIVILEGE`. */
 const GRANTS_SQL = `\\getenv runtime_role APP_RUNTIME_DB_USER
 SELECT c.relname || ':' || p.privilege
@@ -239,6 +281,15 @@ function checks(statements: readonly WorkflowStatement[], migrationFiles: readon
       run: async () => {
         const result = await runPsql(asRuntime('app'), probeScript(statements, PROBES));
         return result.ok ? { ok: true } : { ok: false, detail: lastLines(result.stderr) };
+      },
+    },
+    {
+      name: 'Record inbound message inserts a message_id once, and Count recent messages counts only the window (rolled back)',
+      run: async () => {
+        const result = await runPsql(asRuntime('app'), behaviorScript(statements));
+        if (!result.ok) return { ok: false, detail: lastLines(result.stderr) };
+        const problems = behaviorProblems(result.stdout);
+        return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
       },
     },
     {

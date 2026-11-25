@@ -1,6 +1,9 @@
 import { basename } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  BEHAVIOR_EXPECTED,
+  behaviorProblems,
+  behaviorScript,
   diffGrants,
   isDenied,
   paramCount,
@@ -143,5 +146,32 @@ describe('workflow statements', () => {
   it('refuses a probe list that misses a statement', () => {
     const extra: WorkflowStatement = { file: 'new.json', node: 'New query', query: 'SELECT $1' };
     expect(() => probeScript([...statements, extra], PROBES)).toThrow(/new\.json › New query has no probe/);
+  });
+});
+
+describe('behavior probes', () => {
+  const statements = workflowStatements(listJsonFiles('workflows').map((path) => ({ file: basename(path), wf: readWorkflow(path) })));
+  const insert = statements.find((s) => s.node === 'Record inbound message');
+  const count = statements.find((s) => s.node === 'Count recent messages');
+
+  it('inserts one message_id twice and a second inside the window, all rolled back', () => {
+    const script = behaviorScript(statements);
+    expect(script.startsWith('\\pset')).toBe(true);
+    expect(script.endsWith('ROLLBACK;\n')).toBe(true);
+    expect(script.split(insert?.query ?? 'missing').length - 1).toBe(3);
+    expect(script.split(count?.query ?? 'missing').length - 1).toBe(1);
+  });
+
+  it('reports no problems for 1, 0, 1, 1 and names each mismatch', () => {
+    expect([...BEHAVIOR_EXPECTED]).toEqual(['1', '0', '1', '1']);
+    expect(behaviorProblems('1\n0\n1\n1\n')).toEqual([]);
+    const problems = behaviorProblems('1\n1\n1\n2\n');
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('repeat insert');
+    expect(problems[1]).toContain('window count');
+  });
+
+  it('refuses a workflow set without the insert statement', () => {
+    expect(() => behaviorScript(statements.filter((s) => s.node !== 'Record inbound message'))).toThrow(/Record inbound message/);
   });
 });
