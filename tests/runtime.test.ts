@@ -80,7 +80,7 @@ test('config example carries the starting thresholds', () => expect(config).toEq
   },
   limits: {
     max_messages_per_window: 20, window_minutes: 10, retention_days: 30, max_text_chars: 2000,
-    alert_cooldown_minutes: 60, handoff_pause_hours: 12, max_booking_days_ahead: 60, max_upcoming_bookings: 3,
+    alert_cooldown_minutes: 60, emergency_alert_dedupe_minutes: 5, max_alerts_per_phone_per_hour: 6, handoff_pause_hours: 12, max_booking_days_ahead: 60, max_upcoming_bookings: 3,
   },
 }));
 

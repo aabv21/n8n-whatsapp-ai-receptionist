@@ -6,7 +6,7 @@ import type { Business } from '../../src/nodes/types.ts';
 const tiny = {
   system_prompt: 'B:<<BUSINESS>> K:<<KNOWLEDGE_BASE>> N:<<NOW>> L:<<LANGUAGE>> T:<<TRIAGE_NOTES>>',
   business: { name: 'Cumbident', timezone: 'America/Bogota' } as Business,
-  knowledge_base: 'kb', notes: [], now: '2026-11-04T14:05:00Z', team_alerted: false, lang: 'en' as const, lang_detected: true,
+  knowledge_base: 'kb', notes: [], retention_days: undefined as unknown, now: '2026-11-04T14:05:00Z', team_alerted: false, lang: 'en' as const, lang_detected: true,
 };
 const build = (input: Partial<PromptInput>): string => run({ ...tiny, ...input }).system_message;
 
@@ -16,11 +16,21 @@ test('joins triage notes one per line', () =>
   expect(build({ notes: ['URGENT: a', 'HANDOFF: b'] })).toMatch(/T:URGENT: a\nHANDOFF: b$/));
 test('inserts text verbatim, even with replacement patterns', () =>
   expect(build({ knowledge_base: "Pay $& or $' or $$" })).toContain("K:Pay $& or $' or $$ N:"));
+test('BUSINESS carries chat_retention_days from config.limits.retention_days', () => {
+  const prompt = build({ retention_days: 30 });
+  expect(prompt).toContain('"chat_retention_days": 30');
+  expect(prompt).toContain('"name": "Cumbident"');
+});
+test('an invalid retention_days leaves chat_retention_days out', () => {
+  for (const retention_days of [undefined, 0, 1.5, '30', null, -1]) {
+    expect(build({ retention_days }), String(retention_days)).not.toContain('chat_retention_days');
+  }
+});
 test('real prompt leaves no placeholder unfilled', () => expect(run({
   system_prompt: readFileSync('prompts/system-prompt.md', 'utf8'),
   business: JSON.parse(readFileSync('business/business.json', 'utf8')) as Business,
   knowledge_base: readFileSync('business/knowledge-base.md', 'utf8'), notes: [], now: '2026-11-04T14:05:00Z', team_alerted: false,
-  lang: 'es', lang_detected: true,
+  lang: 'es', lang_detected: true, retention_days: 30,
 }).system_message).not.toMatch(/<<[A-Z_]+>>/));
 test('a sent team alert adds the TEAM ALERTED note after the triage notes', () =>
   expect(build({ notes: ['HANDOFF: b'], team_alerted: true })).toMatch(

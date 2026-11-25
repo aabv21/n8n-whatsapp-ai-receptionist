@@ -106,7 +106,7 @@ export const PROBES: readonly Probe[] = [
   { file: 'process-message.json', node: 'Recent patient messages', params: [PROBE_PHONE, 'check-db-other'] },
   { file: 'process-message.json', node: 'Save triage', params: [PROBE_ID, '{"scores":null}'] },
   { file: 'process-message.json', node: 'Save route', params: [PROBE_ID, 'agent'] },
-  { file: 'notify-team.json', node: 'Check alert cooldown', params: [PROBE_PHONE, '60', 'emergency'] },
+  { file: 'notify-team.json', node: 'Check alert cooldown', params: [PROBE_PHONE, '60', 'emergency', '5', '6'] },
   { file: 'notify-team.json', node: 'Mark team alerted', params: [PROBE_ID, 'emergency'] },
   { file: 'whatsapp-entry.json', node: 'Mark replied', params: [PROBE_ID] },
   { file: 'retention-cleanup.json', node: 'Delete expired chat memory', params: ['30'] },
@@ -251,21 +251,28 @@ export function handoffPauseProblems(stdout: string): string[] {
   });
 }
 
-/** What `cooldownScript` prints: the same reason held back, another reason and an emergency not, then both again after a second mark. */
-export const COOLDOWN_EXPECTED: readonly string[] = ['t', 'f', 'f', 't', 'f'];
+/**
+ * What `cooldownScript` prints: the same reason held back, another reason and a first emergency not,
+ * a second reason on the message, a repeat emergency inside its dedupe, outside a 0-minute dedupe,
+ * a reason past a cap of 1, an emergency past that cap, then a failed emergency check, which is held
+ * back like an emergency (only by a repeat inside the dedupe window) and never counts toward the cap.
+ */
+export const COOLDOWN_EXPECTED: readonly string[] = ['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f'];
 const COOLDOWN_PHONE = '570000000095';
 
 /**
  * A psql script that checks what notify-team's cooldown holds back: an alert is held back only by an
- * earlier alert of the same reason, the list keeps every reason marked on a message, and an
- * emergency is never held back. It marks a `non_text` alert, asks for `non_text`, `human_requested`
- * and `emergency`, marks an `emergency` on the same message, and asks again, all rolled back.
+ * earlier alert of the same reason, the list keeps every reason marked on a message, an emergency is
+ * held back only by an earlier emergency inside its short dedupe window, and the other reasons share
+ * a per-phone hourly cap that never applies to an emergency. It marks a `non_text` alert, asks for
+ * `non_text`, `human_requested` and `emergency`, marks an `emergency` on the same message, and asks
+ * again with the dedupe window and the cap set to values that prove each is read, all rolled back.
  */
 export function cooldownScript(statements: readonly WorkflowStatement[]): string {
   const insert = findStatement(statements, 'process-message.json', 'Record inbound message');
   const mark = findStatement(statements, 'notify-team.json', 'Mark team alerted');
   const check = findStatement(statements, 'notify-team.json', 'Check alert cooldown');
-  const ask = (reason: string): string => `${check}\n${bindValues(COOLDOWN_PHONE, '60', reason)}`;
+  const ask = (reason: string, dedupeMinutes = '5', hourlyCap = '6'): string => `${check}\n${bindValues(COOLDOWN_PHONE, '60', reason, dedupeMinutes, hourlyCap)}`;
   return [
     '\\pset tuples_only on',
     '\\pset format unaligned',
@@ -279,6 +286,14 @@ export function cooldownScript(statements: readonly WorkflowStatement[]): string
     mark, bindValues('check-db-cooldown', 'emergency'),
     ask('non_text'),
     ask('emergency'),
+    ask('emergency', '0'),
+    ask('complaint', '5', '1'),
+    ask('emergency', '0', '1'),
+    ask('triage_failed', '5', '1'),
+    mark, bindValues('check-db-cooldown', 'triage_failed'),
+    ask('triage_failed'),
+    ask('triage_failed', '0'),
+    ask('human_requested', '5', '2'),
     'ROLLBACK;',
   ].join('\n') + '\n';
 }
@@ -292,7 +307,14 @@ export function cooldownProblems(stdout: string): string[] {
     'an alert of another reason is not held back',
     'an emergency is not held back',
     'a reason stays held back after a second reason is marked on the message',
-    'an emergency is still not held back',
+    'a repeat emergency inside the dedupe window is held back',
+    'an emergency outside the dedupe window is not held back',
+    'a reason past the hourly cap is held back',
+    'an emergency past the hourly cap is not held back',
+    'a failed emergency check past the hourly cap still alerts',
+    'a repeat failed emergency check inside the dedupe window is held back',
+    'a failed emergency check outside the dedupe window still alerts',
+    'a failed emergency check does not count toward the hourly cap',
   ];
   return COOLDOWN_EXPECTED.flatMap((want, index) => {
     const have = got.at(index);
@@ -471,7 +493,7 @@ function checks(statements: readonly WorkflowStatement[], migrationFiles: readon
       },
     },
     {
-      name: 'An alert is held back only by an earlier alert of the same reason, and an emergency never is (rolled back)',
+      name: 'An alert is held back by the same reason, an emergency or failed check only by its dedupe window, and the rest by an hourly cap (rolled back)',
       run: async () => {
         const result = await runPsql(asRuntime('app'), cooldownScript(statements));
         if (!result.ok) return { ok: false, detail: lastLines(result.stderr) };

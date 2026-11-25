@@ -195,7 +195,7 @@ const LANG = "[$('Resolve language').first().json.lang]";
 test("every fixed reply is picked in the message's language", () => {
   // Check reply, the one Code node that picks a fixed reply, is covered by its own source's tests.
   const replyNodes = wf.nodes.filter((n) => n.type !== 'n8n-nodes-base.code' && JSON.stringify(n.parameters).includes('business.replies.'));
-  expect(replyNodes.map((n) => n.name).sort()).toEqual(['Reply blocked', 'Reply handed off', 'Reply non-text', 'Reply rate limited', 'Reply urgent while paused', 'Reply with fallback']);
+  expect(replyNodes.map((n) => n.name).sort()).toEqual(['Reply blocked', 'Reply handed off', 'Reply handed off after failed check', 'Reply non-text', 'Reply rate limited', 'Reply urgent while paused', 'Reply with fallback']);
   for (const reply of replyNodes) {
     const output = String(reply.parameters.jsonOutput);
     const picks = [...output.matchAll(/business\.replies\.\w+/g)];
@@ -230,7 +230,7 @@ test('the generated Resolve language node detects Spanish and falls back to the 
 // say) must not stop the run. The failed sub-run still reaches error-handler through its own
 // errorWorkflow, and the reply then reads the side call's empty result as a failure.
 test('an emergency or handoff alert that fails still reaches the agent, and an agent-failure alert that fails still sends the fallback reply', () => {
-  for (const name of ['Mark patient handed off', 'Alert the team', 'Re-alert the team', 'Alert urgent message', 'Check urgent message', 'Report agent failure']) {
+  for (const name of ['Mark patient handed off', 'Alert the team', 'Re-alert the team', 'Alert urgent message', 'Alert failed urgency check', 'Check urgent message', 'Alert non-text message', 'Report agent failure']) {
     expect(node(name)?.onError, name).toBe('continueRegularOutput');
   }
   expect(String(node('Prepare prompt input')?.parameters.jsonOutput)).toContain("$('Alert the team').first().json.ok === true");
@@ -262,7 +262,8 @@ test('a message inside the handoff pause skips triage and the agent, replies onc
   expect(branches('Is the patient with the team')[0]?.map((e) => e.node)).toEqual(['Check urgent message']);
   expect(branches('Is the patient with the team')[1]?.map((e) => e.node)).toEqual(['Recent patient messages']);
   expect(branches('Check urgent message')[0]?.map((e) => e.node)).toEqual(['Is it urgent']);
-  expect(branches('Is it urgent')[1]?.map((e) => e.node)).toEqual(['Is it the first paused message']);
+  expect(branches('Is it urgent')[1]?.map((e) => e.node)).toEqual(['Did the urgency check fail']);
+  expect(branches('Did the urgency check fail')[1]?.map((e) => e.node)).toEqual(['Is it the first paused message']);
   expect(JSON.stringify(node('Is it the first paused message')?.parameters.conditions)).toContain("$('Check handoff pause').first().json.first_paused === true");
   expect(branches('Is it the first paused message')[0]?.map((e) => e.node)).toEqual(['Re-alert the team']);
   expect(branches('Is it the first paused message')[1]?.map((e) => e.node)).toEqual(['Reply handed off']);
@@ -330,11 +331,31 @@ test('a missing or invalid handoff_pause_hours turns the pause off instead of fa
   expect(String(node('Check handoff pause')?.parameters.query)).toContain("route = 'handoff'");
 });
 
+test('a non-text message alerts the team as non_text, and a failed alert still sends the fixed reply', () => {
+  expect(branches('Is it text')[1]?.map((e) => e.node)).toEqual(['Alert non-text message']);
+  expect(branches('Alert non-text message')[0]?.map((e) => e.node)).toEqual(['Reply non-text']);
+  const alert = node('Alert non-text message');
+  expect(alert?.onError).toBe('continueRegularOutput');
+  expect(String((alert?.parameters.workflowId as { value: unknown }).value)).toBe('cmbNotifyTeam001');
+  expect(inputsOf(alert).value).toEqual({
+    reason: 'non_text',
+    phone: "={{ $('When called').first().json.phone }}",
+    name: "={{ $('When called').first().json.name }}",
+    message_id: "={{ $('When called').first().json.message_id }}",
+    recent_messages: '={{ [] }}',
+  });
+  expect(String(node('Reply non-text')?.parameters.jsonOutput)).not.toContain('$json');
+});
+
+test('the prompt input carries retention_days from the config, so the first-message line states it', () => {
+  expect(String(node('Prepare prompt input')?.parameters.jsonOutput)).toContain("retention_days: $('Load context').first().json.config.limits?.retention_days");
+});
+
 const SECTIONS: Record<string, string[]> = {
   '## Intake': [
-    'Record inbound message', 'Is it a duplicate', 'Return duplicate', 'Prepare language check', 'Resolve language', 'Is it text', 'Reply non-text',
+    'Record inbound message', 'Is it a duplicate', 'Return duplicate', 'Prepare language check', 'Resolve language', 'Is it text', 'Alert non-text message', 'Reply non-text',
     'Count recent messages', 'Is the patient over the limit', 'Reply rate limited', 'Recent conversation', 'Check handoff pause', 'Is the patient with the team',
-    'Check urgent message', 'Is it urgent', 'Alert urgent message', 'Reply urgent while paused', 'Is it the first paused message', 'Re-alert the team', 'Reply handed off', 'Recent patient messages',
+    'Check urgent message', 'Is it urgent', 'Alert urgent message', 'Reply urgent while paused', 'Did the urgency check fail', 'Alert failed urgency check', 'Reply handed off after failed check', 'Is it the first paused message', 'Re-alert the team', 'Reply handed off', 'Recent patient messages',
   ],
   '## Triage and alerts': ['Triage message', 'Save triage', 'Route by triage', 'Reply blocked', 'Mark patient handed off', 'Alert the team'],
   '## Agent': [
@@ -404,4 +425,39 @@ test('the pause, urgent and thread expressions evaluate to what the wiring expec
   expect(pauseParts).toHaveLength(3);
   expect(evaluateExpression(`${pauseParts[0] ?? ''}}}`, { nodes: nodes() })).toBe('570000000001');
   expect(evaluateExpression(`={{${pauseParts[1] ?? ''}}}`, { nodes: nodes() })).toBe('m1');
+});
+
+// The emergency check can fail: Jev down, no scores, or a score that isn't a number. Staying silent
+// then would treat the message as not urgent, so the patient gets the handed_off line and the team an
+// alert saying the check failed. The patient is not told it is an emergency, since nobody knows.
+test('a failed emergency check during the pause alerts the team as triage_failed and still sends the handed_off line', () => {
+  expect(branches('Did the urgency check fail')[0]?.map((e) => e.node)).toEqual(['Alert failed urgency check']);
+  const alert = node('Alert failed urgency check');
+  expect(alert?.onError).toBe('continueRegularOutput');
+  expect(inputsOf(alert).value).toMatchObject({
+    reason: 'triage_failed',
+    phone: "={{ $('When called').first().json.phone }}",
+    message_id: "={{ $('When called').first().json.message_id }}",
+    recent_messages: inputsOf(node('Alert the team')).value.recent_messages,
+  });
+  expect(branches('Alert failed urgency check')[0]?.map((e) => e.node)).toEqual(['Reply handed off after failed check']);
+  expect(node('Reply handed off after failed check')?.parameters.jsonOutput).toBe(
+    "={{ { reply: $('Load context').first().json.business.replies.handed_off[$('Resolve language').first().json.lang], route: 'handoff_paused', flags: {}, tool_calls: [] } }}",
+  );
+  expect(branches('Reply handed off after failed check')[0]?.map((e) => e.node).sort()).toEqual(['Return result', 'Save route']);
+  expect(ALERT_REASONS as readonly string[]).toContain('triage_failed');
+});
+
+test('the failed-check condition is true for a Jev error, missing scores and a non-number emergency score, and false for a real answer', () => {
+  const left = String((node('Did the urgency check fail')?.parameters.conditions as { conditions: { leftValue: string }[] }).conditions[0]?.leftValue);
+  const decide = (scores: unknown): unknown => decideRoute({ scores: scores as never, thresholds: { emergency: 0.6, asks_for_human: 0.7, complaint: 0.7, medical_advice: 0.7, manipulation: 0.85 }, emergency_only: true });
+  const failed = (json: unknown): unknown => evaluateExpression(left, { json });
+  // Jev error: the sub-workflow itself threw, so the item carries no route.
+  expect(failed({ error: 'boom' })).toBe(true);
+  // Jev error inside triage-message: scores are blanked.
+  expect(failed(decide(null))).toBe(true);
+  // An answer without the emergency score, and one whose score isn't a number.
+  expect(failed(decide({}))).toBe(true);
+  expect(failed(decide({ emergency: 'high' }))).toBe(true);
+  expect(failed(decide({ emergency: 0.1 }))).toBe(false);
 });

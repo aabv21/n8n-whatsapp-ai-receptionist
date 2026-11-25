@@ -150,7 +150,7 @@ describe('workflow statements', () => {
     expect(order.indexOf('notify-team.json › Mark team alerted')).toBeGreaterThan(order.indexOf('process-message.json › Record inbound message'));
     // Both bind the reason as emergency, the value the cooldown compares and the mark stores.
     expect(PROBES.find((p) => key(p) === 'notify-team.json › Mark team alerted')?.params).toEqual(['check-db-probe', 'emergency']);
-    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60', 'emergency']);
+    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60', 'emergency', '5', '6']);
   });
 
   it('refuses a probe list that misses a statement', () => {
@@ -218,15 +218,15 @@ describe('alert cooldown probe', () => {
   it('marks two reasons on one message and checks each reason, all rolled back', () => {
     const script = cooldownScript(statements);
     expect(script.endsWith('ROLLBACK;\n')).toBe(true);
-    for (const reason of ["'non_text'", "'human_requested'", "'emergency'"]) expect(script).toContain(reason);
+    for (const reason of ["'non_text'", "'human_requested'", "'emergency'", "'triage_failed'"]) expect(script).toContain(reason);
     const check = statements.find((s) => s.node === 'Check alert cooldown');
-    expect(script.split(check?.query ?? 'missing').length - 1).toBe(5);
+    expect(script.split(check?.query ?? 'missing').length - 1).toBe(12);
   });
 
   it('expects the same reason held back, another reason and an emergency not', () => {
-    expect([...COOLDOWN_EXPECTED]).toEqual(['t', 'f', 'f', 't', 'f']);
-    expect(cooldownProblems('1\nt\nf\nf\nt\nf\n')).toEqual([]);
-    const problems = cooldownProblems('t\nt\nf\nt\nf\n');
+    expect([...COOLDOWN_EXPECTED]).toEqual(['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f']);
+    expect(cooldownProblems('1\nt\nf\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\n')).toEqual([]);
+    const problems = cooldownProblems('t\nt\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\n');
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('another reason');
   });

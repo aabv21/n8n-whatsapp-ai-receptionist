@@ -63,27 +63,45 @@ test('the cooldown asks whether this phone had an alert within config.limits.ale
   const check = node('Check alert cooldown');
   expect(check?.type).toBe('n8n-nodes-base.postgres');
   expect(check?.parameters.query).toBe(
-    "SELECT ($3::text <> 'emergency' AND EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->'alerted_reasons' @> jsonb_build_array($3::text))) AS alerted",
+    "SELECT CASE WHEN $3::text IN ('emergency', 'triage_failed') THEN EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $4) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)) ELSE EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)) OR (SELECT count(*) FROM inbound_messages m, jsonb_array_elements_text(coalesce(m.triage->'alerted_reasons', '[]'::jsonb)) r WHERE m.phone = $1 AND m.received_at > now() - interval '1 hour' AND r NOT IN ('emergency', 'triage_failed')) >= $5 END AS alerted",
   );
   expect((check?.parameters.options as { queryReplacement?: unknown }).queryReplacement).toBe(
-    "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }},{{ $('Receive alert request').first().json.reason }}",
+    "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }},{{ $('Receive alert request').first().json.reason }},{{ Number.isInteger($('Load context').first().json.config.limits?.emergency_alert_dedupe_minutes) && $('Load context').first().json.config.limits.emergency_alert_dedupe_minutes >= 1 ? $('Load context').first().json.config.limits.emergency_alert_dedupe_minutes : 5 }},{{ Number.isInteger($('Load context').first().json.config.limits?.max_alerts_per_phone_per_hour) && $('Load context').first().json.config.limits.max_alerts_per_phone_per_hour >= 1 ? $('Load context').first().json.config.limits.max_alerts_per_phone_per_hour : 6 }}",
   );
   // A failed check must not block the alert: the IF sees no `alerted: true` and sends.
   expect(check?.onError).toBe('continueRegularOutput');
 });
 
 // The cooldown is per phone and per reason: a voice-note alert must not silence a handoff, a
-// complaint or a re-alert, and an emergency is never held back.
-test('an alert is held back only by an earlier alert of the same reason, and an emergency never is', () => {
+// complaint or a re-alert. An emergency is held back only by a short dedupe of its own, so a flood
+// of emergencies sends one email per window while the patient still gets the reply every time, and
+// every other reason shares a per-phone hourly cap.
+test('an alert is held back by the same reason, an emergency only by its short dedupe, and the other reasons by an hourly cap', () => {
   const query = String(node('Check alert cooldown')?.parameters.query);
-  expect(query).toContain("$3::text <> 'emergency'");
+  // A failed emergency check may hide a missed emergency, so it is held back like an emergency.
+  expect(query).toContain("WHEN $3::text IN ('emergency', 'triage_failed') THEN EXISTS");
+  expect(query).toContain("make_interval(mins => $4) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)");
   expect(query).toContain("triage->'alerted_reasons' @> jsonb_build_array($3::text)");
+  expect(query).toContain("r NOT IN ('emergency', 'triage_failed')) >= $5");
   expect(query).not.toContain("'alerted_reason' =");
   // $3 is this alert's own reason, from the caller.
   const replacement = String((node('Check alert cooldown')?.parameters.options as { queryReplacement?: unknown }).queryReplacement);
-  expect(replacement.endsWith(",{{ $('Receive alert request').first().json.reason }}")).toBe(true);
+  expect(replacement).toContain(",{{ $('Receive alert request').first().json.reason }},{{ ");
   // Every reason Mark team alerted stores is kept in the list the cooldown reads back.
   expect(String(node('Mark team alerted')?.parameters.query)).toContain("'alerted_reasons', coalesce(triage->'alerted_reasons', '[]'::jsonb) || jsonb_build_array($2::text)");
+});
+
+test('the emergency dedupe and the hourly cap come from config.limits, and a missing or invalid value keeps the default of 5 and 6', () => {
+  const replacement = String((node('Check alert cooldown')?.parameters.options as { queryReplacement?: unknown }).queryReplacement);
+  const parts = replacement.split('}},{{');
+  expect(parts).toHaveLength(5);
+  const evaluate = (index: number, limits: unknown): unknown =>
+    evaluateExpression(`={{${(parts[index] ?? '').replace(/^=\{\{/, '').replace(/\}\}$/, '')}}}`, { nodes: { 'Load context': { config: { limits } } } });
+  for (const [index, key, fallback] of [[3, 'emergency_alert_dedupe_minutes', 5], [4, 'max_alerts_per_phone_per_hour', 6]] as const) {
+    expect(evaluate(index, { [key]: 2 }), key).toBe(2);
+    for (const bad of [undefined, 0, -1, 1.5, '3', null]) expect(evaluate(index, { [key]: bad }), `${key} ${String(bad)}`).toBe(fallback);
+    expect(evaluate(index, undefined), `${key} no limits`).toBe(fallback);
+  }
 });
 
 test('only a sent alert is recorded, with its reason, against the inbound message, and the result still reports the send', () => {

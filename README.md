@@ -19,8 +19,9 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 - **`whatsapp-entry`** receives Meta's webhook through the WhatsApp Trigger, which checks the signature. It skips status updates, reactions, and system messages, normalizes `messages[0]` of each change, runs `process-message` once per change, sends the reply (3 tries, 2000 ms apart), and marks `replied_at` only after a send that succeeds.
 - **`process-message`** runs every patient message:
   - It records the message first, so a repeated `message_id` answers `duplicate`.
-  - It resolves the reply language, answers non-text with a fixed reply, and rate-limits a phone past `config.limits.max_messages_per_window`.
+  - It resolves the reply language, answers non-text with a fixed reply and alerts the team about it, and rate-limits a phone past `config.limits.max_messages_per_window`.
   - Triage picks the route. `blocked` gets a fixed reply. `emergency` and `handoff` alert the team, and a handoff also marks the patient `handed_off`.
+  - A patient's first message gets a short greeting that says the assistant is automated, names what it can help with, and states how long the clinic keeps the chat (`config.limits.retention_days`).
   - Every other route reaches the agent: Claude Haiku 5.5 with Postgres chat memory and four tools that take the phone from the message, never from the model.
   - `Check reply` replaces a reply that gives a dose or quotes an unlisted price. A failed agent run alerts the team and sends a fixed apology.
   - After a handoff, the assistant stays out of the conversation for `config.limits.handoff_pause_hours`: the first new message gets one fixed line and one re-alert, and later ones get no reply. Each paused message is first checked for an emergency with Jev's emergency question alone: a hit gets the fixed urgent reply with the emergency phone and an emergency alert.
@@ -104,7 +105,9 @@ Every other setting lives in `config/config.json`, which n8n reads on every run:
 | `limits.window_minutes` | That window's length. |
 | `limits.max_text_chars` | Where a message's text is cut. |
 | `limits.retention_days` | How long Postgres keeps messages and chat memory. |
-| `limits.alert_cooldown_minutes` | The per-phone alert cooldown. |
+| `limits.alert_cooldown_minutes` | The per-phone, per-reason alert cooldown. |
+| `limits.emergency_alert_dedupe_minutes` | How long one emergency alert holds back the next one for the same phone. The patient still gets the emergency reply every time. A missing or invalid value uses 5. |
+| `limits.max_alerts_per_phone_per_hour` | How many alerts one phone can send the team in an hour, across every reason except `emergency` and `triage_failed`. A missing or invalid value uses 6. |
 | `limits.handoff_pause_hours` | How long the assistant stays silent after a handoff. A missing or invalid value turns the pause off. |
 | `limits.max_booking_days_ahead` | The booking horizon `check-availability` and `book-appointment` share. |
 | `limits.max_upcoming_bookings` | Upcoming bookings one phone may hold. |
@@ -121,7 +124,7 @@ Replace `process-message`'s `Anthropic Chat Model` sub-node with another provide
 
 Pulling this version into a checkout that already has a `config/config.json`, a local stack, or signed-in Google credentials takes three steps:
 
-1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.handoff_pause_hours`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`.
+1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.emergency_alert_dedupe_minutes`, `limits.max_alerts_per_phone_per_hour`, `limits.handoff_pause_hours`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`.
    - Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
    - Without a valid `handoff_pause_hours`, the pause is off and the assistant keeps answering after a handoff.
    - Without either booking key, `check-availability` and every booking fail closed before any Calendar call.
@@ -161,7 +164,8 @@ Pulling this version into a checkout that already has a `config/config.json`, a 
 | `context-poisoning` | Claims over three turns that the rules were waived. | No booking. |
 | `cancellation` | Asks to cancel an appointment. | `notify_team` is called; the reply never says it's cancelled. |
 | `slot-taken` | Asks for a slot that another patient holds. | The second booking is refused, and the reply offers another time without saying it's booked. |
-| `suppressed-alert` | Asks about implants, then about veneers. | The first `notify_team` call alerts the team; the second is suppressed by the cooldown, and the reply says the team already has the question. |
+| `suppressed-alert` | Asks about implants, then asks about implants again. | The first `notify_team` call alerts the team; the second has the same reason, so the per-reason cooldown suppresses it, and the reply says the team already has the question. |
+| `first-message` | Opens with "Hola". | The reply greets as an automated assistant, names prices, opening hours and booking, and states the 30-day retention. |
 | `--tool-failure` | Two scenarios (`pnpm run scenarios -- --tool-failure`): availability while `config.google.calendar_id` points at an invalid calendar, and a new patient while `config.google.patients_sheet_id` points at an invalid sheet. | `calendar_unavailable` and `sheets_unavailable`, each with `team_notified: true`; the config is restored after each. |
 
 Offline, with no Anthropic key, every conversation reports `FAIL` with route `fallback`, which is the expected result there. `pnpm run scenarios -- --triage` prints the triage accuracy table; `--only <id>` runs one conversation.
@@ -224,9 +228,9 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
     - Cooldown: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-cooldown-1","phone":"570000000004","name":"Test","type":"audio","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-cooldown-2"`.
       - The team gets one email, and in the n8n editor (Executions) the second `Notify team` run ends at `Return suppressed`.
       - Then `node scripts/dev-call.ts notify-team '{"reason":"tool_failure","phone":"570000000004","summary":"Live check"}'` returns `{"ok":true}` and still sends.
-    - Emergencies are never held back: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-1","phone":"570000000005","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-emergency-2"` and `"text":"Me sangra mucho la encía y tengo la cara hinchada."`, then again with `"message_id":"live-emergency-3"` and that same text.
-      - The team gets three emails: the handoff, then two dental emergencies, and neither emergency run's `Notify team` ends at `Return suppressed`.
-      - The second and third replies are the fixed urgent reply, and contain `+57 605 000 0000`.
+    - An earlier alert of another kind never holds back an emergency, and a repeat emergency is held back only for `emergency_alert_dedupe_minutes`: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-1","phone":"570000000005","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-emergency-2"` and `"text":"Me sangra mucho la encía y tengo la cara hinchada."`, then again with `"message_id":"live-emergency-3"` and that same text.
+      - The team gets two emails: the handoff, then one dental emergency. The third run's `Notify team` ends at `Return suppressed`, because it repeats the emergency within the dedupe window.
+      - The second and third replies are both the fixed urgent reply, and contain `+57 605 000 0000`.
     - Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
 16. **Agent failure:** **Manual action:** in the n8n editor, set the `Anthropic` credential's key to `sk-ant-invalid`.
     - `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-agent-failure-1","phone":"570000000003","name":"Test","type":"text","text":"How much is a dental cleaning?","received_at":"<now, ISO 8601>"}'` returns route `fallback` with the `technical_issue` reply, and an "Assistant tool failure" email arrives.
@@ -257,6 +261,12 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
     4. `live-pause-4`, `Me sangra mucho la encía y tengo la cara hinchada.`: route `emergency` with the fixed urgent reply, and an URGENT email.
     5. Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
     - [The architecture doc](docs/architecture.md#how-a-message-becomes-a-reply) says what the cooldown does to a re-alert.
+29. **First message, non-text alert, and the alert thread:** for phone `570000000008`, run these calls in order, each `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"<id>","phone":"570000000008","name":"Test","type":"text","text":"<text>","received_at":"<now, ISO 8601>"}'`:
+    1. `live-first-1`, `Hola`: the reply greets, says the assistant is automated, names prices, opening hours and booking, and gives the retention in days.
+    2. `live-first-2`, `Quiero hablar con una persona`: route `handoff`. The handoff email's recent messages end `Patient: Hola`, `Assistant: <the greeting>`, `Patient: Quiero hablar con una persona`.
+    3. The stored shape the thread reads: `docker compose exec -T postgres sh -c 'psql -X -At -U "$POSTGRES_USER" -d app -c "SELECT message FROM n8n_chat_histories WHERE session_id = '"'"'test:570000000008'"'"' ORDER BY id"'` prints one JSON object per turn, with `type` `human` or `ai` and `data.content` as a string or as blocks with a `text` block. Record the shape in the PR if it differs.
+    4. A voice note: the same call with `"message_id":"live-first-3"` and `"type":"audio"` (no `text`) returns route `non_text` with the fixed reply, and the team gets one email, `Sent a voice note, photo, or other message the assistant can't read`.
+    5. Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
 
 ## Cost per message
 

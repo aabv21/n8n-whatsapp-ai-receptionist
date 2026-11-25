@@ -56,8 +56,8 @@ test('every config key the workflows read is documented', () => {
 test('the live-check list is numbered and covers the checks only a live run can prove', () => {
   const live = section('Test scenarios').split('\n### Pending live checks\n')[1] ?? '';
   const items = live.split('\n').filter((line) => /^\d+\. /.test(line));
-  expect(items).toHaveLength(28);
-  expect(items.map((line) => Number(line.split('.')[0]))).toEqual(Array.from({ length: 28 }, (_, i) => i + 1));
+  expect(items).toHaveLength(29);
+  expect(items.map((line) => Number(line.split('.')[0]))).toEqual(Array.from({ length: 29 }, (_, i) => i + 1));
   for (const text of ['jev-1.14.0', '--tool-failure', 'Workflow failed: Dev harness', 'too_many_bookings', '413', '+57 605 000 0000']) expect(live, text).toContain(text);
 });
 

@@ -1,7 +1,7 @@
 import { localeSetting, pick, type Lang } from './locale.ts';
 
 /** Every reason notify-team accepts; anything else reads as `other`. */
-export const ALERT_REASONS = ['emergency', 'human_requested', 'complaint', 'unknown_treatment', 'out_of_scope', 'tool_failure', 'handoff_followup', 'other'] as const;
+export const ALERT_REASONS = ['emergency', 'human_requested', 'complaint', 'unknown_treatment', 'out_of_scope', 'tool_failure', 'handoff_followup', 'non_text', 'triage_failed', 'other'] as const;
 
 export type AlertReason = (typeof ALERT_REASONS)[number];
 
@@ -35,6 +35,8 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       out_of_scope: "Question the assistant couldn't answer",
       tool_failure: 'Assistant tool failure',
       handoff_followup: 'Wrote again while waiting for the team',
+      non_text: "Sent a voice note, photo, or other message the assistant can't read",
+      triage_failed: "Couldn't check a paused message for an emergency",
       other: 'Needs attention',
     },
     urgent: 'URGENT',
@@ -62,6 +64,8 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       out_of_scope: 'Pregunta que el asistente no pudo responder',
       tool_failure: 'Falla de una herramienta del asistente',
       handoff_followup: 'Volvió a escribir mientras espera al equipo',
+      non_text: 'Envió una nota de voz, una foto u otro mensaje que el asistente no puede leer',
+      triage_failed: 'No se pudo revisar un mensaje en pausa por una urgencia',
       other: 'Requiere atención',
     },
     urgent: 'URGENTE',
