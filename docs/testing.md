@@ -31,6 +31,7 @@ This page lists every test suite in the repo: its command, what it covers, and h
 - `load-context.test.ts`: `load-context` names no error workflow, `error-handler` calls nothing that could call it back, every read stays on the typeVersion that fails loudly on a missing file and always passes on an item, and one Merge combines the four.
 - `notify-team.test.ts`: the cooldown wiring and query, the emergency rule, a sent alert recorded with its reason, a missing or invalid `alert_cooldown_minutes` sending the alert without the cooldown, and the generated `Compose alert` writing a Spanish alert, and the cooldown note, in the frozen sandbox.
 - `process-message.test.ts`: each tool takes the phone from the trigger and lets the model fill only its allowlisted fields, the AI Agent never retries, the chat model's settings, one value per Postgres parameter, the handoff mark, the TEAM ALERTED rule, every reply passing `Check reply`, `Resolve language` right after the duplicate check, the three side calls continuing on error so a failed alert still gets the patient a reply, a sticky note per canvas section, and the generated `Check reply` and `Resolve language` nodes running in the frozen sandbox.
+- `session-prefix.test.ts`: the `test:` chat-memory prefix is one literal across `process-message`, `retention-cleanup` and the dev harness's cleanup.
 - `retention-cleanup.test.ts`: both deletes reachable only through the `retention_days` guard, in order, with Always Output Data, and the guard's error naming the bad setting.
 - `triage-message.test.ts`: `Score message with Jev`'s 2 tries 1000 ms apart, its `config.triage.timeout_ms` timeout, and its error output failing open.
 - `upsert-patient.test.ts`: evaluates `Merge patient fields`' expression. A blank or whitespace-only field keeps the stored value, a non-blank one overwrites it, and `last_contact` is today in `business.timezone`.
@@ -61,6 +62,7 @@ Three helpers in `tests/helpers/` aren't test files: `run-generated.ts` runs a g
 - Generated nodes are tested twice: as TypeScript, and as the committed `jsCode`, inside a sandbox that freezes `Object.defineProperty` like n8n's Task Runner.
 - Only `init-env.test.ts`, `tooling.test.ts`, and `export-workflows.test.ts` write files, each to a fresh `mkdtempSync` directory under the OS temp dir, never the repo. A few tests run read-only commands: `git ls-files`, `git check-ignore`, and `pnpm config list --json`; `lib-runtime.test.ts` spawns plain local commands to prove its stdin handling.
 - No test reads `.env` or `config/config.json`; they read the committed `.env.example` and `config/config.example.json` instead.
+- `tests/hygiene.test.ts` and `tests/supply-chain.test.ts` need a git checkout and `pnpm` on PATH; outside one they fail with a spawn error, not a test failure.
 
 ## Build and hygiene commands
 

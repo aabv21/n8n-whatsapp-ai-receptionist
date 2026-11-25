@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import { readWorkflow, type WorkflowNode } from '../../scripts/lib/workflow.ts';
 import { CODE_NODES, WORKFLOWS } from '../../scripts/manifest.ts';
 import { run as decideRoute } from '../../src/nodes/decide-route.ts';
+import { ALERT_REASONS } from '../../src/nodes/shared/team-messages.ts';
 import type { Business } from '../../src/nodes/types.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
 import { nodesOutsideTheirSticky, stickySections } from '../helpers/sticky-sections.ts';
@@ -252,4 +253,11 @@ const SECTIONS: Record<string, string[]> = {
 test('sticky notes label each section, above or around the nodes they name', () => {
   expect(stickySections(wf).map((s) => s.heading).sort()).toEqual(Object.keys(SECTIONS).sort());
   expect(nodesOutsideTheirSticky(wf, SECTIONS)).toEqual([]);
+});
+
+test('every reason notify_team lets the model pick is one of ALERT_REASONS', () => {
+  const expression = String(inputsOf(node('notify_team')).value.reason);
+  const picked = [...(/\[([^\]]+)\]\.find\(/.exec(expression)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  expect(picked).toEqual(['unknown_treatment', 'out_of_scope', 'other']);
+  for (const reason of picked) expect(ALERT_REASONS as readonly (string | undefined)[]).toContain(reason);
 });

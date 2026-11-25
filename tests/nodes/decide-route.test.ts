@@ -65,3 +65,8 @@ test('a missing thresholds object fails with the same fixed message, not a TypeE
 test('the urgent note tells the agent to give the emergency phone when today has no slot', () => {
   expect(decide({ ...low, emergency: 0.9 }).notes[0]).toContain('BUSINESS emergency_phone');
 });
+
+test('a complaint alone hands off and alerts as a complaint', () => {
+  const r = decide({ ...low, complaint: 0.8 });
+  expect([r.route, r.notify_reason, r.flags.handoff]).toEqual(['handoff', 'complaint', true]);
+});

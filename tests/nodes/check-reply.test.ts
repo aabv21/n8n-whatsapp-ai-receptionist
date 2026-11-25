@@ -193,3 +193,6 @@ test('the address follows the confirmations once, however many bookings this tur
   const calls = [booked('2026-11-04T09:30:00.000-05:00'), booked('2026-11-05T08:00:00.000-05:00', 'Teeth whitening')];
   expect(check('Toma ibuprofeno.', calls).reply.split('Address: ')).toHaveLength(2);
 });
+
+test('a small unlisted amount is still replaced', () =>
+  expectReplaced(['Cost: $500', 'Son 50 pesos'], business.replies.price_check.en));
