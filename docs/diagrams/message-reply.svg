@@ -736,15 +736,15 @@ rect.c-bg-rect { fill: var(--bg); }
           <text data-node-label="" x="245.33333333333334" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">AI Agent</text>
         </g>
 
-        <g id="node-tools" data-node-id="tools" data-node-label="Agent tools" tabindex="0" role="button" aria-label="Focus Agent tools, 3 workflows, Sequence participant" aria-pressed="false" data-node-kind="backend" data-node-sublabel="3 workflows" data-node-context="Sequence participant">
-          <title>Agent tools · 3 workflows · Sequence participant</title>
+        <g id="node-tools" data-node-id="tools" data-node-label="Agent tools" tabindex="0" role="button" aria-label="Focus Agent tools, 4 workflows, Sequence participant" aria-pressed="false" data-node-kind="backend" data-node-sublabel="4 workflows" data-node-context="Sequence participant">
+          <title>Agent tools · 4 workflows · Sequence participant</title>
           <rect x="327.6666666666667" y="72" width="101" height="60" rx="6" class="c-mask"/>
           <rect x="327.6666666666667" y="72" width="101" height="60" rx="6" class="c-backend" data-animate="node" style="--step: 2; --flow-node-name: archify-relay-node-3;" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(333.6666666666667 78) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
           <text data-node-label="" x="378.1666666666667" y="108" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Agent tools</text>
-          <text x="378.1666666666667" y="122" class="t-muted" font-size="7" text-anchor="middle">3 workflows</text>
+          <text x="378.1666666666667" y="122" class="t-muted" font-size="7" text-anchor="middle">4 workflows</text>
         </g>
 
         <g id="node-google" data-node-id="google" data-node-label="Google" tabindex="0" role="button" aria-label="Focus Google, Sequence participant" aria-pressed="false" data-node-kind="external" data-node-context="Sequence participant">

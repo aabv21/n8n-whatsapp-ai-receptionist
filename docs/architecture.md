@@ -28,7 +28,7 @@ The external services are Meta's WhatsApp Cloud API, Anthropic (Claude Haiku 5.5
 
 ## What each component does
 
-Twelve n8n workflows split the work. Each has a fixed ID in `scripts/manifest.ts`, and every one except `error-handler` sends its failures to `error-handler`:
+Thirteen n8n workflows split the work. Each has a fixed ID in `scripts/manifest.ts`, and every one except `error-handler` sends its failures to `error-handler`:
 
 | Workflow | Started by | What it does |
 |---|---|---|
