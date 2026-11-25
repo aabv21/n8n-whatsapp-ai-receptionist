@@ -277,8 +277,9 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
     3. `change-appointment` with `{"action":"reschedule","phone":"570000000001","date":"<next Wednesday>","time":"09:30","new_date":"<next Wednesday>","new_time":"10:15"}` returns `"ok":true`, and Calendar shows 10:15.
     4. `{"action":"cancel","phone":"570000000001","date":"<next Wednesday>","time":"10:15"}` returns `"ok":true`.
     5. `list` returns `"appointments":[]`.
-    6. `find-patient` shows `status` `"cancelled"`.
-    7. Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
+    6. `find-patient` shows `status` `"cancelled"` and `last_appointment` `""`. After step 3, `find-patient` shows `last_appointment` equal to the 10:15 start.
+    7. A cancel of an event already deleted in Google Calendar: book again, delete that event by hand in Google Calendar, then send the `cancel` call. Expect no team alert. If it does alert, the 404/410 match did not fire for that error text and the alert is the safe fallback; record the run's exact `error` text.
+    8. Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
 
 ## Cost per message
 
