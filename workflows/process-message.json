@@ -1361,6 +1361,7 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput",
       "credentials": {
         "postgres": {
           "id": "cmbCredAppDb0001",

@@ -220,13 +220,13 @@ describe('alert cooldown probe', () => {
     expect(script.endsWith('ROLLBACK;\n')).toBe(true);
     for (const reason of ["'non_text'", "'human_requested'", "'emergency'", "'triage_failed'"]) expect(script).toContain(reason);
     const check = statements.find((s) => s.node === 'Check alert cooldown');
-    expect(script.split(check?.query ?? 'missing').length - 1).toBe(12);
+    expect(script.split(check?.query ?? 'missing').length - 1).toBe(14);
   });
 
   it('expects the same reason held back, another reason and an emergency not', () => {
-    expect([...COOLDOWN_EXPECTED]).toEqual(['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f']);
-    expect(cooldownProblems('1\nt\nf\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\n')).toEqual([]);
-    const problems = cooldownProblems('t\nt\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\n');
+    expect([...COOLDOWN_EXPECTED]).toEqual(['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f', 'f', 'f']);
+    expect(cooldownProblems('1\nt\nf\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\nf\nf\n')).toEqual([]);
+    const problems = cooldownProblems('t\nt\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\nf\nf\n');
     expect(problems).toHaveLength(1);
     expect(problems[0]).toContain('another reason');
   });

@@ -254,17 +254,18 @@ export function handoffPauseProblems(stdout: string): string[] {
 /**
  * What `cooldownScript` prints: the same reason held back, another reason and a first emergency not,
  * a second reason on the message, a repeat emergency inside its dedupe, outside a 0-minute dedupe,
- * a reason past a cap of 1, an emergency past that cap, then a failed emergency check, which is held
- * back like an emergency (only by a repeat inside the dedupe window) and never counts toward the cap.
+ * a capped reason past a cap of 1, an emergency past that cap, then a failed emergency check, which is held
+ * back like an emergency (only by a repeat inside the dedupe window) and never counts toward the cap, and
+ * last a human request and a handoff re-alert, which no cap holds back either.
  */
-export const COOLDOWN_EXPECTED: readonly string[] = ['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f'];
+export const COOLDOWN_EXPECTED: readonly string[] = ['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f', 'f', 'f'];
 const COOLDOWN_PHONE = '570000000095';
 
 /**
  * A psql script that checks what notify-team's cooldown holds back: an alert is held back only by an
  * earlier alert of the same reason, the list keeps every reason marked on a message, an emergency is
  * held back only by an earlier emergency inside its short dedupe window, and the other reasons share
- * a per-phone hourly cap that never applies to an emergency. It marks a `non_text` alert, asks for
+ * a per-phone hourly cap that never applies to an emergency, a failed emergency check, a human request, a complaint or a re-alert. It marks a `non_text` alert, asks for
  * `non_text`, `human_requested` and `emergency`, marks an `emergency` on the same message, and asks
  * again with the dedupe window and the cap set to values that prove each is read, all rolled back.
  */
@@ -287,13 +288,15 @@ export function cooldownScript(statements: readonly WorkflowStatement[]): string
     ask('non_text'),
     ask('emergency'),
     ask('emergency', '0'),
-    ask('complaint', '5', '1'),
+    ask('other', '5', '1'),
     ask('emergency', '0', '1'),
     ask('triage_failed', '5', '1'),
     mark, bindValues('check-db-cooldown', 'triage_failed'),
     ask('triage_failed'),
     ask('triage_failed', '0'),
     ask('human_requested', '5', '2'),
+    ask('human_requested', '5', '1'),
+    ask('handoff_followup', '5', '1'),
     'ROLLBACK;',
   ].join('\n') + '\n';
 }
@@ -309,12 +312,14 @@ export function cooldownProblems(stdout: string): string[] {
     'a reason stays held back after a second reason is marked on the message',
     'a repeat emergency inside the dedupe window is held back',
     'an emergency outside the dedupe window is not held back',
-    'a reason past the hourly cap is held back',
+    'a capped reason past the hourly cap is held back',
     'an emergency past the hourly cap is not held back',
     'a failed emergency check past the hourly cap still alerts',
     'a repeat failed emergency check inside the dedupe window is held back',
     'a failed emergency check outside the dedupe window still alerts',
     'a failed emergency check does not count toward the hourly cap',
+    'a human request past the hourly cap still alerts',
+    'a handoff re-alert past the hourly cap still alerts',
   ];
   return COOLDOWN_EXPECTED.flatMap((want, index) => {
     const have = got.at(index);

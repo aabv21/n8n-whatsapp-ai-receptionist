@@ -26,11 +26,11 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
   - `Check reply` replaces a reply that gives a dose or quotes an unlisted price. A failed agent run alerts the team and sends a fixed apology.
   - After a handoff, the assistant stays out of the conversation for `config.limits.handoff_pause_hours`: the first new message gets one fixed line and one re-alert, and later ones get no reply. Each paused message is first checked for an emergency with Jev's emergency question alone: a hit gets the fixed urgent reply with the emergency phone and an emergency alert.
   - A side call that throws, such as an alert, never costs the patient a reply.
-- **`triage-message`** asks TypeSafe's Jev five yes/no questions and applies `config.triage.thresholds`. It fails open: a Jev error or an incomplete answer returns `route: "agent"` with `flags.triage_failed: true`.
+- **`triage-message`** asks TypeSafe's Jev five yes/no questions, or only the emergency one when `emergency_only` is true (the handoff pause), and applies `config.triage.thresholds`. It fails open: a Jev error or an incomplete answer returns `route: "agent"` with `flags.triage_failed: true`.
 - **`check-availability`** offers up to 3 free slots on one day from the opening hours, minimum notice, and Calendar's busy events. An invalid, past, closed, or too-far date (past `config.limits.max_booking_days_ahead`) is refused before any Calendar call, and on the last day inside that horizon it offers only slots `book-appointment` would accept.
 - **`book-appointment`** validates the service, date, time, hours, slot grid, notice, and booking horizon offline, counts the phone's upcoming bookings against `config.limits.max_upcoming_bookings`, re-checks the exact slot, creates the event, and upserts the patient as `booked` with the trimmed phone and name the event uses.
 - **`upsert-patient`** merges the patient's row in the Patients sheet by phone. A missing, blank, or whitespace-only field keeps the stored value, an `inquiry` never downgrades a stored status, `last_contact` is today in `business.timezone`, and every value is written raw.
-- **`notify-team`** emails the team a plain-text alert in `config.team_locale`'s language, at most once per phone and reason per `config.limits.alert_cooldown_minutes`; [the architecture doc](docs/architecture.md#what-happens-when-something-fails) has the exceptions. Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
+- **`notify-team`** emails the team a plain-text alert in `config.team_locale`'s language, at most once per phone and reason per `config.limits.alert_cooldown_minutes`; [the architecture doc](docs/architecture.md#what-happens-when-something-fails) has the exceptions. Without a valid `alert_cooldown_minutes`, alerts still send without the same-reason cooldown (the emergency dedupe and the hourly cap still apply), and each one carries a line naming the setting.
 - **`load-context`** reads the four mounted files into one item. A missing file fails its read and the calling run, so it shows in the executions list instead of answering with no context.
 - **`error-handler`** emails the team the failed workflow, node, error, and execution link; **`retention-cleanup`** deletes old chat memory and messages from Postgres daily at 03:00 Bogota time.
 - **`dev-harness`** (`node scripts/dev-call.ts <target> '<json>'`) calls any sub-workflow over HTTP with a token, plus `find-patient`, `cleanup`, `retention`, and `raise-error`.
@@ -107,7 +107,7 @@ Every other setting lives in `config/config.json`, which n8n reads on every run:
 | `limits.retention_days` | How long Postgres keeps messages and chat memory. |
 | `limits.alert_cooldown_minutes` | The per-phone, per-reason alert cooldown. |
 | `limits.emergency_alert_dedupe_minutes` | How long one emergency alert holds back the next one for the same phone. The patient still gets the emergency reply every time. A missing or invalid value uses 5. |
-| `limits.max_alerts_per_phone_per_hour` | How many alerts one phone can send the team in an hour, across every reason except `emergency` and `triage_failed`. A missing or invalid value uses 6. |
+| `limits.max_alerts_per_phone_per_hour` | How many alerts one phone can send the team in an hour, across every reason except `emergency`, `triage_failed`, `human_requested`, `complaint` and `handoff_followup`. A missing or invalid value uses 6. |
 | `limits.handoff_pause_hours` | How long the assistant stays silent after a handoff. A missing or invalid value turns the pause off. |
 | `limits.max_booking_days_ahead` | The booking horizon `check-availability` and `book-appointment` share. |
 | `limits.max_upcoming_bookings` | Upcoming bookings one phone may hold. |
@@ -125,7 +125,7 @@ Replace `process-message`'s `Anthropic Chat Model` sub-node with another provide
 Pulling this version into a checkout that already has a `config/config.json`, a local stack, or signed-in Google credentials takes three steps:
 
 1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.emergency_alert_dedupe_minutes`, `limits.max_alerts_per_phone_per_hour`, `limits.handoff_pause_hours`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`.
-   - Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
+   - Without a valid `alert_cooldown_minutes`, alerts still send without the same-reason cooldown (the emergency dedupe and the hourly cap still apply), and each one carries a line naming the setting.
    - Without a valid `handoff_pause_hours`, the pause is off and the assistant keeps answering after a handoff.
    - Without either booking key, `check-availability` and every booking fail closed before any Calendar call.
    - A `triage.thresholds` value that's missing or outside (0, 1] fails triage with an error email.

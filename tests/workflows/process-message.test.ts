@@ -230,7 +230,7 @@ test('the generated Resolve language node detects Spanish and falls back to the 
 // say) must not stop the run. The failed sub-run still reaches error-handler through its own
 // errorWorkflow, and the reply then reads the side call's empty result as a failure.
 test('an emergency or handoff alert that fails still reaches the agent, and an agent-failure alert that fails still sends the fallback reply', () => {
-  for (const name of ['Mark patient handed off', 'Alert the team', 'Re-alert the team', 'Alert urgent message', 'Alert failed urgency check', 'Check urgent message', 'Alert non-text message', 'Report agent failure']) {
+  for (const name of ['Check handoff pause', 'Mark patient handed off', 'Alert the team', 'Re-alert the team', 'Alert urgent message', 'Alert failed urgency check', 'Check urgent message', 'Alert non-text message', 'Report agent failure']) {
     expect(node(name)?.onError, name).toBe('continueRegularOutput');
   }
   expect(String(node('Prepare prompt input')?.parameters.jsonOutput)).toContain("$('Alert the team').first().json.ok === true");
@@ -425,6 +425,36 @@ test('the pause, urgent and thread expressions evaluate to what the wiring expec
   expect(pauseParts).toHaveLength(3);
   expect(evaluateExpression(`${pauseParts[0] ?? ''}}}`, { nodes: nodes() })).toBe('570000000001');
   expect(evaluateExpression(`={{${pauseParts[1] ?? ''}}}`, { nodes: nodes() })).toBe('m1');
+  // The failed-check reply and alert run as written, with the failed check's own inputs.
+  expect(run('Reply handed off after failed check', 'jsonOutput', { nodes: nodes() })).toEqual({ reply: 'espera', route: 'handoff_paused', flags: {}, tool_calls: [] });
+  expect(run('Reply handed off after failed check', 'jsonOutput', { nodes: nodes({ 'Check handoff pause': { first_paused: false } }) })).toMatchObject({ reply: 'espera' });
+  const failedAlert = Object.fromEntries(
+    Object.entries(inputsOf(node('Alert failed urgency check')).value).map(([key, expression]) => [
+      key,
+      typeof expression === 'string' && expression.startsWith('=') ? evaluateExpression(expression, { nodes: nodes() }) : expression,
+    ]),
+  );
+  expect(failedAlert).toEqual({
+    reason: 'triage_failed',
+    phone: '570000000001',
+    name: 'Ana',
+    recent_messages: [{ role: 'assistant', text: 'Hi' }, { role: 'patient', text: 'Hola' }],
+    message_id: 'm1',
+  });
+});
+
+// A SQL error in the pause check must not take the patient's reply with it: the error item has no
+// `paused: true`, so the message takes the ordinary path and the agent answers.
+test('a failed pause check continues to the ordinary path instead of failing the run', () => {
+  const check = node('Check handoff pause');
+  expect(check?.onError).toBe('continueRegularOutput');
+  expect(branches('Check handoff pause')[0]?.map((e) => e.node)).toEqual(['Is the patient with the team']);
+  const left = String((node('Is the patient with the team')?.parameters.conditions as { conditions: { leftValue: string }[] }).conditions[0]?.leftValue);
+  expect(evaluateExpression(left, { json: { error: 'syntax error at or near "("' } })).toBe(false);
+  expect(evaluateExpression(left, { json: {} })).toBe(false);
+  expect(evaluateExpression(left, { json: { paused: false, first_paused: true } })).toBe(false);
+  expect(evaluateExpression(left, { json: { paused: true, first_paused: false } })).toBe(true);
+  expect(branches('Is the patient with the team')[1]?.map((e) => e.node)).toEqual(['Recent patient messages']);
 });
 
 // The emergency check can fail: Jev down, no scores, or a score that isn't a number. Staying silent
@@ -441,9 +471,6 @@ test('a failed emergency check during the pause alerts the team as triage_failed
     recent_messages: inputsOf(node('Alert the team')).value.recent_messages,
   });
   expect(branches('Alert failed urgency check')[0]?.map((e) => e.node)).toEqual(['Reply handed off after failed check']);
-  expect(node('Reply handed off after failed check')?.parameters.jsonOutput).toBe(
-    "={{ { reply: $('Load context').first().json.business.replies.handed_off[$('Resolve language').first().json.lang], route: 'handoff_paused', flags: {}, tool_calls: [] } }}",
-  );
   expect(branches('Reply handed off after failed check')[0]?.map((e) => e.node).sort()).toEqual(['Return result', 'Save route']);
   expect(ALERT_REASONS as readonly string[]).toContain('triage_failed');
 });

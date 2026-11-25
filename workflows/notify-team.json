@@ -135,40 +135,6 @@
       }
     },
     {
-      "id": "30000000-0000-4000-8000-00000000000f",
-      "name": "Check alert cooldown setting",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.4,
-      "position": [
-        1140,
-        340
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "30000000-0001-4000-8000-0000000a0103",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ Number.isInteger($('Load context').first().json.config.limits?.alert_cooldown_minutes) && $('Load context').first().json.config.limits.alert_cooldown_minutes >= 1 }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
       "id": "30000000-0000-4000-8000-00000000000b",
       "name": "Check alert cooldown",
       "type": "n8n-nodes-base.postgres",
@@ -183,9 +149,9 @@
       "onError": "continueRegularOutput",
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT CASE WHEN $3::text IN ('emergency', 'triage_failed') THEN EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $4) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)) ELSE EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)) OR (SELECT count(*) FROM inbound_messages m, jsonb_array_elements_text(coalesce(m.triage->'alerted_reasons', '[]'::jsonb)) r WHERE m.phone = $1 AND m.received_at > now() - interval '1 hour' AND r NOT IN ('emergency', 'triage_failed')) >= $5 END AS alerted",
+        "query": "SELECT CASE WHEN $3::text IN ('emergency', 'triage_failed') THEN EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $4) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)) ELSE EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->'alerted_reasons' @> jsonb_build_array($3::text)) OR ($3::text NOT IN ('emergency', 'triage_failed', 'human_requested', 'complaint', 'handoff_followup') AND (SELECT count(*) FROM inbound_messages m, jsonb_array_elements_text(coalesce(m.triage->'alerted_reasons', '[]'::jsonb)) r WHERE m.phone = $1 AND m.received_at > now() - interval '1 hour' AND r NOT IN ('emergency', 'triage_failed', 'human_requested', 'complaint', 'handoff_followup')) >= $5) END AS alerted",
         "options": {
-          "queryReplacement": "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }},{{ $('Receive alert request').first().json.reason }},{{ Number.isInteger($('Load context').first().json.config.limits?.emergency_alert_dedupe_minutes) && $('Load context').first().json.config.limits.emergency_alert_dedupe_minutes >= 1 ? $('Load context').first().json.config.limits.emergency_alert_dedupe_minutes : 5 }},{{ Number.isInteger($('Load context').first().json.config.limits?.max_alerts_per_phone_per_hour) && $('Load context').first().json.config.limits.max_alerts_per_phone_per_hour >= 1 ? $('Load context').first().json.config.limits.max_alerts_per_phone_per_hour : 6 }}"
+          "queryReplacement": "={{ $('Receive alert request').first().json.phone }},{{ Number.isInteger($('Load context').first().json.config.limits?.alert_cooldown_minutes) && $('Load context').first().json.config.limits.alert_cooldown_minutes >= 1 ? $('Load context').first().json.config.limits.alert_cooldown_minutes : 0 }},{{ $('Receive alert request').first().json.reason }},{{ Number.isInteger($('Load context').first().json.config.limits?.emergency_alert_dedupe_minutes) && $('Load context').first().json.config.limits.emergency_alert_dedupe_minutes >= 1 ? $('Load context').first().json.config.limits.emergency_alert_dedupe_minutes : 5 }},{{ Number.isInteger($('Load context').first().json.config.limits?.max_alerts_per_phone_per_hour) && $('Load context').first().json.config.limits.max_alerts_per_phone_per_hour >= 1 ? $('Load context').first().json.config.limits.max_alerts_per_phone_per_hour : 6 }}"
         }
       },
       "credentials": {
@@ -342,7 +308,7 @@
       "parameters": {
         "width": 2820,
         "height": 200,
-        "content": "## Notify team\nCompose alert (src/nodes/compose-alert.ts) writes a plain-text alert, so patient text can't inject markup, in config.team_locale's language, and emails config.team_email; a team_locale naming no supported language still sends, in English, with a line saying so. A per-phone cooldown keeps one phone from using up the Gmail daily quota real emergencies rely on: Check alert cooldown asks whether any of this phone's inbound messages within config.limits.alert_cooldown_minutes is marked team_alerted, and if so returns { ok: true, suppressed: true } without sending. An emergency is held back only by an earlier emergency; every other reason by any earlier alert. Suppressed means an earlier alert reached the team, not this one, so a caller must not tell the patient this request was forwarded. An alert_cooldown_minutes that isn't an integer of 1 or more sends the alert anyway, without the cooldown, and Compose alert adds a line naming the setting. A tool_failure alert (a system failure the team must always hear about) skips both checks and sends, and a cooldown check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id with team_alerted and the reason as alerted_reason, which the cooldown reads back (no message_id, no mark); a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
+        "content": "## Notify team\nCompose alert (src/nodes/compose-alert.ts) writes a plain-text alert, so patient text can't inject markup, in config.team_locale's language, and emails config.team_email; a team_locale naming no supported language still sends, in English, with a line saying so. Check alert cooldown keeps one phone from using up the Gmail daily quota real emergencies rely on, and returns { ok: true, suppressed: true } without sending when an earlier alert of this reason, or the dedupe or hourly cap, holds the request back; the rules and their limits are in docs/architecture.md, in the failure row for one phone setting off alert after alert. Suppressed means an earlier alert reached the team, not this one, so a caller must not tell the patient this request was forwarded. An alert_cooldown_minutes that isn't an integer of 1 or more switches off only the same-reason cooldown, the dedupe and the cap still apply, and Compose alert adds a line naming the setting. A tool_failure alert (a system failure the team must always hear about) skips the check and sends, and a check that itself fails sends anyway. After a send, Mark team alerted marks the caller's message_id with team_alerted and the reason in the alerted_reasons list the check reads back (no message_id, no mark); a failed mark still returns { ok: true }. Returns { ok: true }, or { ok: false, reason: 'email_failed' } when Gmail's error output fires."
       }
     }
   ],
@@ -402,25 +368,7 @@
         ],
         [
           {
-            "node": "Check alert cooldown setting",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check alert cooldown setting": {
-      "main": [
-        [
-          {
             "node": "Check alert cooldown",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Send alert email",
             "type": "main",
             "index": 0
           }
