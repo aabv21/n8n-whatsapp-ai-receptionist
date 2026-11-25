@@ -24,6 +24,8 @@ export interface Business {
   appointment_minutes: number;
   max_slots_offered: number;
   min_notice_minutes: number;
+  /** How many hours before an appointment a patient can still cancel or move it. */
+  change_notice_hours: number;
   payment_methods: string[];
   services: Service[];
   replies: Record<ReplyKey, Localized>;

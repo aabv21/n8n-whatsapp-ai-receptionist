@@ -1116,7 +1116,7 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/shared/tool-results.ts\n  var BOOK_APPOINTMENT_TOOL = \"book_appointment\";\n  function toolResults(toolCalls, tool) {\n    const results = [];\n    for (const call of toolCalls) {\n      if (call.tool === tool && typeof call.output === \"object\" && call.output !== null) results.push(call.output);\n    }\n    return results;\n  }\n\n  // src/nodes/shared/confirmations.ts\n  var CONFIRMATIONS = {\n    en: {\n      locale: \"en-US\",\n      date: \"EEEE, MMMM d, yyyy\",\n      line: (service, date, at) => `Your appointment is booked: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      address: (address) => `Address: ${address}`\n    },\n    es: {\n      locale: \"es-CO\",\n      date: \"EEEE d 'de' MMMM 'de' yyyy\",\n      // Spanish says \"a la 1\" and \"a las 2\". The abbreviation's own period ends the sentence.\n      line: (service, date, at) => `Su cita quedó agendada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      address: (address) => `Dirección: ${address}`\n    }\n  };\n  function bookingConfirmations(business, toolCalls, lang) {\n    const format = pick(CONFIRMATIONS, lang);\n    const lines = [];\n    for (const output of toolResults(toolCalls, BOOK_APPOINTMENT_TOOL)) {\n      const { ok, start, service } = output;\n      if (ok !== true || typeof start !== \"string\" || typeof service !== \"string\") continue;\n      const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);\n      if (!at.isValid) continue;\n      const listed = business.services.find((s) => s.name === service);\n      const shown = listed?.name_i18n ? pick(listed.name_i18n, lang) : service;\n      lines.push(format.line(shown, at.toFormat(format.date), at));\n    }\n    if (lines.length > 0) lines.push(format.address(business.address));\n    return lines;\n  }\n\n  // src/nodes/shared/prices.ts\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const output of toolResults(toolCalls, BOOK_APPOINTMENT_TOOL)) {\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n\n  // src/nodes/check-reply.ts\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  function run(input) {\n    const { reply, business } = input;\n    const lang = normalizeLocale(input.lang) ?? \"en\";\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.medical_advice, lang);\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.price_check, lang);\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = pick(business.replies.price_check, lang);\n    }\n    if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };\n    const confirmations = bookingConfirmations(business, input.tool_calls, lang);\n    return {\n      reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join(\"\\n\")}` : replacement,\n      flags: { ...input.flags, reply_replaced: true }\n    };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/shared/tool-results.ts\n  var BOOK_APPOINTMENT_TOOL = \"book_appointment\";\n  var CANCEL_APPOINTMENT_TOOL = \"cancel_appointment\";\n  var RESCHEDULE_APPOINTMENT_TOOL = \"reschedule_appointment\";\n  function toolResults(toolCalls, tool) {\n    const results = [];\n    for (const call of toolCalls) {\n      if (call.tool === tool && typeof call.output === \"object\" && call.output !== null) results.push(call.output);\n    }\n    return results;\n  }\n\n  // src/nodes/shared/confirmations.ts\n  var CONFIRMATIONS = {\n    en: {\n      locale: \"en-US\",\n      date: \"EEEE, MMMM d, yyyy\",\n      line: (service, date, at) => `Your appointment is booked: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      moved: (service, date, at) => `Your appointment was moved: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      cancelled: (service, date, at) => `Your appointment is cancelled: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      address: (address) => `Address: ${address}`\n    },\n    es: {\n      locale: \"es-CO\",\n      date: \"EEEE d 'de' MMMM 'de' yyyy\",\n      // Spanish says \"a la 1\" and \"a las 2\". The abbreviation's own period ends the sentence.\n      line: (service, date, at) => `Su cita quedó agendada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      moved: (service, date, at) => `Su cita quedó reprogramada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      cancelled: (service, date, at) => `Su cita quedó cancelada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      address: (address) => `Dirección: ${address}`\n    }\n  };\n  function bookingConfirmations(business, toolCalls, lang) {\n    const format = pick(CONFIRMATIONS, lang);\n    const lines = [];\n    let hasVisit = false;\n    for (const call of toolCalls) {\n      const kind = call.tool === BOOK_APPOINTMENT_TOOL ? \"line\" : call.tool === RESCHEDULE_APPOINTMENT_TOOL ? \"moved\" : call.tool === CANCEL_APPOINTMENT_TOOL ? \"cancelled\" : null;\n      if (!kind || typeof call.output !== \"object\" || call.output === null) continue;\n      const { ok, start, service } = call.output;\n      if (ok !== true || typeof start !== \"string\" || typeof service !== \"string\") continue;\n      const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);\n      if (!at.isValid) continue;\n      const listed = business.services.find((s) => s.name === service);\n      const shown = listed?.name_i18n ? pick(listed.name_i18n, lang) : service;\n      const line = kind === \"line\" ? format.line : kind === \"moved\" ? format.moved : format.cancelled;\n      lines.push(line(shown, at.toFormat(format.date), at));\n      if (kind !== \"cancelled\") hasVisit = true;\n    }\n    if (hasVisit) lines.push(format.address(business.address));\n    return lines;\n  }\n\n  // src/nodes/shared/prices.ts\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const output of toolResults(toolCalls, BOOK_APPOINTMENT_TOOL)) {\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n\n  // src/nodes/check-reply.ts\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  function run(input) {\n    const { reply, business } = input;\n    const lang = normalizeLocale(input.lang) ?? \"en\";\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.medical_advice, lang);\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.price_check, lang);\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = pick(business.replies.price_check, lang);\n    }\n    if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };\n    const confirmations = bookingConfirmations(business, input.tool_calls, lang);\n    return {\n      reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join(\"\\n\")}` : replacement,\n      flags: { ...input.flags, reply_replaced: true }\n    };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       },
       "id": "90000000-0000-4000-8000-000000000026",
       "name": "Check reply",
@@ -1286,9 +1286,9 @@
     },
     {
       "parameters": {
-        "width": 980,
+        "width": 1340,
         "height": 1060,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets a language hint that, when detection fails, names the default without claiming the patient wrote in it, and the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back.",
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. my_appointments, cancel_appointment and reschedule_appointment call change-appointment with their own fixed action, and only change what this phone's own booked events hold. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets a language hint that, when detection fails, names the default without claiming the patient wrote in it, and the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back.",
         "color": 5
       },
       "id": "90000000-0000-4000-8000-000000000040",
@@ -1900,6 +1900,252 @@
       "position": [
         3920,
         820
+      ]
+    },
+    {
+      "parameters": {
+        "description": "List this patient's upcoming appointments that the assistant booked, with each one's day, time, and service.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "list",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "date": "",
+            "time": "",
+            "new_date": "",
+            "new_time": ""
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000051",
+      "name": "my_appointments",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        6260,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Cancel one of this patient's upcoming appointments. Call it only after the patient has confirmed which appointment to cancel.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "cancel",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "date": "={{ $fromAI('date', 'The current day of the appointment, as YYYY-MM-DD', 'string') }}",
+            "time": "={{ $fromAI('time', 'The current start time of the appointment, as 24-hour HH:mm', 'string') }}",
+            "new_date": "",
+            "new_time": ""
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000052",
+      "name": "cancel_appointment",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        6400,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Move one of this patient's upcoming appointments to a slot check_availability offered. Call it only after the patient has confirmed the appointment and the new day and time.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "reschedule",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "date": "={{ $fromAI('date', 'The current day of the appointment, as YYYY-MM-DD', 'string') }}",
+            "time": "={{ $fromAI('time', 'The current start time of the appointment, as 24-hour HH:mm', 'string') }}",
+            "new_date": "={{ $fromAI('new_date', 'The new day, as YYYY-MM-DD', 'string') }}",
+            "new_time": "={{ $fromAI('new_time', 'The new start time, as 24-hour HH:mm', 'string') }}"
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000053",
+      "name": "reschedule_appointment",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        6540,
+        580
       ]
     }
   ],
@@ -2573,6 +2819,39 @@
           {
             "node": "Return result",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "my_appointments": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cancel_appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reschedule_appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
             "index": 0
           }
         ]

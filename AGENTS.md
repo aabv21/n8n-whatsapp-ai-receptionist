@@ -15,7 +15,7 @@ It is a portfolio demo: every file should read as production-quality, not a prot
 - `config/config.example.json`: the config template. Your own `config/config.json` is gitignored.
 - `business/`, `prompts/`: the business facts (every fixed reply as `{ en, es }`), the FAQ prose, and the system prompt template.
 - `src/nodes/`: one `run()` function per Code node, compiled into workflow JSON. `src/nodes/shared/` holds the logic several nodes reuse.
-- `workflows/`: the n8n workflow JSON that `pnpm run setup` imports. [docs/architecture.md](docs/architecture.md#what-each-component-does) describes each one.
+- `workflows/`: the n8n workflow JSON that `pnpm run setup` imports. [docs/architecture.md](docs/architecture.md#what-each-component-does) describes each one, including `change-appointment`, which the agent's cancel and reschedule tools call.
 - `scripts/`: the tooling CLIs. `scripts/manifest.ts` is the one source of fixed workflow and credential IDs and of the `CODE_NODES` table; `scripts/lib/` holds the shared helpers.
 - `tests/`: Vitest suites, fixtures, helpers, and the scenario sets `scripts/run-scenarios.ts` grades.
 - `docs/`: the documents under "Docs" below. `docs/diagrams/` holds the archify sources, pages and images.

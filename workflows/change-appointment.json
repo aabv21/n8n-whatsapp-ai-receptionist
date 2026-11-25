@@ -1,0 +1,1161 @@
+{
+  "id": "cmbChangeAppt001",
+  "name": "Change appointment",
+  "description": null,
+  "nodes": [
+    {
+      "id": "71000000-0000-4000-8000-000000000001",
+      "name": "Receive change request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        320
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "action",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            },
+            {
+              "name": "date",
+              "type": "string"
+            },
+            {
+              "name": "time",
+              "type": "string"
+            },
+            {
+              "name": "new_date",
+              "type": "string"
+            },
+            {
+              "name": "new_time",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000002",
+      "name": "Load context",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        100,
+        320
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbLoadContext01"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "schema": [],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        }
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000003",
+      "name": "Prepare change check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        360,
+        320
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { ...$('Receive change request').first().json, now: $now.toISO(), business: $json.business, max_booking_days_ahead: $json.config.limits.max_booking_days_ahead, events: null } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000004",
+      "name": "Check change request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        320
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: ordered checks of the action, the dates, the new slot, ownership and notice must yield one plan, the same function before and after the Calendar read. Generated from src/nodes/plan-appointment-change.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/plan-appointment-change.ts\n  var plan_appointment_change_exports = {};\n  __export(plan_appointment_change_exports, {\n    CHANGE_ACTIONS: () => CHANGE_ACTIONS,\n    CHANGE_REASONS: () => CHANGE_REASONS,\n    run: () => run\n  });\n\n  // src/nodes/shared/limits.ts\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 1;\n  }\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  var TIME_RE = /^\\d{2}:\\d{2}$/;\n  function parseSlotStart(date, time, zone) {\n    if (!TIME_RE.test(time)) return null;\n    if (Number(time.slice(0, 2)) > 23 || Number(time.slice(3, 5)) > 59) return null;\n    const day = DateTime.fromISO(date, { zone });\n    if (!day.isValid) return null;\n    const start = atTime(day, time);\n    return start.isValid ? start : null;\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/validate-booking.ts\n  function checkSlot(input) {\n    const { business } = input;\n    const zone = business.timezone;\n    const date = input.date.trim();\n    const time = input.time.trim();\n    const start = parseSlotStart(date, time, zone);\n    if (!start) return { ok: false, reason: \"invalid_datetime\" };\n    const day = start.startOf(\"day\");\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const end = start.plus({ minutes: business.appointment_minutes });\n    if (start < window.open || end > window.close) return { ok: false, reason: \"outside_hours\" };\n    if (start.diff(window.open, \"minutes\").minutes % business.appointment_minutes !== 0) return { ok: false, reason: \"off_grid\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (start < now) return { ok: false, reason: \"past\" };\n    if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: \"too_soon\" };\n    if (start > now.plus({ days: input.max_booking_days_ahead })) return { ok: false, reason: \"too_far\" };\n    return { ok: true, start, end };\n  }\n\n  // src/nodes/plan-appointment-change.ts\n  var CHANGE_ACTIONS = [\"list\", \"cancel\", \"reschedule\"];\n  var CHANGE_REASONS = [\n    \"invalid_action\",\n    \"missing_field\",\n    \"invalid_datetime\",\n    \"closed\",\n    \"outside_hours\",\n    \"off_grid\",\n    \"past\",\n    \"too_soon\",\n    \"too_far\",\n    \"not_found\",\n    \"too_late_to_change\"\n  ];\n  var BOOKED_BY_LINE = \"Booked by the WhatsApp assistant\";\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: appointment time is always a valid DateTime\");\n    return value;\n  }\n  function text(value) {\n    return typeof value === \"string\" ? value.trim() : \"\";\n  }\n  function ownedEvents(events, phone, now, zone) {\n    const owned = [];\n    for (const event of events) {\n      const lines = (event.description ?? \"\").split(\"\\n\").map((line) => line.replace(/\\r$/, \"\"));\n      const dateTime = event.start?.dateTime;\n      if (!event.id || !dateTime || !lines.includes(`Phone: ${phone}`) || !lines.includes(BOOKED_BY_LINE)) continue;\n      const start = DateTime.fromISO(dateTime, { setZone: true }).setZone(zone);\n      if (!start.isValid || start < now) continue;\n      const description = event.description ?? \"\";\n      const service = /^Service: (.+)$/m.exec(description)?.[1] ?? \"\";\n      owned.push({ id: event.id, start, service, summary: event.summary ?? \"\", description });\n    }\n    return owned.sort((a, b) => a.start.toMillis() - b.start.toMillis());\n  }\n  function run(input) {\n    const { business } = input;\n    if (!isPositiveInteger(input.max_booking_days_ahead)) {\n      throw new Error(\"config.limits.max_booking_days_ahead must be an integer of 1 or more\");\n    }\n    if (!isPositiveInteger(business.change_notice_hours)) {\n      throw new Error(\"business.change_notice_hours must be an integer of 1 or more\");\n    }\n    const zone = business.timezone;\n    const action = text(input.action);\n    if (!CHANGE_ACTIONS.includes(action)) return { ok: false, reason: \"invalid_action\" };\n    const phone = text(input.phone);\n    const date = text(input.date);\n    const time = text(input.time);\n    const newDate = text(input.new_date);\n    const newTime = text(input.new_time);\n    if (!phone) return { ok: false, reason: \"missing_field\" };\n    let target = null;\n    if (action !== \"list\") {\n      if (!date || !time) return { ok: false, reason: \"missing_field\" };\n      target = parseSlotStart(date, time, zone);\n      if (!target) return { ok: false, reason: \"invalid_datetime\" };\n    }\n    let moveTo = null;\n    if (action === \"reschedule\") {\n      if (!newDate || !newTime) return { ok: false, reason: \"missing_field\" };\n      const slot = checkSlot({ date: newDate, time: newTime, now: input.now, business, max_booking_days_ahead: input.max_booking_days_ahead });\n      if (!slot.ok) return { ok: false, reason: slot.reason };\n      moveTo = slot;\n    }\n    if (input.events === null) return { ok: true, action: \"checked\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    const owned = ownedEvents(input.events, phone, now, zone);\n    if (action === \"list\") {\n      return {\n        ok: true,\n        action: \"list\",\n        appointments: owned.map((o) => ({ date: o.start.toFormat(\"yyyy-LL-dd\"), time: o.start.toFormat(\"HH:mm\"), service: o.service }))\n      };\n    }\n    const found = owned.find((o) => target !== null && o.start.toMillis() === target.toMillis());\n    if (!found) return { ok: false, reason: \"not_found\" };\n    if (found.start < now.plus({ hours: business.change_notice_hours })) return { ok: false, reason: \"too_late_to_change\" };\n    const others = owned.filter((o) => o.id !== found.id);\n    if (moveTo) {\n      const earliest = [moveTo.start, ...others.map((o) => o.start)].reduce((a, b) => b < a ? b : a);\n      return {\n        ok: true,\n        action: \"reschedule\",\n        event_id: found.id,\n        service: found.service,\n        start: toISOString(moveTo.start),\n        end: toISOString(moveTo.end),\n        previous_start: toISOString(found.start),\n        summary: found.summary,\n        description: found.description,\n        next_start: toISOString(earliest)\n      };\n    }\n    const next = others[0];\n    return { ok: true, action: \"cancel\", event_id: found.id, service: found.service, start: toISOString(found.start), next_start: next ? toISOString(next.start) : null };\n  }\n  return __toCommonJS(plan_appointment_change_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000006",
+      "name": "Decide whether to call Calendar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        880,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "71000000-0001-4000-8000-0000000a0105",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === true && $json.action === 'checked' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000007",
+      "name": "Return check result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1140,
+        200
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000008",
+      "name": "Get upcoming appointments",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        700
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now.toISO() }}",
+        "timeMax": "={{ $now.plus({ days: $('Load context').first().json.config.limits.max_booking_days_ahead }).toISO() }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000009",
+      "name": "Aggregate appointments",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        100,
+        700
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "events",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000000a",
+      "name": "Prepare change plan",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        360,
+        700
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { ...$('Receive change request').first().json, now: $now.toISO(), business: $('Load context').first().json.business, max_booking_days_ahead: $('Load context').first().json.config.limits.max_booking_days_ahead, events: $json.events } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000000b",
+      "name": "Plan appointment change",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        700
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: ordered checks of the action, the dates, the new slot, ownership and notice must yield one plan, the same function before and after the Calendar read. Generated from src/nodes/plan-appointment-change.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/plan-appointment-change.ts\n  var plan_appointment_change_exports = {};\n  __export(plan_appointment_change_exports, {\n    CHANGE_ACTIONS: () => CHANGE_ACTIONS,\n    CHANGE_REASONS: () => CHANGE_REASONS,\n    run: () => run\n  });\n\n  // src/nodes/shared/limits.ts\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 1;\n  }\n\n  // src/nodes/shared/opening-hours.ts\n  var WEEKDAYS = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\", \"sat\", \"sun\"];\n  function atTime(day, time) {\n    return day.set({ hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)), second: 0, millisecond: 0 });\n  }\n  var TIME_RE = /^\\d{2}:\\d{2}$/;\n  function parseSlotStart(date, time, zone) {\n    if (!TIME_RE.test(time)) return null;\n    if (Number(time.slice(0, 2)) > 23 || Number(time.slice(3, 5)) > 59) return null;\n    const day = DateTime.fromISO(date, { zone });\n    if (!day.isValid) return null;\n    const start = atTime(day, time);\n    return start.isValid ? start : null;\n  }\n  function openingWindow(day, business) {\n    const weekday = WEEKDAYS[day.weekday - 1];\n    const hours = weekday && business.hours[weekday];\n    if (!hours) return null;\n    const [openTime, closeTime] = hours;\n    return { open: atTime(day, openTime), close: atTime(day, closeTime) };\n  }\n\n  // src/nodes/validate-booking.ts\n  function checkSlot(input) {\n    const { business } = input;\n    const zone = business.timezone;\n    const date = input.date.trim();\n    const time = input.time.trim();\n    const start = parseSlotStart(date, time, zone);\n    if (!start) return { ok: false, reason: \"invalid_datetime\" };\n    const day = start.startOf(\"day\");\n    const window = openingWindow(day, business);\n    if (!window) return { ok: false, reason: \"closed\" };\n    const end = start.plus({ minutes: business.appointment_minutes });\n    if (start < window.open || end > window.close) return { ok: false, reason: \"outside_hours\" };\n    if (start.diff(window.open, \"minutes\").minutes % business.appointment_minutes !== 0) return { ok: false, reason: \"off_grid\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    if (start < now) return { ok: false, reason: \"past\" };\n    if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: \"too_soon\" };\n    if (start > now.plus({ days: input.max_booking_days_ahead })) return { ok: false, reason: \"too_far\" };\n    return { ok: true, start, end };\n  }\n\n  // src/nodes/plan-appointment-change.ts\n  var CHANGE_ACTIONS = [\"list\", \"cancel\", \"reschedule\"];\n  var CHANGE_REASONS = [\n    \"invalid_action\",\n    \"missing_field\",\n    \"invalid_datetime\",\n    \"closed\",\n    \"outside_hours\",\n    \"off_grid\",\n    \"past\",\n    \"too_soon\",\n    \"too_far\",\n    \"not_found\",\n    \"too_late_to_change\"\n  ];\n  var BOOKED_BY_LINE = \"Booked by the WhatsApp assistant\";\n  function toISOString(dt) {\n    const value = dt.toISO();\n    if (value === null) throw new Error(\"unreachable: appointment time is always a valid DateTime\");\n    return value;\n  }\n  function text(value) {\n    return typeof value === \"string\" ? value.trim() : \"\";\n  }\n  function ownedEvents(events, phone, now, zone) {\n    const owned = [];\n    for (const event of events) {\n      const lines = (event.description ?? \"\").split(\"\\n\").map((line) => line.replace(/\\r$/, \"\"));\n      const dateTime = event.start?.dateTime;\n      if (!event.id || !dateTime || !lines.includes(`Phone: ${phone}`) || !lines.includes(BOOKED_BY_LINE)) continue;\n      const start = DateTime.fromISO(dateTime, { setZone: true }).setZone(zone);\n      if (!start.isValid || start < now) continue;\n      const description = event.description ?? \"\";\n      const service = /^Service: (.+)$/m.exec(description)?.[1] ?? \"\";\n      owned.push({ id: event.id, start, service, summary: event.summary ?? \"\", description });\n    }\n    return owned.sort((a, b) => a.start.toMillis() - b.start.toMillis());\n  }\n  function run(input) {\n    const { business } = input;\n    if (!isPositiveInteger(input.max_booking_days_ahead)) {\n      throw new Error(\"config.limits.max_booking_days_ahead must be an integer of 1 or more\");\n    }\n    if (!isPositiveInteger(business.change_notice_hours)) {\n      throw new Error(\"business.change_notice_hours must be an integer of 1 or more\");\n    }\n    const zone = business.timezone;\n    const action = text(input.action);\n    if (!CHANGE_ACTIONS.includes(action)) return { ok: false, reason: \"invalid_action\" };\n    const phone = text(input.phone);\n    const date = text(input.date);\n    const time = text(input.time);\n    const newDate = text(input.new_date);\n    const newTime = text(input.new_time);\n    if (!phone) return { ok: false, reason: \"missing_field\" };\n    let target = null;\n    if (action !== \"list\") {\n      if (!date || !time) return { ok: false, reason: \"missing_field\" };\n      target = parseSlotStart(date, time, zone);\n      if (!target) return { ok: false, reason: \"invalid_datetime\" };\n    }\n    let moveTo = null;\n    if (action === \"reschedule\") {\n      if (!newDate || !newTime) return { ok: false, reason: \"missing_field\" };\n      const slot = checkSlot({ date: newDate, time: newTime, now: input.now, business, max_booking_days_ahead: input.max_booking_days_ahead });\n      if (!slot.ok) return { ok: false, reason: slot.reason };\n      moveTo = slot;\n    }\n    if (input.events === null) return { ok: true, action: \"checked\" };\n    const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);\n    const owned = ownedEvents(input.events, phone, now, zone);\n    if (action === \"list\") {\n      return {\n        ok: true,\n        action: \"list\",\n        appointments: owned.map((o) => ({ date: o.start.toFormat(\"yyyy-LL-dd\"), time: o.start.toFormat(\"HH:mm\"), service: o.service }))\n      };\n    }\n    const found = owned.find((o) => target !== null && o.start.toMillis() === target.toMillis());\n    if (!found) return { ok: false, reason: \"not_found\" };\n    if (found.start < now.plus({ hours: business.change_notice_hours })) return { ok: false, reason: \"too_late_to_change\" };\n    const others = owned.filter((o) => o.id !== found.id);\n    if (moveTo) {\n      const earliest = [moveTo.start, ...others.map((o) => o.start)].reduce((a, b) => b < a ? b : a);\n      return {\n        ok: true,\n        action: \"reschedule\",\n        event_id: found.id,\n        service: found.service,\n        start: toISOString(moveTo.start),\n        end: toISOString(moveTo.end),\n        previous_start: toISOString(found.start),\n        summary: found.summary,\n        description: found.description,\n        next_start: toISOString(earliest)\n      };\n    }\n    const next = others[0];\n    return { ok: true, action: \"cancel\", event_id: found.id, service: found.service, start: toISOString(found.start), next_start: next ? toISOString(next.start) : null };\n  }\n  return __toCommonJS(plan_appointment_change_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000000e",
+      "name": "Route by plan",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        880,
+        700
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "outputKey": "cancel",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "71000000-0001-4000-8000-0000000a010c",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "cancel"
+                  }
+                ]
+              },
+              "renameOutput": true
+            },
+            {
+              "outputKey": "reschedule",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "71000000-0001-4000-8000-0000000a010d",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "reschedule"
+                  }
+                ]
+              },
+              "renameOutput": true
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Other result"
+        }
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000000f",
+      "name": "Return plan result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1140,
+        840
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000010",
+      "name": "Delete calendar event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        360,
+        1260
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "delete",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
+        },
+        "eventId": "={{ $('Plan appointment change').first().json.event_id }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000011",
+      "name": "Mark patient cancelled",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        620,
+        1260
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbUpsertPatient"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('Receive change request').first().json.phone.trim() }}",
+            "status": "={{ $('Plan appointment change').first().json.next_start ? 'booked' : 'cancelled' }}",
+            "last_appointment": "={{ $('Plan appointment change').first().json.next_start ?? '' }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "last_appointment",
+              "displayName": "last_appointment",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000012",
+      "name": "Return cancel success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        880,
+        1260
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { ok: true, action: 'cancel', service: $('Plan appointment change').first().json.service, start: $('Plan appointment change').first().json.start } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000013",
+      "name": "Recheck new slot",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        1660
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Plan appointment change').first().json.start }}",
+        "timeMax": "={{ $('Plan appointment change').first().json.end }}",
+        "options": {
+          "recurringEventHandling": "expand"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000014",
+      "name": "Aggregate busy events",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        100,
+        1660
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "events",
+        "include": "allFields",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000016",
+      "name": "Is the new slot taken",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        360,
+        1660
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "71000000-0001-4000-8000-0000000a0115",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.events.some((e) => e.id && e.id !== $('Plan appointment change').first().json.event_id) }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000017",
+      "name": "Return slot taken",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        620,
+        1560
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"slot_taken\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000018",
+      "name": "Move calendar event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        620,
+        1760
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "update",
+        "calendar": {
+          "mode": "id",
+          "value": "={{ $('Load context').first().json.config.google.calendar_id }}"
+        },
+        "eventId": "={{ $('Plan appointment change').first().json.event_id }}",
+        "updateFields": {
+          "start": "={{ $('Plan appointment change').first().json.start }}",
+          "end": "={{ $('Plan appointment change').first().json.end }}",
+          "summary": "={{ $('Plan appointment change').first().json.summary }}",
+          "description": "={{ $('Plan appointment change').first().json.description }}"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "cmbCredGCalendar",
+          "name": "Google Calendar"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000019",
+      "name": "Mark patient rebooked",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        1760
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbUpsertPatient"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('Receive change request').first().json.phone.trim() }}",
+            "status": "booked",
+            "last_appointment": "={{ $('Plan appointment change').first().json.next_start }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "last_appointment",
+              "displayName": "last_appointment",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000001a",
+      "name": "Return reschedule success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1140,
+        1760
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { ok: true, action: 'reschedule', service: $('Plan appointment change').first().json.service, start: $('Plan appointment change').first().json.start, end: $('Plan appointment change').first().json.end, previous_start: $('Plan appointment change').first().json.previous_start } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000001b",
+      "name": "Notify calendar failure",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        2260
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "tool_failure",
+            "phone": "={{ $('Receive change request').first().json.phone }}",
+            "summary": "=change_appointment: {{ $json.error }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000001d",
+      "name": "Did the alert send",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        100,
+        2260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "71000000-0001-4000-8000-0000000a011c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000001e",
+      "name": "Return failure with alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        360,
+        2200
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"calendar_unavailable\",\n  \"team_notified\": true\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-00000000001f",
+      "name": "Return failure without alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        360,
+        2340
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"calendar_unavailable\"\n}",
+        "options": {}
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000020",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        160
+      ],
+      "parameters": {
+        "width": 1640,
+        "height": 360,
+        "content": "## Change appointment\nReceive change request takes the action (list, cancel or reschedule), the phone from the WhatsApp message, and the appointment's current day and time, plus the new ones for a move. Check change request (src/nodes/plan-appointment-change.ts) validates the action, the fields and, for a move, the new slot with the same rules a new booking passes, before Calendar; anything but a clean first pass returns here.",
+        "color": 4
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000021",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        560
+      ],
+      "parameters": {
+        "width": 1640,
+        "height": 520,
+        "content": "## Find the appointment\nGet upcoming appointments reads Calendar from now to config.limits.max_booking_days_ahead (Always Output Data, so an empty calendar continues). Plan appointment change reruns the same source over those events and keeps only events whose description holds this exact phone line and the assistant's booking line, so an appointment staff made by hand, or one for another phone, is never listed, moved or deleted. It returns one plan: a list, a cancel, a reschedule, or the reason it refused, such as not_found or too_late_to_change.",
+        "color": 5
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000022",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        300,
+        1120
+      ],
+      "parameters": {
+        "width": 800,
+        "height": 400,
+        "content": "## Cancel\nDelete calendar event removes exactly the event the plan names. If its error says the event is already gone (404 or 410, as a retry of a delete that had worked would get), Was the event already deleted counts it as cancelled; any other failure alerts the team. Mark patient cancelled then sets the Patients row to cancelled and clears its last appointment, or keeps the patient booked, pointing at their next appointment, when they hold another. A cancel returns ok:true only after the event is gone.",
+        "color": 3
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000023",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        1520
+      ],
+      "parameters": {
+        "width": 1640,
+        "height": 560,
+        "content": "## Reschedule\nRecheck new slot queries Calendar for exactly [start, end) of the new slot, expanding recurring events. Any event there other than the one being moved means slot_taken, and nothing moves. Otherwise Move calendar event updates that one event's start and end, sending its own title and description back unchanged, and Mark patient rebooked sets the row to booked, with the patient's earliest upcoming appointment as the last appointment.",
+        "color": 6
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000024",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        2120
+      ],
+      "parameters": {
+        "width": 760,
+        "height": 360,
+        "content": "## Calendar failure\nAny Calendar failure alerts the team through notify-team and reports calendar_unavailable, with team_notified set only when that alert sent.",
+        "color": 7
+      }
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000030",
+      "name": "Was the event already deleted",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        620,
+        1400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "71000000-0001-4000-8000-0000000a0130",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ /\\b(404|410)\\b|not found|could not be found|has been deleted/i.test(JSON.stringify($json.error ?? '')) }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Receive change request": {
+      "main": [
+        [
+          {
+            "node": "Load context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load context": {
+      "main": [
+        [
+          {
+            "node": "Prepare change check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare change check": {
+      "main": [
+        [
+          {
+            "node": "Check change request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check change request": {
+      "main": [
+        [
+          {
+            "node": "Decide whether to call Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide whether to call Calendar": {
+      "main": [
+        [
+          {
+            "node": "Get upcoming appointments",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return check result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get upcoming appointments": {
+      "main": [
+        [
+          {
+            "node": "Aggregate appointments",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate appointments": {
+      "main": [
+        [
+          {
+            "node": "Prepare change plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare change plan": {
+      "main": [
+        [
+          {
+            "node": "Plan appointment change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan appointment change": {
+      "main": [
+        [
+          {
+            "node": "Route by plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by plan": {
+      "main": [
+        [
+          {
+            "node": "Delete calendar event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recheck new slot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return plan result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete calendar event": {
+      "main": [
+        [
+          {
+            "node": "Mark patient cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Was the event already deleted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark patient cancelled": {
+      "main": [
+        [
+          {
+            "node": "Return cancel success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recheck new slot": {
+      "main": [
+        [
+          {
+            "node": "Aggregate busy events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate busy events": {
+      "main": [
+        [
+          {
+            "node": "Is the new slot taken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the new slot taken": {
+      "main": [
+        [
+          {
+            "node": "Return slot taken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Move calendar event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move calendar event": {
+      "main": [
+        [
+          {
+            "node": "Mark patient rebooked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark patient rebooked": {
+      "main": [
+        [
+          {
+            "node": "Return reschedule success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify calendar failure": {
+      "main": [
+        [
+          {
+            "node": "Did the alert send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did the alert send": {
+      "main": [
+        [
+          {
+            "node": "Return failure with alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return failure without alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was the event already deleted": {
+      "main": [
+        [
+          {
+            "node": "Mark patient cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify calendar failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "cmbErrorHandler1",
+    "saveManualExecutions": false
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

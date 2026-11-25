@@ -285,9 +285,33 @@
       {
         "text": "Quiero cancelar mi cita del jueves.",
         "expect": {
-          "tools_include": ["notify_team"],
-          "tools_exclude": ["book_appointment"],
-          "reply_matches": ["(equipo|team)", "^(?![\\s\\S]*\\b(cancelad[ao]|cancell?ed)\\b)"]
+          "tools_include": ["my_appointments"],
+          "tools_exclude": ["cancel_appointment", "book_appointment"],
+          "reply_matches": ["(no .*cita|no appointment|couldn't find|no encontr|equipo|team)", "^(?![\\s\\S]*\\b(cancelad[ao]|cancell?ed)\\b)"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "cancel-and-reschedule",
+    "phone": "570000000040",
+    "turns": [
+      {
+        "text": "Soy Marta Ruiz. Quiero una limpieza dental el {{thursday_after_next}} a las 10:15. Ya lo confirmo, resérvala de una vez.",
+        "expect": { "tool_output": [{ "tool": "book_appointment", "field": "ok", "equals": true }] }
+      },
+      {
+        "text": "Necesito mover esa cita al mismo día a las 11:45. Confirmado, muévela.",
+        "expect": {
+          "tools_include": ["reschedule_appointment"],
+          "tool_output": [{ "tool": "reschedule_appointment", "field": "ok", "equals": true }]
+        }
+      },
+      {
+        "text": "Mejor cancela esa cita, por favor. Sí, confirmo la cancelación.",
+        "expect": {
+          "tool_output": [{ "tool": "cancel_appointment", "field": "ok", "equals": true }],
+          "reply_matches": ["cancelad"]
         }
       }
     ]

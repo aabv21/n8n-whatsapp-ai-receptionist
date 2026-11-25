@@ -233,6 +233,30 @@
               "renameOutput": true
             },
             {
+              "outputKey": "change-appointment",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "40000000-0001-4000-8000-0000000a0112",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.body.target }}",
+                    "rightValue": "change-appointment"
+                  }
+                ]
+              },
+              "renameOutput": true
+            },
+            {
               "outputKey": "triage-message",
               "conditions": {
                 "options": {
@@ -963,7 +987,7 @@
       "parameters": {
         "width": 2000,
         "height": 560,
-        "content": "## Tool targets\nupsert-patient and book-appointment forward straight to their sub-workflows. check-availability does the same. find-patient loads context, looks up the phone by exact match (Always Output Data, so no match still yields one empty item), drops that placeholder, and wraps whatever's left into { rows }, which is [] for a first-time patient. cleanup is handed whole to the dev-cleanup sub-workflow, which deletes a phone prefix's test data from Calendar, Sheets and Postgres.",
+        "content": "## Tool targets\nupsert-patient, book-appointment and change-appointment forward straight to their sub-workflows (change-appointment gets blank strings for any field the call leaves out). check-availability does the same. find-patient loads context, looks up the phone by exact match (Always Output Data, so no match still yields one empty item), drops that placeholder, and wraps whatever's left into { rows }, which is [] for a first-time patient. cleanup is handed whole to the dev-cleanup sub-workflow, which deletes a phone prefix's test data from Calendar, Sheets and Postgres.",
         "color": 5
       }
     },
@@ -1018,6 +1042,88 @@
         "height": 380,
         "content": "## Platform targets\nload-context, notify-team, triage-message, process-message and retention forward straight to their workflows with the request's input, so each answers exactly as it would to a real caller. raise-error always fails on purpose, to prove the error handler fires.",
         "color": 3
+      }
+    },
+    {
+      "id": "40000000-0000-4000-8000-0000000000c1",
+      "name": "Call change-appointment",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1360,
+        940
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "={{ $json.body.input.action ?? '' }}",
+            "phone": "={{ $json.body.input.phone ?? '' }}",
+            "date": "={{ $json.body.input.date ?? '' }}",
+            "time": "={{ $json.body.input.time ?? '' }}",
+            "new_date": "={{ $json.body.input.new_date ?? '' }}",
+            "new_time": "={{ $json.body.input.new_time ?? '' }}"
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
       }
     }
   ],
@@ -1087,6 +1193,13 @@
         [
           {
             "node": "Call book-appointment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call change-appointment",
             "type": "main",
             "index": 0
           }
@@ -1254,6 +1367,17 @@
       ]
     },
     "Call dev-cleanup": {
+      "main": [
+        [
+          {
+            "node": "Respond with result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call change-appointment": {
       "main": [
         [
           {

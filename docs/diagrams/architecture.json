@@ -97,7 +97,7 @@
       "id": "agent",
       "type": "backend",
       "label": "AI Agent",
-      "sublabel": "4 tools · chat memory",
+      "sublabel": "7 tools · chat memory",
       "row": 1,
       "col": 4,
       "size": [
@@ -159,7 +159,7 @@
       "id": "tools",
       "type": "backend",
       "label": "Agent tools",
-      "sublabel": "3 tool workflows",
+      "sublabel": "4 tool workflows",
       "row": 2,
       "col": 4,
       "size": [
@@ -351,7 +351,7 @@
         "Meta signs every webhook; the tunnel forwards one path",
         "One process-message run per change: dedupe, language, limit, triage, route",
         "Check reply swaps a dose or an unlisted price for a fixed reply",
-        "The agent's tools are check-availability, book-appointment and upsert-patient"
+        "The agent's tools are check-availability, book-appointment, change-appointment and upsert-patient"
       ]
     },
     {

@@ -12,3 +12,12 @@ test('workflows/ is not empty, so the check below covers something', () => {
 test.each(files)('%s never saves a manual execution', (file) => {
   expect(readWorkflow(file).settings.saveManualExecutions).toBe(false);
 });
+
+// n8n refuses to import a workflow in which two nodes share an id, so a hand-added node must get a fresh one.
+test('every node id is unique within its workflow', () => {
+  for (const path of listJsonFiles('workflows')) {
+    const ids = readWorkflow(path).nodes.map((n) => n.id);
+    const duplicated = ids.filter((id, i) => ids.indexOf(id) !== i);
+    expect(duplicated, path).toEqual([]);
+  }
+});

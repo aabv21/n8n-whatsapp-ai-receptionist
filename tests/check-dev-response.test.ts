@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPastDateRejected, isRetentionSuccess } from '../scripts/check-dev-response.ts';
+import { isClosedRejected, isPastDateRejected, isRetentionSuccess } from '../scripts/check-dev-response.ts';
 
 describe('isRetentionSuccess', () => {
   it('accepts the exact shape the Postgres node synthesizes for a DELETE with nothing to return', () => {
@@ -58,5 +58,23 @@ describe('isPastDateRejected', () => {
 
   it('rejects a success shape, like an open future date with slots', () => {
     expect(isPastDateRejected({ ok: true, date: '2030-01-07', slots: [] })).toBe(false);
+  });
+});
+
+describe('isClosedRejected', () => {
+  it('accepts exactly { ok: false, reason: closed }', () => {
+    expect(isClosedRejected({ ok: false, reason: 'closed' })).toBe(true);
+  });
+
+  it('rejects a success, another reason, or an extra key', () => {
+    expect(isClosedRejected({ ok: true, reason: 'closed' })).toBe(false);
+    expect(isClosedRejected({ ok: false, reason: 'past' })).toBe(false);
+    expect(isClosedRejected({ ok: false, reason: 'closed', extra: 1 })).toBe(false);
+  });
+
+  it('rejects null, arrays, and primitives', () => {
+    expect(isClosedRejected(null)).toBe(false);
+    expect(isClosedRejected([])).toBe(false);
+    expect(isClosedRejected('closed')).toBe(false);
   });
 });

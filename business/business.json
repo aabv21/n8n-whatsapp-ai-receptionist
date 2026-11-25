@@ -17,6 +17,7 @@
   "appointment_minutes": 45,
   "max_slots_offered": 3,
   "min_notice_minutes": 60,
+  "change_notice_hours": 24,
   "payment_methods": ["Cash", "Card", "Bank transfer", "Nequi"],
   "services": [
     { "name": "Initial evaluation", "name_i18n": { "en": "Initial evaluation", "es": "Evaluación inicial" }, "price_cop": 50000 },
