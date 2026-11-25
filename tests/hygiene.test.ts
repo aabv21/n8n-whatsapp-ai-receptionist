@@ -56,3 +56,16 @@ test('AGENTS.md points to every doc in docs/', () => {
     .filter((name) => !agents.includes(`docs/${name}`));
   expect(missing).toEqual([]);
 });
+
+test('the docs use straight quotes and no em dashes', () => {
+  const files = ['README.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SECURITY.md', ...readdirSync('docs').filter((n) => n.endsWith('.md')).map((n) => `docs/${n}`)];
+  const offenders: string[] = [];
+  for (const file of files) {
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, index) => {
+        if (/[—‘’“”]/.test(line)) offenders.push(`${file}:${String(index + 1)}`);
+      });
+  }
+  expect(offenders).toEqual([]);
+});
