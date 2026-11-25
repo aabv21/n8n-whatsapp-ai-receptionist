@@ -10,7 +10,7 @@
       "typeVersion": 2.2,
       "position": [
         -160,
-        280
+        0
       ],
       "webhookId": "40000000-aaaa-4bbb-8ccc-000000000001",
       "parameters": {
@@ -34,7 +34,7 @@
       "typeVersion": 3.5,
       "position": [
         120,
-        280
+        0
       ],
       "parameters": {
         "mode": "rules",
@@ -319,7 +319,7 @@
       "typeVersion": 1.4,
       "position": [
         400,
-        40
+        480
       ],
       "parameters": {
         "source": "database",
@@ -344,8 +344,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        400,
-        240
+        640,
+        480
       ],
       "parameters": {
         "source": "database",
@@ -418,7 +418,7 @@
       "typeVersion": 1.4,
       "position": [
         400,
-        840
+        940
       ],
       "parameters": {
         "source": "database",
@@ -463,8 +463,8 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        400,
-        440
+        880,
+        480
       ],
       "parameters": {
         "errorType": "errorMessage",
@@ -477,8 +477,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        660,
-        140
+        1500,
+        0
       ],
       "parameters": {
         "respondWith": "json",
@@ -495,7 +495,7 @@
       "typeVersion": 1.5,
       "position": [
         400,
-        640
+        0
       ],
       "parameters": {
         "respondWith": "json",
@@ -511,8 +511,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        400,
-        1040
+        640,
+        940
       ],
       "parameters": {
         "source": "database",
@@ -584,8 +584,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        400,
-        1900
+        880,
+        940
       ],
       "parameters": {
         "source": "database",
@@ -657,8 +657,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        400,
-        2140
+        1120,
+        480
       ],
       "parameters": {
         "source": "database",
@@ -704,7 +704,7 @@
       "typeVersion": 1.4,
       "position": [
         400,
-        1240
+        1140
       ],
       "parameters": {
         "source": "database",
@@ -729,8 +729,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        660,
-        1240
+        640,
+        1140
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -773,8 +773,8 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.4,
       "position": [
-        900,
-        1240
+        880,
+        1140
       ],
       "parameters": {
         "conditions": {
@@ -807,647 +807,14 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        1140,
-        1240
+        1120,
+        1140
       ],
       "alwaysOutputData": true,
       "parameters": {
         "aggregate": "aggregateAllItemData",
         "destinationFieldName": "rows",
         "include": "allFields",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000000f",
-      "name": "Validate prefix",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.4,
-      "position": [
-        400,
-        1560
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "40000000-0001-4000-8000-0000000a0202",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ /^\\d{8,}$/.test($json.body.input.phone_prefix) }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000010",
-      "name": "Refuse cleanup",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        660,
-        1680
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": false,\n  \"reason\": \"prefix_too_short\"\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000011",
-      "name": "Load context for cleanup",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.4,
-      "position": [
-        660,
-        1500
-      ],
-      "parameters": {
-        "source": "database",
-        "workflowId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "cmbLoadContext01"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "schema": [],
-          "matchingColumns": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000012",
-      "name": "Search patient events",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.3,
-      "position": [
-        920,
-        1540
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "alwaysOutputData": true,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "resource": "event",
-        "operation": "getAll",
-        "calendar": {
-          "mode": "id",
-          "value": "={{ $('Load context for cleanup').first().json.config.google.calendar_id }}"
-        },
-        "returnAll": true,
-        "timeMin": "={{ $now.toISO() }}",
-        "timeMax": "={{ $now.plus({ days: $('Load context for cleanup').first().json.config.limits.max_booking_days_ahead + 1 }).toISO() }}",
-        "options": {}
-      },
-      "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "cmbCredGCalendar",
-          "name": "Google Calendar"
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000013",
-      "name": "Keep events for phone",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.4,
-      "position": [
-        1160,
-        1540
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "40000000-0001-4000-8000-0000000a0203",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ ($json.description ?? '').includes('Phone: ' + $('Receive dev call').first().json.body.input.phone_prefix) }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000014",
-      "name": "Delete patient event",
-      "type": "n8n-nodes-base.googleCalendar",
-      "typeVersion": 1.3,
-      "position": [
-        1400,
-        1540
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "resource": "event",
-        "operation": "delete",
-        "calendar": {
-          "mode": "id",
-          "value": "={{ $('Load context for cleanup').first().json.config.google.calendar_id }}"
-        },
-        "eventId": "={{ $json.id }}",
-        "options": {}
-      },
-      "credentials": {
-        "googleCalendarOAuth2Api": {
-          "id": "cmbCredGCalendar",
-          "name": "Google Calendar"
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000017",
-      "name": "List all patient rows",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.7,
-      "position": [
-        920,
-        1900
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "alwaysOutputData": true,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "resource": "sheet",
-        "operation": "read",
-        "documentId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_sheet_id }}"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_tab }}"
-        },
-        "filtersUI": {
-          "values": []
-        },
-        "combineFilters": "AND",
-        "options": {}
-      },
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "cmbCredGSheets01",
-          "name": "Google Sheets"
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000018",
-      "name": "Keep rows for prefix",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.4,
-      "position": [
-        1160,
-        1900
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "40000000-0001-4000-8000-0000000a0204",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ String($json.phone ?? '').startsWith($('Receive dev call').first().json.body.input.phone_prefix) }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000019",
-      "name": "Sort rows descending",
-      "type": "n8n-nodes-base.sort",
-      "typeVersion": 1,
-      "position": [
-        1400,
-        1900
-      ],
-      "parameters": {
-        "type": "simple",
-        "sortFieldsUi": {
-          "sortField": [
-            {
-              "fieldName": "row_number",
-              "order": "descending"
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000001a",
-      "name": "Delete matched rows",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.7,
-      "position": [
-        1640,
-        1900
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "resource": "sheet",
-        "operation": "delete",
-        "documentId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_sheet_id }}"
-        },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "={{ $('Load context for cleanup').first().json.config.google.patients_tab }}"
-        },
-        "toDelete": "rows",
-        "startIndex": "={{ $json.row_number }}",
-        "numberToDelete": 1
-      },
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "cmbCredGSheets01",
-          "name": "Google Sheets"
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000001d",
-      "name": "Delete test messages",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        920,
-        2360
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH d AS (DELETE FROM inbound_messages WHERE starts_with(phone, $1) RETURNING 1) SELECT count(*)::int AS messages FROM d",
-        "options": {
-          "queryReplacement": "={{ $('Receive dev call').first().json.body.input.phone_prefix }}"
-        }
-      },
-      "credentials": {
-        "postgres": {
-          "id": "cmbCredAppDb0001",
-          "name": "App DB"
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000001e",
-      "name": "Messages part failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        920,
-        2480
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"messages\": null\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000001f",
-      "name": "Delete test memories",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.7,
-      "position": [
-        920,
-        2600
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "onError": "continueErrorOutput",
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH d AS (DELETE FROM n8n_chat_histories WHERE starts_with(session_id, 'test:' || $1) OR starts_with(session_id, $1) RETURNING 1) SELECT count(*)::int AS memories FROM d",
-        "options": {
-          "queryReplacement": "={{ $('Receive dev call').first().json.body.input.phone_prefix }}"
-        }
-      },
-      "credentials": {
-        "postgres": {
-          "id": "cmbCredAppDb0001",
-          "name": "App DB"
-        }
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000020",
-      "name": "Memories part failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        920,
-        2720
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"memories\": null\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000021",
-      "name": "Combine events and rows",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        1960,
-        1750
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 2
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000022",
-      "name": "Add messages count",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        2200,
-        2400
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 2
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000023",
-      "name": "Add memories count",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3.2,
-      "position": [
-        2440,
-        2540
-      ],
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "numberInputs": 2
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000024",
-      "name": "Shape cleanup result",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        2680,
-        2540
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={{ { ok: $json.events !== null && $json.rows !== null && $json.messages !== null && $json.memories !== null, deleted: { events: $json.events, rows: $json.rows, messages: $json.messages, memories: $json.memories } } }}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000027",
-      "name": "Tag search failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1400,
-        1700
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": false\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000028",
-      "name": "Tag event deleted",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1640,
-        1500
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": true\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000029",
-      "name": "Tag event delete failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1640,
-        1620
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": false\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000002a",
-      "name": "Collect event outcomes",
-      "type": "n8n-nodes-base.aggregate",
-      "typeVersion": 1,
-      "position": [
-        1880,
-        1600
-      ],
-      "alwaysOutputData": true,
-      "parameters": {
-        "aggregate": "aggregateAllItemData",
-        "destinationFieldName": "outcomes",
-        "include": "allFields",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000002b",
-      "name": "Count event outcomes",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2120,
-        1600
-      ],
-      "parameters": {
-        "language": "javaScript",
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression. Generated from src/nodes/count-cleanup-outcomes.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/count-cleanup-outcomes.ts\n  var count_cleanup_outcomes_exports = {};\n  __export(count_cleanup_outcomes_exports, {\n    run: () => run\n  });\n  function run(input) {\n    if (input.outcomes.some((outcome) => !outcome.ok)) return { count: null };\n    return { count: input.outcomes.length };\n  }\n  return __toCommonJS(count_cleanup_outcomes_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000002c",
-      "name": "Shape events outcome",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        2360,
-        1600
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={{ { events: $json.count } }}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000002d",
-      "name": "Tag sheets search failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1400,
-        2060
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": false\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000002e",
-      "name": "Tag row deleted",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1880,
-        1860
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": true\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-00000000002f",
-      "name": "Tag row delete failed",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        1880,
-        1980
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "{\n  \"ok\": false\n}",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000030",
-      "name": "Collect row outcomes",
-      "type": "n8n-nodes-base.aggregate",
-      "typeVersion": 1,
-      "position": [
-        2120,
-        1960
-      ],
-      "alwaysOutputData": true,
-      "parameters": {
-        "aggregate": "aggregateAllItemData",
-        "destinationFieldName": "outcomes",
-        "include": "allFields",
-        "options": {}
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000031",
-      "name": "Count row outcomes",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2360,
-        1960
-      ],
-      "parameters": {
-        "language": "javaScript",
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression. Generated from src/nodes/count-cleanup-outcomes.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/count-cleanup-outcomes.ts\n  var count_cleanup_outcomes_exports = {};\n  __export(count_cleanup_outcomes_exports, {\n    run: () => run\n  });\n  function run(input) {\n    if (input.outcomes.some((outcome) => !outcome.ok)) return { count: null };\n    return { count: input.outcomes.length };\n  }\n  return __toCommonJS(count_cleanup_outcomes_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000032",
-      "name": "Shape rows outcome",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
-      "position": [
-        2600,
-        1960
-      ],
-      "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={{ { rows: $json.count } }}",
         "options": {}
       }
     },
@@ -1538,8 +905,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        400,
-        2380
+        1360,
+        480
       ]
     },
     {
@@ -1548,8 +915,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        400,
-        2600
+        1600,
+        480
       ],
       "parameters": {
         "source": "database",
@@ -1575,12 +942,13 @@
       "typeVersion": 1,
       "position": [
         -200,
-        -60
+        -160
       ],
       "parameters": {
-        "width": 1180,
-        "height": 160,
-        "content": "## Dev harness\nToken-protected test RPC: POST /webhook/dev with { target, input }. Routes to a fixed sub-workflow by target and responds synchronously with that sub-workflow's own result, since the caller needs the result itself, not just an acknowledgment. raise-error always fails on purpose, to prove the error handler fires. An unmatched target answers 404."
+        "width": 2000,
+        "height": 360,
+        "content": "## Dev harness\nToken-protected test RPC: POST /webhook/dev with { target, input }. Routes to a fixed sub-workflow by target and responds synchronously with that sub-workflow's own result, since the caller needs the result itself, not just an acknowledgment. An unmatched target answers 404.",
+        "color": 4
       }
     },
     {
@@ -1589,58 +957,67 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        360,
-        960
+        -200,
+        740
       ],
       "parameters": {
-        "width": 1000,
-        "height": 340,
-        "content": "## upsert-patient / find-patient\nupsert-patient forwards straight to its sub-workflow. find-patient loads context, looks up the phone by exact match (Always Output Data, so no match still yields one empty item), drops that placeholder, and wraps whatever's left into { rows }, which is [] for a first-time patient."
+        "width": 2000,
+        "height": 560,
+        "content": "## Tool targets\nupsert-patient and book-appointment forward straight to their sub-workflows. check-availability does the same. find-patient loads context, looks up the phone by exact match (Always Output Data, so no match still yields one empty item), drops that placeholder, and wraps whatever's left into { rows }, which is [] for a first-time patient. cleanup is handed whole to the dev-cleanup sub-workflow, which deletes a phone prefix's test data from Calendar, Sheets and Postgres.",
+        "color": 5
       }
     },
     {
-      "id": "40000000-0000-4000-8000-000000000026",
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbDevCleanup001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone_prefix": "={{ $json.body.input.phone_prefix }}"
+          },
+          "schema": [
+            {
+              "id": "phone_prefix",
+              "displayName": "phone_prefix",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "4000000b-0000-4000-8000-00000000002f",
+      "name": "Call dev-cleanup",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1120,
+        940
+      ]
+    },
+    {
+      "id": "4000000c-0000-4000-8000-0000000000a1",
       "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        360,
-        1340
+        -200,
+        280
       ],
       "parameters": {
-        "width": 520,
-        "height": 460,
-        "content": "## cleanup: prefix guard\nA phone_prefix must match ^\\d{8,}$ (digits only, 8+), or the request is refused with prefix_too_short before anything is deleted."
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000040",
-      "name": "Sticky Note3",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        900,
-        1340
-      ],
-      "parameters": {
-        "width": 1900,
-        "height": 860,
-        "content": "## cleanup: Calendar and Sheets\nEach of the four parts (Calendar events, Sheets rows, inbound_messages, n8n_chat_histories) continues on error, so one failing part doesn't block the others; a failed part reports null. Calendar and Sheets match the prefix with a literal, case-sensitive startsWith/substring check in a Filter node, never a pattern built from the prefix. The Calendar search spans now to config.limits.max_booking_days_ahead plus a day, so it reaches every booking the assistant could make. Sheets rows are deleted one at a time by row_number descending, so a deletion can't shift the rows still queued. For Calendar and Sheets, three inputs feed one Aggregate (Always Output Data, so zero matches counts as 0): a delete's success and error outputs, tagged ok:true/ok:false, and the search-failure tag; count-cleanup-outcomes reduces it to one count, or null if any outcome failed, so exactly one item per part reaches the merge chain."
-      }
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000041",
-      "name": "Sticky Note4",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        900,
-        2220
-      ],
-      "parameters": {
-        "width": 1900,
-        "height": 620,
-        "content": "## cleanup: Postgres and result\nThe two Postgres deletes use starts_with($1), never LIKE, which a prefix like \"________\" would turn into a wildcard that deletes every row. Each continues on error into a null count. The merge chain adds both counts to the Calendar and Sheets result, and ok is true only when all four parts succeed."
+        "width": 2000,
+        "height": 380,
+        "content": "## Platform targets\nload-context, notify-team, triage-message, process-message and retention forward straight to their workflows with the request's input, so each answers exactly as it would to a real caller. raise-error always fails on purpose, to prove the error handler fires.",
+        "color": 3
       }
     }
   ],
@@ -1702,7 +1079,7 @@
         ],
         [
           {
-            "node": "Validate prefix",
+            "node": "Call dev-cleanup",
             "type": "main",
             "index": 0
           }
@@ -1854,400 +1231,6 @@
         ]
       ]
     },
-    "Validate prefix": {
-      "main": [
-        [
-          {
-            "node": "Load context for cleanup",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Refuse cleanup",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Refuse cleanup": {
-      "main": [
-        [
-          {
-            "node": "Respond with result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Load context for cleanup": {
-      "main": [
-        [
-          {
-            "node": "Search patient events",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "List all patient rows",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Delete test messages",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Delete test memories",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Search patient events": {
-      "main": [
-        [
-          {
-            "node": "Keep events for phone",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tag search failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Keep events for phone": {
-      "main": [
-        [
-          {
-            "node": "Delete patient event",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Delete patient event": {
-      "main": [
-        [
-          {
-            "node": "Tag event deleted",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tag event delete failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "List all patient rows": {
-      "main": [
-        [
-          {
-            "node": "Keep rows for prefix",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tag sheets search failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Keep rows for prefix": {
-      "main": [
-        [
-          {
-            "node": "Sort rows descending",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sort rows descending": {
-      "main": [
-        [
-          {
-            "node": "Delete matched rows",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Delete matched rows": {
-      "main": [
-        [
-          {
-            "node": "Tag row deleted",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tag row delete failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Delete test messages": {
-      "main": [
-        [
-          {
-            "node": "Add messages count",
-            "type": "main",
-            "index": 1
-          }
-        ],
-        [
-          {
-            "node": "Messages part failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Messages part failed": {
-      "main": [
-        [
-          {
-            "node": "Add messages count",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Delete test memories": {
-      "main": [
-        [
-          {
-            "node": "Add memories count",
-            "type": "main",
-            "index": 1
-          }
-        ],
-        [
-          {
-            "node": "Memories part failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Memories part failed": {
-      "main": [
-        [
-          {
-            "node": "Add memories count",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Combine events and rows": {
-      "main": [
-        [
-          {
-            "node": "Add messages count",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Add messages count": {
-      "main": [
-        [
-          {
-            "node": "Add memories count",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Add memories count": {
-      "main": [
-        [
-          {
-            "node": "Shape cleanup result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Shape cleanup result": {
-      "main": [
-        [
-          {
-            "node": "Respond with result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag search failed": {
-      "main": [
-        [
-          {
-            "node": "Collect event outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag event deleted": {
-      "main": [
-        [
-          {
-            "node": "Collect event outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag event delete failed": {
-      "main": [
-        [
-          {
-            "node": "Collect event outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Collect event outcomes": {
-      "main": [
-        [
-          {
-            "node": "Count event outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Count event outcomes": {
-      "main": [
-        [
-          {
-            "node": "Shape events outcome",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Shape events outcome": {
-      "main": [
-        [
-          {
-            "node": "Combine events and rows",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag sheets search failed": {
-      "main": [
-        [
-          {
-            "node": "Collect row outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag row deleted": {
-      "main": [
-        [
-          {
-            "node": "Collect row outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag row delete failed": {
-      "main": [
-        [
-          {
-            "node": "Collect row outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Collect row outcomes": {
-      "main": [
-        [
-          {
-            "node": "Count row outcomes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Count row outcomes": {
-      "main": [
-        [
-          {
-            "node": "Shape rows outcome",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Shape rows outcome": {
-      "main": [
-        [
-          {
-            "node": "Combine events and rows",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
     "Call process-message": {
       "main": [
         [
@@ -2260,6 +1243,17 @@
       ]
     },
     "Call retention": {
+      "main": [
+        [
+          {
+            "node": "Respond with result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call dev-cleanup": {
       "main": [
         [
           {

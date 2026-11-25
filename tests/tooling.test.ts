@@ -7,7 +7,7 @@ import { checkWorkflow, hasCommentPlaceholder } from '../scripts/check-workflows
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials, restartProblem } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
-import { CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
+import { CODE_NODES, CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
 import { buildCredentials, buildImportCall, EXPORT_SCRIPT, existingCredentialIds, IMPORT_SCRIPT, skipExisting } from '../scripts/setup-credentials.ts';
 import { runGenerated } from './helpers/run-generated.ts';
 
@@ -249,4 +249,8 @@ test('SECURITY.md says which releases get fixes, without naming a version that g
   expect(policy).toContain('## Supported versions');
   expect(policy).toContain('latest release on `main`');
   expect(policy).not.toMatch(/v\d+\.\d+/);
+});
+
+test("no Code node's why claims a single expression can't do what it does", () => {
+  for (const entry of CODE_NODES) expect(entry.why, `${entry.file} › ${entry.node}`).not.toContain('not a single expression');
 });

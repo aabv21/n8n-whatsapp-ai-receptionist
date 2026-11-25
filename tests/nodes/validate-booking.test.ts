@@ -74,3 +74,18 @@ test('missing or invalid booking limits fail with a fixed message instead of all
     expect(() => call({ limits: bad as BookingInput['limits'] })).toThrow(message);
   }
 });
+
+test('a start exactly min_notice_minutes away is valid; one minute closer is too_soon', () => {
+  expect(call({ now: '2026-11-04T08:30:00-05:00' }).ok).toBe(true);
+  expect(reason({ now: '2026-11-04T08:31:00-05:00' })).toBe('too_soon');
+});
+test('a start exactly now is too_soon, not past', () => expect(reason({ now: '2026-11-04T09:30:00-05:00' })).toBe('too_soon'));
+test('a start exactly at the horizon is valid; the next slot is too_far', () => {
+  const tight = { max_booking_days_ahead: 1, max_upcoming_bookings: 3 };
+  const at = (time: string): Partial<BookingInput> => ({ limits: tight, now: '2026-11-03T09:30:00-05:00', time });
+  expect(call(at('09:30')).ok).toBe(true);
+  expect(reason(at('10:15'))).toBe('too_far');
+});
+test('with 60-minute slots, the last one ends exactly at closing time', () =>
+  expect(run({ ...base, business: { ...business, appointment_minutes: 60 }, now: '2026-11-03T15:00:00-05:00', time: '17:00' }))
+    .toMatchObject({ ok: true, end: '2026-11-04T18:00:00.000-05:00' }));

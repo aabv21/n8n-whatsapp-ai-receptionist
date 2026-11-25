@@ -1,42 +1,31 @@
 import { DateTime } from 'luxon';
 import { expect, test } from 'vitest';
 import { readWorkflow } from '../../scripts/lib/workflow.ts';
+import { CODE_NODES } from '../../scripts/manifest.ts';
 import { evaluateExpression } from '../helpers/run-expression.ts';
 
 const wf = readWorkflow('workflows/upsert-patient.json');
-const merge = String(wf.nodes.find((n) => n.name === 'Merge patient fields')?.parameters.jsonOutput);
+const node = (name: string) => wf.nodes.find((n) => n.name === name);
+const prepare = String(node('Prepare patient merge')?.parameters.jsonOutput);
 
-const stored = { name: 'Laura Gomez', service_of_interest: 'Dental cleaning', last_appointment: '2026-11-04T09:30:00.000-05:00', status: 'booked' };
-
-const merged = (update: Record<string, unknown>, json: unknown = stored, timezone = 'America/Bogota', now = DateTime.fromISO('2026-11-05T03:00:00Z')): Record<string, unknown> =>
-  evaluateExpression(merge, {
-    nodes: { 'Receive patient update': update, 'Load context': { business: { timezone } } },
-    json,
+const prepared = (timezone: string, now = DateTime.fromISO('2026-11-05T03:00:00Z')): Record<string, unknown> =>
+  evaluateExpression(prepare, {
+    nodes: { 'Receive patient update': { phone: '570000000001', status: 'inquiry' }, 'Load context': { business: { timezone } } },
+    json: { name: 'Laura Gomez' },
     now,
   }) as Record<string, unknown>;
 
-// Google Sheets' Append or Update writes whatever is mapped, so a blank value from the model would
-// erase the stored one. Nothing needs to clear a field, so blank means "not given".
-test('a blank or whitespace-only name, service, or last appointment keeps the stored value', () => {
-  expect(merged({ phone: '570000000001', status: 'inquiry', name: '  ', service_of_interest: '' })).toMatchObject({
-    name: 'Laura Gomez',
-    service_of_interest: 'Dental cleaning',
-    last_appointment: '2026-11-04T09:30:00.000-05:00',
-    status: 'booked',
-  });
-  expect(merged({ phone: '570000000001', status: 'inquiry', last_appointment: ' ' })).toMatchObject({ last_appointment: stored.last_appointment });
+// The merge rules are unit-tested in tests/nodes/merge-patient.test.ts; this file checks the wiring.
+test('Merge patient fields is the generated merge-patient node, fed by Prepare patient merge', () => {
+  expect(CODE_NODES).toContainEqual(expect.objectContaining({ file: 'upsert-patient.json', node: 'Merge patient fields', source: 'src/nodes/merge-patient.ts' }));
+  expect(node('Merge patient fields')?.type).toBe('n8n-nodes-base.code');
+  const main = (name: string): string[] => ((wf.connections[name] as { main: { node: string }[][] }).main[0] ?? []).map((e) => e.node);
+  expect(main('Look up existing patient')).toEqual(['Prepare patient merge']);
+  expect(main('Prepare patient merge')).toEqual(['Merge patient fields']);
+  expect(main('Merge patient fields')).toEqual(['Upsert patient row']);
 });
 
-test('a non-blank update overwrites the stored value', () => {
-  expect(merged({ phone: '570000000001', status: 'booked', name: ' Laura G. ', service_of_interest: 'Teeth whitening', last_appointment: '2026-11-06T08:00:00.000-05:00' }))
-    .toMatchObject({ name: 'Laura G.', service_of_interest: 'Teeth whitening', last_appointment: '2026-11-06T08:00:00.000-05:00', status: 'booked' });
-  // A first-time patient's lookup yields an empty placeholder, so every missing field is ''.
-  expect(merged({ phone: '570000000001', status: 'inquiry' }, {})).toEqual({
-    last_contact: '2026-11-04', phone: '570000000001', status: 'inquiry', name: '', service_of_interest: '', last_appointment: '',
-  });
-});
-
-test('last_contact is today in business.timezone', () => {
-  expect(merged({ phone: '570000000001', status: 'inquiry' }).last_contact).toBe('2026-11-04');
-  expect(merged({ phone: '570000000001', status: 'inquiry' }, stored, 'Asia/Tokyo').last_contact).toBe('2026-11-05');
+test("Prepare patient merge hands over the update, the stored row, and today in business.timezone", () => {
+  expect(prepared('America/Bogota')).toEqual({ update: { phone: '570000000001', status: 'inquiry' }, stored: { name: 'Laura Gomez' }, today: '2026-11-04' });
+  expect(prepared('Asia/Tokyo').today).toBe('2026-11-05');
 });

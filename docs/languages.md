@@ -9,6 +9,6 @@ Patients get every fixed reply in English or Spanish, and the team gets its emai
 - **Switching languages.** Edit `config/config.json`; n8n reads it on every run, so no import or restart is needed. To change what a reply says, edit both of its values in `business/business.json`.
 - **Adding a language**, for example Portuguese:
   1. Add `'pt'` to `Lang` and `LANGS` in `src/nodes/shared/locale.ts`, and let `normalizeLocale` accept it.
-  2. Add a `pt` value to every reply and every service's `name_i18n` in `business/business.json`, a `pt` entry to `TEAM_MESSAGES`, to `check-reply.ts`'s `CONFIRMATIONS`, and to `build-system-prompt.ts`'s `LANGUAGE_NAMES`. `tsc` flags every `Record<Lang, …>` table still missing it, and `tests/content.test.ts` and `tests/nodes/team-messages.test.ts` fail on any reply or message missing or empty.
+  2. Add a `pt` value to every reply and every service's `name_i18n` in `business/business.json`, a `pt` entry to `TEAM_MESSAGES`, to `src/nodes/shared/confirmations.ts`'s `CONFIRMATIONS`, and to `build-system-prompt.ts`'s `LANGUAGE_NAMES`. `tsc` flags every `Record<Lang, …>` table still missing it, and `tests/content.test.ts` and `tests/nodes/team-messages.test.ts` fail on any reply or message missing or empty.
   3. Teach `detect-language.ts` the new language's signals and decide how it ranks against the others; add its cases to `tests/nodes/detect-language.test.ts`.
   4. Run `pnpm run build:workflows` and the [full gate](../AGENTS.md#the-gate), and commit the regenerated workflow JSON.

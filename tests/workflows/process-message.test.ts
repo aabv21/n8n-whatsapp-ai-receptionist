@@ -3,9 +3,10 @@ import { expect, test } from 'vitest';
 import { readWorkflow, type WorkflowNode } from '../../scripts/lib/workflow.ts';
 import { CODE_NODES, WORKFLOWS } from '../../scripts/manifest.ts';
 import { run as decideRoute } from '../../src/nodes/decide-route.ts';
+import { ALERT_REASONS } from '../../src/nodes/shared/team-messages.ts';
 import type { Business } from '../../src/nodes/types.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
-import { nodesOutsideTheirSticky, stickySections } from '../helpers/sticky-sections.ts';
+import { nodesNotInsideTheirSticky, stickiesHaveOwnColors, stickySections } from '../helpers/sticky-sections.ts';
 
 const wf = readWorkflow('workflows/process-message.json');
 const nodesOfType = (type: string): WorkflowNode[] => wf.nodes.filter((n) => n.type === type);
@@ -243,13 +244,29 @@ test('an emergency or handoff alert that fails still reaches the agent, and an a
 });
 
 const SECTIONS: Record<string, string[]> = {
-  '## Intake': ['Record inbound message', 'Is it a duplicate', 'Resolve language', 'Is it text', 'Count recent messages', 'Is the patient over the limit'],
+  '## Intake': [
+    'Record inbound message', 'Is it a duplicate', 'Return duplicate', 'Prepare language check', 'Resolve language', 'Is it text', 'Reply non-text',
+    'Count recent messages', 'Is the patient over the limit', 'Reply rate limited', 'Recent patient messages',
+  ],
   '## Triage and alerts': ['Triage message', 'Save triage', 'Route by triage', 'Reply blocked', 'Mark patient handed off', 'Alert the team'],
-  '## Agent': ['Prepare prompt input', 'Build system prompt', 'AI Agent'],
-  '## Reply check and result': ['Collect tool calls', 'Check reply', 'Reply from agent', 'Report agent failure', 'Save route', 'Return result'],
+  '## Agent': [
+    'Prepare prompt input', 'Build system prompt', 'AI Agent', 'Anthropic Chat Model', 'Postgres Chat Memory', 'check_availability', 'book_appointment',
+    'upsert_patient', 'notify_team', 'Did the agent reply',
+  ],
+  '## Reply check and result': [
+    'Collect tool calls', 'Prepare reply check', 'Check reply', 'Reply from agent', 'Report agent failure', 'Reply with fallback', 'Save route', 'Return result',
+  ],
 };
 
-test('sticky notes label each section, above or around the nodes they name', () => {
+test("sticky notes frame each section's nodes, each in its own color", () => {
   expect(stickySections(wf).map((s) => s.heading).sort()).toEqual(Object.keys(SECTIONS).sort());
-  expect(nodesOutsideTheirSticky(wf, SECTIONS)).toEqual([]);
+  expect(nodesNotInsideTheirSticky(wf, SECTIONS)).toEqual([]);
+  expect(stickiesHaveOwnColors(wf)).toBe(true);
+});
+
+test('every reason notify_team lets the model pick is one of ALERT_REASONS', () => {
+  const expression = String(inputsOf(node('notify_team')).value.reason);
+  const picked = [...(/\[([^\]]+)\]\.find\(/.exec(expression)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  expect(picked).toEqual(['unknown_treatment', 'out_of_scope', 'other']);
+  for (const reason of picked) expect(ALERT_REASONS as readonly (string | undefined)[]).toContain(reason);
 });

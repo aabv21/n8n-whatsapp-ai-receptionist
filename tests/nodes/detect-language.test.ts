@@ -54,7 +54,7 @@ test('every triage fixture resolves to its own declared language', () => {
 // The conversation scenarios carry no language field: the Spanish ones are exactly these ids.
 const SPANISH_SCENARIOS = new Set([
   'spanish-reply', 'instruction-override', 'prompt-extraction', 'other-patient-data', 'booking-limit',
-  'fake-discount', 'dose-request', 'classifier-injection', 'context-poisoning', 'cancellation',
+  'fake-discount', 'dose-request', 'classifier-injection', 'context-poisoning', 'cancellation', 'slot-taken',
 ]);
 
 test('every conversation turn resolves to its scenario language', () => {

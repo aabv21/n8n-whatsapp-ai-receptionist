@@ -60,3 +60,12 @@ test('FREE_SLOT_REASONS lists exactly the reasons run() returns', () => {
   expect(emitted).toEqual(['invalid_date', 'past_date', 'too_far', 'closed', 'no_slots']);
   expect([...FREE_SLOT_REASONS]).toEqual(emitted);
 });
+
+test('a slot starting exactly at now plus min notice is offered', () =>
+  expect(labels(call({ now: '2026-11-04T07:00:00-05:00' }))).toEqual(['08:00', '08:45', '09:30']));
+test('on the horizon day, a slot starting exactly at the horizon is offered', () =>
+  expect(labels(call({ now: '2026-11-03T09:30:00-05:00', max_booking_days_ahead: 1 }))).toEqual(['08:00', '08:45', '09:30']));
+test("with 60-minute slots, the day's last slot starts an hour before closing", () => {
+  const all = labels(call({ business: { ...business, appointment_minutes: 60, max_slots_offered: 20 } }));
+  expect(all.at(-1)).toBe('17:00');
+});

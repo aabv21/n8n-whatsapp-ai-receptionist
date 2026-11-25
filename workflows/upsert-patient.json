@@ -163,18 +163,33 @@
       }
     },
     {
-      "id": "60000000-0000-4000-8000-000000000006",
-      "name": "Merge patient fields",
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { update: $('Receive patient update').first().json, stored: $json, today: $now.setZone($('Load context').first().json.business.timezone).toFormat('yyyy-LL-dd') } }}",
+        "options": {}
+      },
+      "id": "6000000e-0000-4000-8000-00000000000e",
+      "name": "Prepare patient merge",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
         820,
         200
+      ]
+    },
+    {
+      "id": "60000000-0000-4000-8000-000000000006",
+      "name": "Merge patient fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        200
       ],
       "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={{ { last_contact: $now.setZone($('Load context').item.json.business.timezone).toFormat('yyyy-LL-dd'), phone: $('Receive patient update').item.json.phone, status: $('Receive patient update').item.json.status === 'inquiry' && $json.status ? $json.status : $('Receive patient update').item.json.status, name: String($('Receive patient update').item.json.name ?? '').trim() || $json.name || '', service_of_interest: String($('Receive patient update').item.json.service_of_interest ?? '').trim() || $json.service_of_interest || '', last_appointment: String($('Receive patient update').item.json.last_appointment ?? '').trim() || $json.last_appointment || '' } }}",
-        "options": {}
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Why Code: the merge rules (blank keeps the stored value, inquiry never downgrades a status) are product rules, kept as one typed, unit-tested function instead of an expression. Generated from src/nodes/merge-patient.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/merge-patient.ts\n  var merge_patient_exports = {};\n  __export(merge_patient_exports, {\n    PATIENT_STATUSES: () => PATIENT_STATUSES,\n    run: () => run\n  });\n  var PATIENT_STATUSES = [\"inquiry\", \"booked\", \"handed_off\"];\n  var text = (value) => typeof value === \"string\" ? value.trim() : typeof value === \"number\" ? String(value) : \"\";\n  var keepStored = (update, stored) => text(update) || text(stored);\n  function run(input) {\n    const { update, stored, today } = input;\n    const storedStatus = text(stored.status);\n    return {\n      last_contact: today,\n      phone: update.phone,\n      status: update.status === \"inquiry\" && storedStatus !== \"\" ? storedStatus : update.status,\n      name: keepStored(update.name, stored.name),\n      service_of_interest: keepStored(update.service_of_interest, stored.service_of_interest),\n      last_appointment: keepStored(update.last_appointment, stored.last_appointment)\n    };\n  }\n  return __toCommonJS(merge_patient_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       }
     },
     {
@@ -183,7 +198,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        1060,
+        1300,
         200
       ],
       "retryOnFail": true,
@@ -298,7 +313,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1300,
+        1540,
         80
       ],
       "parameters": {
@@ -313,7 +328,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        1060,
+        1300,
         460
       ],
       "parameters": {
@@ -368,7 +383,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        1300,
+        1540,
         460
       ],
       "parameters": {
@@ -402,7 +417,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1540,
+        1780,
         380
       ],
       "parameters": {
@@ -417,7 +432,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1540,
+        1780,
         540
       ],
       "parameters": {
@@ -436,9 +451,9 @@
         -60
       ],
       "parameters": {
-        "width": 2220,
+        "width": 2460,
         "height": 160,
-        "content": "## Upsert patient\nValidates phone (\\d{8,15}) and status (inquiry|booked|handed_off) before touching Sheets. Looks up the row by phone first (Always Output Data, so a first-time patient yields an empty placeholder, not a stopped branch) and merges it with the input, so an omitted, blank, or whitespace-only field keeps its stored value (nothing needs to clear one), and last_contact is today in business.timezone: Google Sheets' Append or Update writes an empty string for any mapped column that's undefined, so only computed columns are sent. An incoming inquiry keeps a stored non-empty status, so the assistant's routine upsert never downgrades booked or handed_off. Cell Format is RAW, so phone is written and matched as a literal string, never a number. Either Sheets call failing routes to notify-team (tool_failure); team_notified is set only when that alert sent."
+        "content": "## Upsert patient\nValidates phone (\\d{8,15}) and status (inquiry|booked|handed_off) before touching Sheets. Looks up the row by phone first (Always Output Data, so a first-time patient yields an empty placeholder, not a stopped branch) and merges it with the input in a typed Code node (Prepare patient merge gathers the update, the stored row and today in business.timezone), so an omitted, blank, or whitespace-only field keeps its stored value (nothing needs to clear one), and last_contact is today: Google Sheets' Append or Update writes an empty string for any mapped column that's undefined, so only computed columns are sent. An incoming inquiry keeps a stored non-empty status, so the assistant's routine upsert never downgrades booked or handed_off. Cell Format is RAW, so phone is written and matched as a literal string, never a number. Either Sheets call failing routes to notify-team (tool_failure); team_notified is set only when that alert sent."
       }
     }
   ],
@@ -487,7 +502,7 @@
       "main": [
         [
           {
-            "node": "Merge patient fields",
+            "node": "Prepare patient merge",
             "type": "main",
             "index": 0
           }
@@ -553,6 +568,17 @@
         [
           {
             "node": "Return failure without alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare patient merge": {
+      "main": [
+        [
+          {
+            "node": "Merge patient fields",
             "type": "main",
             "index": 0
           }

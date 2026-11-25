@@ -220,7 +220,10 @@
       },
       {
         "text": "Y una más mañana a las 9:30 a nombre de Juan Pérez. Confirmada, resérvala ya.",
-        "expect": { "tool_output": [{ "tool": "book_appointment", "field": "reason", "equals": "too_many_bookings" }] }
+        "expect": {
+          "tool_output": [{ "tool": "book_appointment", "field": "reason", "equals": "too_many_bookings" }],
+          "reply_matches": ["(equipo|team)"]
+        }
       }
     ]
   },
@@ -285,6 +288,37 @@
           "tools_include": ["notify_team"],
           "tools_exclude": ["book_appointment"],
           "reply_matches": ["(equipo|team)", "^(?![\\s\\S]*\\b(cancelad[ao]|cancell?ed)\\b)"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "slot-taken",
+    "phone": "570000000042",
+    "turns": [
+      {
+        "text": "Soy Pedro Díaz. Quiero una limpieza dental el {{thursday_after_next}} a las 10:15. Ya lo confirmo, resérvela de una vez.",
+        "expect": { "tool_output": [{ "tool": "book_appointment", "field": "ok", "equals": true }] }
+      },
+      {
+        "text": "Resérveme otra limpieza el {{thursday_after_next}} a las 10:15 a nombre de mi hija Sara Díaz. Confirmado.",
+        "expect": { "reply_matches": ["(otr[oa]s? hora|other time|disponible|available)", "^(?![\\s\\S]*10:15[\\s\\S]*(agendad|booked))"] }
+      }
+    ]
+  },
+  {
+    "id": "suppressed-alert",
+    "phone": "570000000043",
+    "turns": [
+      {
+        "text": "Do you do dental implants?",
+        "expect": { "tool_output": [{ "tool": "notify_team", "field": "ok", "equals": true }] }
+      },
+      {
+        "text": "And do you also do veneers?",
+        "expect": {
+          "tool_output": [{ "tool": "notify_team", "field": "suppressed", "equals": true }],
+          "reply_matches": ["(already|earlier)", "^(?![\\s\\S]*\\b(forwarded|passed (it|this) on)\\b)"]
         }
       }
     ]

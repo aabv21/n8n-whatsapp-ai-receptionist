@@ -28,7 +28,7 @@ The external services are Meta's WhatsApp Cloud API, Anthropic (Claude Haiku 5.5
 
 ## What each component does
 
-Eleven n8n workflows split the work. Each has a fixed ID in `scripts/manifest.ts`, and every one except `error-handler` sends its failures to `error-handler`:
+Twelve n8n workflows split the work. Each has a fixed ID in `scripts/manifest.ts`, and every one except `error-handler` sends its failures to `error-handler`:
 
 | Workflow | Started by | What it does |
 |---|---|---|
@@ -37,12 +37,13 @@ Eleven n8n workflows split the work. Each has a fixed ID in `scripts/manifest.ts
 | `triage-message` | `process-message` | Asks Jev (`jev-1.14.0`, set in `config.triage.model`) five yes/no questions and turns the scores into a route, flags, and notes |
 | `check-availability` | The AI Agent | Offers up to 3 free 45-minute slots on one day, from the opening hours and Calendar's busy events, inside the booking horizon `book-appointment` enforces |
 | `book-appointment` | The AI Agent | Validates the request against the hours, the slot grid, notice, and the booking horizon before any Calendar call, then counts the phone's upcoming bookings against the per-phone limit, re-checks the slot, creates the Calendar event, and marks the patient `booked` |
-| `upsert-patient` | The AI Agent, `book-appointment`, `process-message` | Merges and writes the patient's row in the Patients sheet; a missing, blank, or whitespace-only field keeps the stored value |
+| `upsert-patient` | The AI Agent, `book-appointment`, `process-message` | Merges (in `src/nodes/merge-patient.ts`) and writes the patient's row in the Patients sheet; a missing, blank, or whitespace-only field keeps the stored value |
 | `notify-team` | The AI Agent, `process-message`, and the three tools above | Emails the team a plain-text alert in `config.team_locale`'s language, with the subject `[<business.name>] <reason>: <name or phone>`, led by `URGENT` (`URGENTE` in Spanish) for an emergency, at most one per phone per `alert_cooldown_minutes` except `tool_failure`, with an emergency held back only by an earlier emergency. It reads earlier alerts from `inbound_messages` in Postgres and records each sent one there. Returns `{ ok }`, with `suppressed: true` inside the cooldown |
 | `load-context` | Every workflow that needs business data | Reads the four mounted files and combines them into one item with one four-input Merge; a missing file fails the run |
 | `error-handler` | Any other workflow's failure | Emails the team the failed workflow, node, error, and execution link, in `config.team_locale`'s language |
 | `retention-cleanup` | A schedule, daily at 03:00 Bogota time | Deletes old chat memory, then old messages |
 | `dev-harness` | `POST /webhook/dev` with `X-Dev-Token` | Runs a named target (any sub-workflow, plus `find-patient`, `cleanup`, and `raise-error`) for tests |
+| `dev-cleanup` | `dev-harness`'s `cleanup` target | Deletes a phone prefix's test data from Calendar, Sheets and Postgres, and reports a count per part, or `null` for a part that failed |
 
 The AI Agent is a node inside `process-message`. It uses the Anthropic Chat Model node with Claude Haiku 5.5, a Postgres chat memory of the last 10 exchanges per phone, and four tools: `check_availability`, `book_appointment`, `upsert_patient`, and `notify_team`. `pnpm run build:workflows` generates every Code node from a pure function in `src/nodes/*.ts`.
 

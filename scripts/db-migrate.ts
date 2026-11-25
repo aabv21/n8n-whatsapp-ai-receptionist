@@ -1,12 +1,11 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { missingEnv, missingEnvError } from './lib/env.ts';
+import { runMain } from './lib/errors.ts';
+import { MIGRATION_NAME, MIGRATIONS_DIR, orderMigrations, pendingMigrations } from './lib/migrations.ts';
 import { loadDotEnv, redact, runPsql, secretValues } from './lib/runtime.ts';
-
-export const MIGRATIONS_DIR = 'db/migrations';
-
-/** `NNN_short_name.sql`: a three-digit sequence number, then a lowercase name. */
-const MIGRATION_NAME = /^(\d{3})_[a-z0-9_]+\.sql$/;
+import { scanSql } from './lib/sql.ts';
 
 /** psql's `\getenv psql_variable ENV_NAME`, the only way a migration reads `.env`. */
 const GETENV = /^\\getenv[ \t]+\w+[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/gm;
@@ -47,39 +46,9 @@ export const MIGRATION_LOCK_KEY = 4_210_001;
 /** The variables naming the other roles, which the runtime role must never share a name with. */
 const OTHER_ROLE_NAMES = ['POSTGRES_USER', 'N8N_DB_USER', 'APP_DB_USER'] as const;
 
-/** The `.sql` files in `fileNames`, in sequence order. Throws on a misnamed file or a reused sequence number. */
-export function orderMigrations(fileNames: readonly string[]): string[] {
-  const files = fileNames.filter((name) => name.endsWith('.sql')).sort();
-  const seen = new Map<string, string>();
-  for (const file of files) {
-    const sequence = MIGRATION_NAME.exec(file)?.[1];
-    if (sequence === undefined) throw new Error(`${MIGRATIONS_DIR}/${file}: name it like 001_short_name.sql`);
-    const other = seen.get(sequence);
-    if (other !== undefined) throw new Error(`${MIGRATIONS_DIR}: ${other} and ${file} share ${sequence}; renumber one`);
-    seen.set(sequence, file);
-  }
-  return files;
-}
-
-export function pendingMigrations(files: readonly string[], applied: ReadonlySet<string>): string[] {
-  return files.filter((file) => !applied.has(file));
-}
-
 /** Every environment variable `sql` reads with `\getenv`, once each, in order. */
 export function requiredEnv(sql: string): string[] {
   return [...new Set([...sql.matchAll(GETENV)].map((match) => match[1] ?? ''))];
-}
-
-/** The names in `names` that `env` leaves unset or empty. Compose turns an unset name into an empty one, so both count. */
-export function missingEnv(names: readonly string[], env: Readonly<Record<string, string | undefined>>): string[] {
-  // eslint-disable-next-line security/detect-object-injection -- name comes from a migration's own \getenv line, not user input
-  return names.filter((name) => !env[name]);
-}
-
-/** The error for `source` needing `missing`. It names variables only, never a value. */
-export function missingEnvError(source: string, missing: readonly string[]): Error {
-  const verb = missing.length === 1 ? 'is' : 'are';
-  return new Error(`${source} needs ${missing.join(', ')}, which ${verb} not set in .env; see .env.example and docs/database.md`);
 }
 
 /**
@@ -92,64 +61,13 @@ export function runtimeRoleClashes(env: Readonly<Record<string, string | undefin
   return runtime ? OTHER_ROLE_NAMES.filter((name) => env[name] === runtime) : [];
 }
 
-/** The index just past the next `token` at or after `from`, or the end of `sql` if there is none. */
-function skipPast(sql: string, token: string, from: number): number {
-  const at = sql.indexOf(token, from);
-  return at === -1 ? sql.length : at + token.length;
-}
-
-/**
- * `sql` with its comments, string literals, quoted identifiers, and dollar-quoted bodies blanked
- * out, and each psql meta-command (a backslash, up to the end of its line) turned into `;`, so
- * what's left splits into statements on `;`.
- */
-function codeOnly(sql: string): string {
-  let out = '';
-  let i = 0;
-  while (i < sql.length) {
-    const rest = sql.slice(i);
-    // A dollar-quote tag is $$ or $name$, where the name can't start with a digit (so $1 isn't one).
-    const dollarMatch = /^\$[A-Za-z0-9_]*\$/.exec(rest)?.[0];
-    const dollarTag = dollarMatch && !/^\$\d/.test(dollarMatch) ? dollarMatch : undefined;
-    if (rest.startsWith('--')) {
-      const lineEnd = sql.indexOf('\n', i);
-      i = lineEnd === -1 ? sql.length : lineEnd;
-      out += ' ';
-    } else if (rest.startsWith('/*')) {
-      i = skipPast(sql, '*/', i + 2);
-      out += ' ';
-    } else if (dollarTag) {
-      i = skipPast(sql, dollarTag, i + dollarTag.length);
-      out += ' ';
-    } else if (rest.startsWith("'") || rest.startsWith('"')) {
-      const quote = rest.charAt(0);
-      let j = i + 1;
-      for (;;) {
-        j = skipPast(sql, quote, j);
-        if (j >= sql.length || sql.charAt(j) !== quote) break;
-        j += 1; // a doubled quote is an escaped one, so the literal goes on
-      }
-      i = j;
-      out += ' ';
-    } else if (rest.startsWith('\\')) {
-      const lineEnd = sql.indexOf('\n', i);
-      i = lineEnd === -1 ? sql.length : lineEnd;
-      out += ';';
-    } else {
-      out += sql.charAt(i);
-      i += 1;
-    }
-  }
-  return out;
-}
-
 /**
  * The first transaction-control statement in `sql` (`BEGIN`, `COMMIT`, `ROLLBACK`, `ABORT`,
  * `START TRANSACTION`, or `END`), or `undefined`. A migration runs inside db-migrate's own
  * transaction, together with its ledger row, so one of these would split the two.
  */
 export function transactionControl(sql: string): string | undefined {
-  for (const statement of codeOnly(sql).split(';')) {
+  for (const statement of scanSql(sql).code.split(';')) {
     const keyword = /^\s*(BEGIN|COMMIT|ROLLBACK|ABORT|START\s+TRANSACTION|END)\b/i.exec(statement)?.[1];
     if (keyword) return keyword.toUpperCase().replace(/\s+/, ' ');
   }
@@ -181,6 +99,7 @@ function assertEnv(source: string, sql: string): void {
 
 async function main(): Promise<void> {
   loadDotEnv();
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- MIGRATIONS_DIR is this repo's own fixed directory
   const files = orderMigrations(readdirSync(MIGRATIONS_DIR));
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- file is a validated name read from MIGRATIONS_DIR
   const sql = new Map(files.map((file) => [file, readFileSync(join(MIGRATIONS_DIR, file), 'utf8')]));
@@ -208,8 +127,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }
