@@ -81,6 +81,11 @@ test('a missing name, summary, or message list reads as such, and the subject fa
   expect(composeAlert({ ...sparse, team_locale: 'es-CO' }).body).toContain('Nombre: (no lo indicó)\n');
 });
 
+test('a patient who wrote again while waiting for the team gets its own reason in both languages', () => {
+  expect(composeAlert({ ...alert, reason: 'handoff_followup' }).subject).toBe('[Cumbident] Wrote again while waiting for the team: Laura Gomez');
+  expect(composeAlert({ ...alert, reason: 'handoff_followup', team_locale: 'es' }).subject).toBe('[Cumbident] Volvió a escribir mientras espera al equipo: Laura Gomez');
+});
+
 test('an unknown reason, including one named after an object property, reads as needing attention', () => {
   for (const reason of ['something_new', 'constructor', '__proto__']) {
     expect(composeAlert({ ...alert, reason }).subject, reason).toBe('[Cumbident] Needs attention: Laura Gomez');

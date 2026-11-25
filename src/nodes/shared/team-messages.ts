@@ -1,7 +1,7 @@
 import { localeSetting, pick, type Lang } from './locale.ts';
 
 /** Every reason notify-team accepts; anything else reads as `other`. */
-export const ALERT_REASONS = ['emergency', 'human_requested', 'complaint', 'unknown_treatment', 'out_of_scope', 'tool_failure', 'other'] as const;
+export const ALERT_REASONS = ['emergency', 'human_requested', 'complaint', 'unknown_treatment', 'out_of_scope', 'tool_failure', 'handoff_followup', 'other'] as const;
 
 export type AlertReason = (typeof ALERT_REASONS)[number];
 
@@ -34,6 +34,7 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       unknown_treatment: "Asked about a treatment we don't list",
       out_of_scope: "Question the assistant couldn't answer",
       tool_failure: 'Assistant tool failure',
+      handoff_followup: 'Wrote again while waiting for the team',
       other: 'Needs attention',
     },
     urgent: 'URGENT',
@@ -60,6 +61,7 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       unknown_treatment: 'Preguntó por un tratamiento que no ofrecemos',
       out_of_scope: 'Pregunta que el asistente no pudo responder',
       tool_failure: 'Falla de una herramienta del asistente',
+      handoff_followup: 'Volvió a escribir mientras espera al equipo',
       other: 'Requiere atención',
     },
     urgent: 'URGENTE',

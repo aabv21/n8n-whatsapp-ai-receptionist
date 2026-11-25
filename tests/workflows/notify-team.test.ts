@@ -63,7 +63,7 @@ test('the cooldown asks whether this phone had an alert within config.limits.ale
   const check = node('Check alert cooldown');
   expect(check?.type).toBe('n8n-nodes-base.postgres');
   expect(check?.parameters.query).toBe(
-    "SELECT EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->>'team_alerted' = 'true' AND ($3::text IS DISTINCT FROM 'emergency' OR triage->>'alerted_reason' = 'emergency')) AS alerted",
+    "SELECT ($3::text <> 'emergency' AND EXISTS (SELECT 1 FROM inbound_messages WHERE phone = $1 AND received_at > now() - make_interval(mins => $2) AND triage->'alerted_reasons' @> jsonb_build_array($3::text))) AS alerted",
   );
   expect((check?.parameters.options as { queryReplacement?: unknown }).queryReplacement).toBe(
     "={{ $('Receive alert request').first().json.phone }},{{ $('Load context').first().json.config.limits.alert_cooldown_minutes }},{{ $('Receive alert request').first().json.reason }}",
@@ -72,17 +72,18 @@ test('the cooldown asks whether this phone had an alert within config.limits.ale
   expect(check?.onError).toBe('continueRegularOutput');
 });
 
-// An earlier alert of another kind, such as a question about an unlisted treatment, must not hold
-// back a dental emergency: only an earlier emergency in the window does. Every other reason is
-// still held back by any earlier alert, emergencies included.
-test('an emergency alert is held back only by an earlier emergency, every other reason by any earlier alert', () => {
+// The cooldown is per phone and per reason: a voice-note alert must not silence a handoff, a
+// complaint or a re-alert, and an emergency is never held back.
+test('an alert is held back only by an earlier alert of the same reason, and an emergency never is', () => {
   const query = String(node('Check alert cooldown')?.parameters.query);
-  expect(query).toContain("AND ($3::text IS DISTINCT FROM 'emergency' OR triage->>'alerted_reason' = 'emergency')");
+  expect(query).toContain("$3::text <> 'emergency'");
+  expect(query).toContain("triage->'alerted_reasons' @> jsonb_build_array($3::text)");
+  expect(query).not.toContain("'alerted_reason' =");
   // $3 is this alert's own reason, from the caller.
   const replacement = String((node('Check alert cooldown')?.parameters.options as { queryReplacement?: unknown }).queryReplacement);
   expect(replacement.endsWith(",{{ $('Receive alert request').first().json.reason }}")).toBe(true);
-  // The reason the cooldown reads back is the one Mark team alerted stored.
-  expect(String(node('Mark team alerted')?.parameters.query)).toContain("'alerted_reason', $2::text");
+  // Every reason Mark team alerted stores is kept in the list the cooldown reads back.
+  expect(String(node('Mark team alerted')?.parameters.query)).toContain("'alerted_reasons', coalesce(triage->'alerted_reasons', '[]'::jsonb) || jsonb_build_array($2::text)");
 });
 
 test('only a sent alert is recorded, with its reason, against the inbound message, and the result still reports the send', () => {
@@ -91,7 +92,7 @@ test('only a sent alert is recorded, with its reason, against the inbound messag
   expect(targets('Mark team alerted', 0)).toEqual(['Return success']);
   const mark = node('Mark team alerted');
   expect(mark?.parameters.query).toBe(
-    "UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) || jsonb_build_object('team_alerted', true, 'alerted_reason', $2::text) WHERE message_id = $1",
+    "UPDATE inbound_messages SET triage = coalesce(triage, '{}'::jsonb) || jsonb_build_object('team_alerted', true, 'alerted_reason', $2::text, 'alerted_reasons', coalesce(triage->'alerted_reasons', '[]'::jsonb) || jsonb_build_array($2::text)) WHERE message_id = $1",
   );
   expect((mark?.parameters.options as { queryReplacement?: unknown }).queryReplacement)
     .toBe("={{ $('Receive alert request').first().json.message_id }},{{ $('Receive alert request').first().json.reason }}");

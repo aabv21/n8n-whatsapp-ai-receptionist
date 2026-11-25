@@ -135,8 +135,8 @@ test('argument errors tell the agent to fix its own call, never to send the pati
 test("the clinic's emergency phone is a placeholder that reads as fake", () =>
   expect(business.emergency_phone).toBe('+57 605 000 0000'));
 
-test('blocked, rate_limited, and non_text each end with a way forward: the emergency phone', () => {
-  for (const key of ['blocked', 'rate_limited', 'non_text'] as const)
+test('blocked, rate_limited, non_text, and handed_off each end with a way forward: the emergency phone', () => {
+  for (const key of ['blocked', 'rate_limited', 'non_text', 'handed_off'] as const)
     for (const lang of LANGS) expect(business.replies[key][lang], `${key}.${lang}`).toContain(business.emergency_phone);
 });
 

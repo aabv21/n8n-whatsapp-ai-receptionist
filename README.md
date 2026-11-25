@@ -23,12 +23,13 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
   - Triage picks the route. `blocked` gets a fixed reply. `emergency` and `handoff` alert the team, and a handoff also marks the patient `handed_off`.
   - Every other route reaches the agent: Claude Haiku 5.5 with Postgres chat memory and four tools that take the phone from the message, never from the model.
   - `Check reply` replaces a reply that gives a dose or quotes an unlisted price. A failed agent run alerts the team and sends a fixed apology.
+  - After a handoff, the assistant stays out of the conversation for `config.limits.handoff_pause_hours`: the first new message gets one fixed line and one re-alert, and later ones get no reply. Each paused message is first checked for an emergency with Jev's emergency question alone: a hit gets the fixed urgent reply with the emergency phone and an emergency alert.
   - A side call that throws, such as an alert, never costs the patient a reply.
 - **`triage-message`** asks TypeSafe's Jev five yes/no questions and applies `config.triage.thresholds`. It fails open: a Jev error or an incomplete answer returns `route: "agent"` with `flags.triage_failed: true`.
 - **`check-availability`** offers up to 3 free slots on one day from the opening hours, minimum notice, and Calendar's busy events. An invalid, past, closed, or too-far date (past `config.limits.max_booking_days_ahead`) is refused before any Calendar call, and on the last day inside that horizon it offers only slots `book-appointment` would accept.
 - **`book-appointment`** validates the service, date, time, hours, slot grid, notice, and booking horizon offline, counts the phone's upcoming bookings against `config.limits.max_upcoming_bookings`, re-checks the exact slot, creates the event, and upserts the patient as `booked` with the trimmed phone and name the event uses.
 - **`upsert-patient`** merges the patient's row in the Patients sheet by phone. A missing, blank, or whitespace-only field keeps the stored value, an `inquiry` never downgrades a stored status, `last_contact` is today in `business.timezone`, and every value is written raw.
-- **`notify-team`** emails the team a plain-text alert in `config.team_locale`'s language, at most once per phone per `config.limits.alert_cooldown_minutes`, except `tool_failure` alerts; an emergency is held back only by an earlier emergency. Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
+- **`notify-team`** emails the team a plain-text alert in `config.team_locale`'s language, at most once per phone and reason per `config.limits.alert_cooldown_minutes`; [the architecture doc](docs/architecture.md#what-happens-when-something-fails) has the exceptions. Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
 - **`load-context`** reads the four mounted files into one item. A missing file fails its read and the calling run, so it shows in the executions list instead of answering with no context.
 - **`error-handler`** emails the team the failed workflow, node, error, and execution link; **`retention-cleanup`** deletes old chat memory and messages from Postgres daily at 03:00 Bogota time.
 - **`dev-harness`** (`node scripts/dev-call.ts <target> '<json>'`) calls any sub-workflow over HTTP with a token, plus `find-patient`, `cleanup`, `retention`, and `raise-error`.
@@ -104,6 +105,7 @@ Every other setting lives in `config/config.json`, which n8n reads on every run:
 | `limits.max_text_chars` | Where a message's text is cut. |
 | `limits.retention_days` | How long Postgres keeps messages and chat memory. |
 | `limits.alert_cooldown_minutes` | The per-phone alert cooldown. |
+| `limits.handoff_pause_hours` | How long the assistant stays silent after a handoff. A missing or invalid value turns the pause off. |
 | `limits.max_booking_days_ahead` | The booking horizon `check-availability` and `book-appointment` share. |
 | `limits.max_upcoming_bookings` | Upcoming bookings one phone may hold. |
 
@@ -119,8 +121,9 @@ Replace `process-message`'s `Anthropic Chat Model` sub-node with another provide
 
 Pulling this version into a checkout that already has a `config/config.json`, a local stack, or signed-in Google credentials takes three steps:
 
-1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`.
+1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.handoff_pause_hours`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`.
    - Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
+   - Without a valid `handoff_pause_hours`, the pause is off and the assistant keeps answering after a handoff.
    - Without either booking key, `check-availability` and every booking fail closed before any Calendar call.
    - A `triage.thresholds` value that's missing or outside (0, 1] fails triage with an error email.
 2. **Narrow the Gmail sign-in to sending.** `pnpm run setup` skips a Google credential that already exists, so an older Gmail credential keeps n8n's full-mailbox scopes.
@@ -218,12 +221,12 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
 13. **Triage accuracy:** `pnpm run scenarios -- --triage` prints the accuracy table. Tune English misses by question wording or thresholds, and record Spanish misses as they are.
 14. **Conversations:** `pnpm run scenarios` shows every conversation `PASS`, or `SKIP` on a Sunday. That covers the nine red-team scenarios and `booking-limit`'s fourth booking, refused with `too_many_bookings` and no fourth event.
 15. **Alert cooldown, and an emergency after another alert:**
-    - Cooldown: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-cooldown-1","phone":"570000000004","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-cooldown-2"`.
+    - Cooldown: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-cooldown-1","phone":"570000000004","name":"Test","type":"audio","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-cooldown-2"`.
       - The team gets one email, and in the n8n editor (Executions) the second `Notify team` run ends at `Return suppressed`.
       - Then `node scripts/dev-call.ts notify-team '{"reason":"tool_failure","phone":"570000000004","summary":"Live check"}'` returns `{"ok":true}` and still sends.
-    - Emergency after another alert: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-1","phone":"570000000005","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-emergency-2"` and `"text":"Me sangra mucho la encía y tengo la cara hinchada."`, then again with `"message_id":"live-emergency-3"` and that same text.
-      - The team gets two emails, the second a dental emergency.
-      - The third run's `Notify team` ends at `Return suppressed`, and its reply doesn't say this message reached the team.
+    - Emergencies are never held back: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-1","phone":"570000000005","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-emergency-2"` and `"text":"Me sangra mucho la encía y tengo la cara hinchada."`, then again with `"message_id":"live-emergency-3"` and that same text.
+      - The team gets three emails: the handoff, then two dental emergencies, and neither emergency run's `Notify team` ends at `Return suppressed`.
+      - The second and third replies are the fixed urgent reply, and contain `+57 605 000 0000`.
     - Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
 16. **Agent failure:** **Manual action:** in the n8n editor, set the `Anthropic` credential's key to `sk-ant-invalid`.
     - `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-agent-failure-1","phone":"570000000003","name":"Test","type":"text","text":"How much is a dental cleaning?","received_at":"<now, ISO 8601>"}'` returns route `fallback` with the `technical_issue` reply, and an "Assistant tool failure" email arrives.
@@ -247,6 +250,13 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
     ```
 
     Expect route `emergency` and a reply containing `+57 605 000 0000`. Then run `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
+28. **Handoff pause:** for phone `570000000007`, run these five calls in order, each `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"<id>","phone":"570000000007","name":"Test","type":"text","text":"<text>","received_at":"<now, ISO 8601>"}'`:
+    1. `live-pause-1`, `Quiero hablar con una persona`: route `handoff`.
+    2. `live-pause-2`, `Gracias`: route `handoff_paused` with the `handed_off` reply, and no Jev scoring beyond the emergency question and no agent run in its execution. Its `Re-alert the team` run emails the team `Wrote again while waiting for the team`.
+    3. `live-pause-3`, `Gracias de nuevo`: route `handoff_paused` with `reply: null`.
+    4. `live-pause-4`, `Me sangra mucho la encía y tengo la cara hinchada.`: route `emergency` with the fixed urgent reply, and an URGENT email.
+    5. Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
+    - [The architecture doc](docs/architecture.md#how-a-message-becomes-a-reply) says what the cooldown does to a re-alert.
 
 ## Cost per message
 
@@ -302,7 +312,8 @@ Return with `docker compose -f compose.yaml -f compose.queue.yaml down && docker
 - Tool calls per message have no cap: `maxIterations: 6` bounds the agent's turns, not the calls within one.
 - The upcoming-booking limit counts only events the assistant booked; an event staff create or edit by hand isn't counted.
 - `replied_at` and the Patients sheet write have limits the [architecture doc](docs/architecture.md#known-limits-of-the-current-design) owns: a send is marked when Meta accepts it, and a booking doesn't check the sheet write.
-- After a handoff, the assistant keeps answering the patient's next messages while the team replies from its own channel.
+- The team can't end a handoff pause early; it lifts after `handoff_pause_hours`.
+- During a handoff pause every message costs one extra Jev call, the emergency question, and anything else a paused patient writes after the first reply reaches the team only if someone reads Postgres. [The cooldown rules](docs/architecture.md#what-happens-when-something-fails) say what holds an alert back.
 - Scope: no appointment reminders, text messages only (a voice note or photo gets a fixed reply), one calendar, and one appointment length for every service.
 - Retention covers Postgres only; the Patients sheet and Calendar keep their data until staff delete it.
 

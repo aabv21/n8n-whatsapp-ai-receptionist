@@ -331,7 +331,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2480,
+        3720,
         300
       ],
       "retryOnFail": true,
@@ -386,7 +386,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2720,
+        3960,
         300
       ]
     },
@@ -403,7 +403,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2960,
+        4200,
         300
       ],
       "retryOnFail": true,
@@ -528,7 +528,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.5,
       "position": [
-        3200,
+        4440,
         300
       ]
     },
@@ -543,7 +543,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3440,
+        4680,
         100
       ]
     },
@@ -597,7 +597,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        3440,
+        4680,
         500
       ],
       "onError": "continueRegularOutput"
@@ -671,7 +671,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        3680,
+        4920,
         300
       ],
       "onError": "continueRegularOutput"
@@ -687,7 +687,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3920,
+        5160,
         300
       ]
     },
@@ -702,7 +702,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4160,
+        5400,
         300
       ]
     },
@@ -721,7 +721,7 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4400,
+        5640,
         300
       ],
       "onError": "continueErrorOutput"
@@ -744,7 +744,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.6,
       "position": [
-        3940,
+        5180,
         580
       ],
       "credentials": {
@@ -766,7 +766,7 @@
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.4,
       "position": [
-        4080,
+        5320,
         580
       ],
       "credentials": {
@@ -818,7 +818,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4220,
+        5460,
         580
       ]
     },
@@ -891,7 +891,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4360,
+        5600,
         580
       ]
     },
@@ -963,7 +963,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4500,
+        5740,
         580
       ]
     },
@@ -1044,7 +1044,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4640,
+        5880,
         580
       ]
     },
@@ -1078,7 +1078,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        4720,
+        5960,
         300
       ]
     },
@@ -1093,7 +1093,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4960,
+        6200,
         200
       ]
     },
@@ -1108,7 +1108,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        5200,
+        6440,
         200
       ]
     },
@@ -1123,7 +1123,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5440,
+        6680,
         200
       ]
     },
@@ -1138,7 +1138,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        5680,
+        6920,
         200
       ]
     },
@@ -1193,7 +1193,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        4960,
+        6200,
         20
       ],
       "onError": "continueRegularOutput"
@@ -1209,7 +1209,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        5200,
+        6440,
         20
       ]
     },
@@ -1226,7 +1226,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        5960,
+        7200,
         400
       ],
       "retryOnFail": true,
@@ -1248,15 +1248,15 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        6200,
+        7440,
         300
       ]
     },
     {
       "parameters": {
-        "width": 2820,
-        "height": 940,
-        "content": "## Intake\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it.",
+        "width": 4100,
+        "height": 1160,
+        "content": "## Intake\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. A phone whose last handoff is inside config.limits.handoff_pause_hours skips triage and the agent. Each paused message is first checked for an emergency with Jev's emergency question alone: a hit gets the fixed urgent reply and an emergency alert. Any other paused message is answered once, the first one after the handoff by recorded order, with the fixed handed_off reply and one re-alert to the team; later ones get no reply. A missing or invalid setting turns the pause off. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it.",
         "color": 4
       },
       "id": "90000000-0000-4000-8000-000000000023",
@@ -1280,7 +1280,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2660,
+        3900,
         -200
       ]
     },
@@ -1296,7 +1296,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        3880,
+        5120,
         -320
       ]
     },
@@ -1312,7 +1312,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        4920,
+        6160,
         -260
       ]
     },
@@ -1341,6 +1341,368 @@
           "name": "App DB"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH c AS (SELECT received_at FROM inbound_messages WHERE message_id = $2), h AS (SELECT max(received_at) AS at FROM inbound_messages WHERE phone = $1 AND message_id <> $2 AND (route = 'handoff' OR (route = 'fallback' AND triage->>'route' = 'handoff')) AND received_at > now() - make_interval(hours => $3)) SELECT h.at IS NOT NULL AS paused, NOT EXISTS (SELECT 1 FROM inbound_messages m, c WHERE m.phone = $1 AND m.message_id <> $2 AND m.body IS NOT NULL AND m.received_at >= h.at AND (m.route = 'handoff_paused' OR (m.route IS NULL AND m.received_at > now() - interval '10 minutes' AND (m.received_at, m.message_id) < (c.received_at, $2)))) AS first_paused FROM h",
+        "options": {
+          "queryReplacement": "={{ $('When called').first().json.phone }},{{ $('When called').first().json.message_id }},{{ Number.isInteger($('Load context').first().json.config.limits?.handoff_pause_hours) && $('Load context').first().json.config.limits.handoff_pause_hours >= 1 ? $('Load context').first().json.config.limits.handoff_pause_hours : 0 }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000043",
+      "name": "Check handoff pause",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2480,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a0109",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.paused === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000044",
+      "name": "Is the patient with the team",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a010a",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Check handoff pause').first().json.first_paused === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000045",
+      "name": "Is it the first paused message",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        3200,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "handoff_followup",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000046",
+      "name": "Re-alert the team",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        3440,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Check handoff pause').first().json.first_paused ? $('Load context').first().json.business.replies.handed_off[$('Resolve language').first().json.lang] : null, route: 'handoff_paused', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000047",
+      "name": "Reply handed off",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3680,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbTriageMsg0001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "text": "={{ $('Normalize text').first().json.text }}",
+            "recent_messages": "={{ [] }}",
+            "emergency_only": "={{ true }}"
+          },
+          "schema": [
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "emergency_only",
+              "displayName": "emergency_only",
+              "type": "boolean",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000049",
+      "name": "Check urgent message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2720,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a010b",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.route === 'emergency' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000004a",
+      "name": "Is it urgent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2960,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "emergency",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000004b",
+      "name": "Alert urgent message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        3200,
+        820
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Load context').first().json.business.replies.emergency_paused[$('Resolve language').first().json.lang], route: 'emergency', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000004c",
+      "name": "Reply urgent while paused",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3440,
+        820
+      ]
     }
   ],
   "connections": {
@@ -1825,7 +2187,137 @@
       "main": [
         [
           {
+            "node": "Check handoff pause",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check handoff pause": {
+      "main": [
+        [
+          {
+            "node": "Is the patient with the team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the patient with the team": {
+      "main": [
+        [
+          {
+            "node": "Check urgent message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Recent patient messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-alert the team": {
+      "main": [
+        [
+          {
+            "node": "Reply handed off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply handed off": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check urgent message": {
+      "main": [
+        [
+          {
+            "node": "Is it urgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it urgent": {
+      "main": [
+        [
+          {
+            "node": "Alert urgent message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is it the first paused message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert urgent message": {
+      "main": [
+        [
+          {
+            "node": "Reply urgent while paused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply urgent while paused": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it the first paused message": {
+      "main": [
+        [
+          {
+            "node": "Re-alert the team",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply handed off",
             "type": "main",
             "index": 0
           }

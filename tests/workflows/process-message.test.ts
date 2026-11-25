@@ -5,6 +5,7 @@ import { CODE_NODES, WORKFLOWS } from '../../scripts/manifest.ts';
 import { run as decideRoute } from '../../src/nodes/decide-route.ts';
 import { ALERT_REASONS } from '../../src/nodes/shared/team-messages.ts';
 import type { Business } from '../../src/nodes/types.ts';
+import { evaluateExpression } from '../helpers/run-expression.ts';
 import { runGenerated } from '../helpers/run-generated.ts';
 import { nodesNotInsideTheirSticky, stickiesHaveOwnColors, stickySections } from '../helpers/sticky-sections.ts';
 
@@ -194,7 +195,7 @@ const LANG = "[$('Resolve language').first().json.lang]";
 test("every fixed reply is picked in the message's language", () => {
   // Check reply, the one Code node that picks a fixed reply, is covered by its own source's tests.
   const replyNodes = wf.nodes.filter((n) => n.type !== 'n8n-nodes-base.code' && JSON.stringify(n.parameters).includes('business.replies.'));
-  expect(replyNodes.map((n) => n.name).sort()).toEqual(['Reply blocked', 'Reply non-text', 'Reply rate limited', 'Reply with fallback']);
+  expect(replyNodes.map((n) => n.name).sort()).toEqual(['Reply blocked', 'Reply handed off', 'Reply non-text', 'Reply rate limited', 'Reply urgent while paused', 'Reply with fallback']);
   for (const reply of replyNodes) {
     const output = String(reply.parameters.jsonOutput);
     const picks = [...output.matchAll(/business\.replies\.\w+/g)];
@@ -229,7 +230,7 @@ test('the generated Resolve language node detects Spanish and falls back to the 
 // say) must not stop the run. The failed sub-run still reaches error-handler through its own
 // errorWorkflow, and the reply then reads the side call's empty result as a failure.
 test('an emergency or handoff alert that fails still reaches the agent, and an agent-failure alert that fails still sends the fallback reply', () => {
-  for (const name of ['Mark patient handed off', 'Alert the team', 'Report agent failure']) {
+  for (const name of ['Mark patient handed off', 'Alert the team', 'Re-alert the team', 'Alert urgent message', 'Check urgent message', 'Report agent failure']) {
     expect(node(name)?.onError, name).toBe('continueRegularOutput');
   }
   expect(String(node('Prepare prompt input')?.parameters.jsonOutput)).toContain("$('Alert the team').first().json.ok === true");
@@ -252,10 +253,88 @@ test('the team alert carries the last six chat-memory lines plus this message', 
   );
 });
 
+test('a message inside the handoff pause skips triage and the agent, replies once with handed_off, and re-alerts once', () => {
+  expect(branches('Is the patient over the limit')[1]?.map((e) => e.node)).toEqual(['Recent conversation']);
+  expect(branches('Recent conversation')[0]?.map((e) => e.node)).toEqual(['Check handoff pause']);
+  expect(branches('Check handoff pause')[0]?.map((e) => e.node)).toEqual(['Is the patient with the team']);
+  expect(node('Is the patient with the team')?.type).toBe('n8n-nodes-base.if');
+  expect(JSON.stringify(node('Is the patient with the team')?.parameters.conditions)).toContain('$json.paused === true');
+  expect(branches('Is the patient with the team')[0]?.map((e) => e.node)).toEqual(['Check urgent message']);
+  expect(branches('Is the patient with the team')[1]?.map((e) => e.node)).toEqual(['Recent patient messages']);
+  expect(branches('Check urgent message')[0]?.map((e) => e.node)).toEqual(['Is it urgent']);
+  expect(branches('Is it urgent')[1]?.map((e) => e.node)).toEqual(['Is it the first paused message']);
+  expect(JSON.stringify(node('Is it the first paused message')?.parameters.conditions)).toContain("$('Check handoff pause').first().json.first_paused === true");
+  expect(branches('Is it the first paused message')[0]?.map((e) => e.node)).toEqual(['Re-alert the team']);
+  expect(branches('Is it the first paused message')[1]?.map((e) => e.node)).toEqual(['Reply handed off']);
+  expect(branches('Re-alert the team')[0]?.map((e) => e.node)).toEqual(['Reply handed off']);
+  expect(branches('Reply handed off')[0]?.map((e) => e.node).sort()).toEqual(['Return result', 'Save route']);
+  expect(node('Reply handed off')?.parameters.jsonOutput).toBe(
+    "={{ { reply: $('Check handoff pause').first().json.first_paused ? $('Load context').first().json.business.replies.handed_off[$('Resolve language').first().json.lang] : null, route: 'handoff_paused', flags: {}, tool_calls: [] } }}",
+  );
+  const realert = node('Re-alert the team');
+  expect(realert?.onError).toBe('continueRegularOutput');
+  expect(inputsOf(realert).value).toMatchObject({
+    reason: 'handoff_followup',
+    phone: "={{ $('When called').first().json.phone }}",
+    name: "={{ $('When called').first().json.name }}",
+    message_id: "={{ $('When called').first().json.message_id }}",
+    recent_messages: inputsOf(node('Alert the team')).value.recent_messages,
+  });
+  expect(ALERT_REASONS as readonly string[]).toContain('handoff_followup');
+  // Triage and the agent run on the unpaused branch only.
+  const reachable = new Set<string>();
+  const walk = (name: string): void => {
+    for (const branch of branches(name)) for (const edge of branch) if (!reachable.has(edge.node)) { reachable.add(edge.node); walk(edge.node); }
+  };
+  walk('Check urgent message');
+  expect(reachable.has('Triage message')).toBe(false);
+  expect(reachable.has('AI Agent')).toBe(false);
+  expect(reachable.has('Mark patient handed off')).toBe(false);
+});
+
+// An emergency written during the pause must not go silent: one narrow Jev question, then the fixed
+// reply with the emergency phone and an alert that no cooldown holds back.
+test('an emergency during the handoff pause gets the fixed urgent reply and an emergency alert, and any other message stays paused', () => {
+  const check = node('Check urgent message');
+  expect(check?.onError).toBe('continueRegularOutput');
+  expect(String((check?.parameters.workflowId as { value: unknown }).value)).toBe('cmbTriageMsg0001');
+  expect(inputsOf(check).value).toEqual({
+    text: "={{ $('Normalize text').first().json.text }}",
+    recent_messages: '={{ [] }}',
+    emergency_only: '={{ true }}',
+  });
+  expect(JSON.stringify(node('Is it urgent')?.parameters.conditions)).toContain("$json.route === 'emergency'");
+  expect(branches('Is it urgent')[0]?.map((e) => e.node)).toEqual(['Alert urgent message']);
+  const alert = node('Alert urgent message');
+  expect(alert?.onError).toBe('continueRegularOutput');
+  expect(inputsOf(alert).value).toMatchObject({
+    reason: 'emergency',
+    phone: "={{ $('When called').first().json.phone }}",
+    message_id: "={{ $('When called').first().json.message_id }}",
+    recent_messages: inputsOf(node('Alert the team')).value.recent_messages,
+  });
+  expect(branches('Alert urgent message')[0]?.map((e) => e.node)).toEqual(['Reply urgent while paused']);
+  expect(node('Reply urgent while paused')?.parameters.jsonOutput).toBe(
+    "={{ { reply: $('Load context').first().json.business.replies.emergency_paused[$('Resolve language').first().json.lang], route: 'emergency', flags: {}, tool_calls: [] } }}",
+  );
+  expect(branches('Reply urgent while paused')[0]?.map((e) => e.node).sort()).toEqual(['Return result', 'Save route']);
+});
+
+test('a missing or invalid handoff_pause_hours turns the pause off instead of failing the run', () => {
+  const replacement = String(node('Check handoff pause')?.parameters.options && (node('Check handoff pause')?.parameters.options as { queryReplacement: string }).queryReplacement);
+  const hours = `={{${replacement.split('}},{{')[2] ?? ''}`;
+  const read = (limits: unknown): unknown => evaluateExpression(hours, { nodes: { 'Load context': { config: { limits } } } });
+  expect(read({ handoff_pause_hours: 12 })).toBe(12);
+  for (const bad of [undefined, '12', 0, 1.5, -3, null]) expect(read({ handoff_pause_hours: bad }), String(bad)).toBe(0);
+  expect(read(undefined)).toBe(0);
+  expect(String(node('Check handoff pause')?.parameters.query)).toContain("route = 'handoff'");
+});
+
 const SECTIONS: Record<string, string[]> = {
   '## Intake': [
     'Record inbound message', 'Is it a duplicate', 'Return duplicate', 'Prepare language check', 'Resolve language', 'Is it text', 'Reply non-text',
-    'Count recent messages', 'Is the patient over the limit', 'Reply rate limited', 'Recent conversation', 'Recent patient messages',
+    'Count recent messages', 'Is the patient over the limit', 'Reply rate limited', 'Recent conversation', 'Check handoff pause', 'Is the patient with the team',
+    'Check urgent message', 'Is it urgent', 'Alert urgent message', 'Reply urgent while paused', 'Is it the first paused message', 'Re-alert the team', 'Reply handed off', 'Recent patient messages',
   ],
   '## Triage and alerts': ['Triage message', 'Save triage', 'Route by triage', 'Reply blocked', 'Mark patient handed off', 'Alert the team'],
   '## Agent': [
@@ -278,4 +357,51 @@ test('every reason notify_team lets the model pick is one of ALERT_REASONS', () 
   const picked = [...(/\[([^\]]+)\]\.find\(/.exec(expression)?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
   expect(picked).toEqual(['unknown_treatment', 'out_of_scope', 'other']);
   for (const reason of picked) expect(ALERT_REASONS as readonly (string | undefined)[]).toContain(reason);
+});
+
+test('every condition id in the workflow is unique', () => {
+  const ids = wf.nodes.flatMap((n) => ((n.parameters.conditions as { conditions?: { id: string }[] } | undefined)?.conditions ?? []).map((c) => c.id));
+  expect(ids.length).toBeGreaterThan(0);
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
+// Each expression below is edited by hand in the workflow JSON, so a slip only shows when it runs.
+test('the pause, urgent and thread expressions evaluate to what the wiring expects', () => {
+  const business = { replies: { handed_off: { en: 'held', es: 'espera' }, emergency_paused: { en: 'call', es: 'llame' } } };
+  const nodes = (extra: Record<string, unknown> = {}): Record<string, unknown> => ({
+    'Load context': { business, config: { limits: { handoff_pause_hours: 12, retention_days: 30 } } },
+    'Resolve language': { lang: 'es' },
+    'When called': { phone: '570000000001', message_id: 'm1', name: 'Ana', channel: 'test' },
+    'Normalize text': { text: 'Hola', type: 'text' },
+    'Recent conversation': { thread: [{ role: 'assistant', text: 'Hi' }] },
+    'Check handoff pause': { paused: true, first_paused: true },
+    'Triage message': { notify_reason: 'complaint' },
+    'Recent patient messages': { recent: [] },
+    ...extra,
+  });
+  const run = (name: string, key: string, scope: Parameters<typeof evaluateExpression>[1]): unknown =>
+    evaluateExpression(String((node(name)?.parameters as Record<string, unknown>)[key]), scope);
+  expect(run('Reply handed off', 'jsonOutput', { nodes: nodes() })).toEqual({ reply: 'espera', route: 'handoff_paused', flags: {}, tool_calls: [] });
+  expect(run('Reply handed off', 'jsonOutput', { nodes: nodes({ 'Check handoff pause': { first_paused: false } }) })).toMatchObject({ reply: null });
+  expect(run('Reply urgent while paused', 'jsonOutput', { nodes: nodes() })).toEqual({ reply: 'llame', route: 'emergency', flags: {}, tool_calls: [] });
+  const condition = (name: string): string => String((node(name)?.parameters.conditions as { conditions: { leftValue: string }[] }).conditions[0]?.leftValue);
+  expect(evaluateExpression(condition('Is the patient with the team'), { nodes: nodes(), json: { paused: true } })).toBe(true);
+  expect(evaluateExpression(condition('Is it urgent'), { nodes: nodes(), json: { route: 'emergency' } })).toBe(true);
+  expect(evaluateExpression(condition('Is it urgent'), { nodes: nodes(), json: {} })).toBe(false);
+  expect(evaluateExpression(condition('Is it the first paused message'), { nodes: nodes() })).toBe(true);
+  for (const name of ['Alert the team', 'Re-alert the team', 'Alert urgent message', 'Check urgent message']) {
+    const values = inputsOf(node(name)).value;
+    for (const [key, expression] of Object.entries(values)) {
+      if (typeof expression === 'string' && expression.startsWith('=')) expect(() => evaluateExpression(expression, { nodes: nodes() }), `${name}.${key}`).not.toThrow();
+    }
+  }
+  expect(evaluateExpression(String(inputsOf(node('Alert urgent message')).value.recent_messages), { nodes: nodes() })).toEqual([{ role: 'assistant', text: 'Hi' }, { role: 'patient', text: 'Hola' }]);
+  expect(evaluateExpression(String(inputsOf(node('Check urgent message')).value.emergency_only), { nodes: nodes() })).toBe(true);
+  const options = (name: string): string => (node(name)?.parameters.options as { queryReplacement: string }).queryReplacement;
+  expect(options('Recent conversation').startsWith('=')).toBe(true);
+  expect(evaluateExpression(options('Recent conversation'), { nodes: nodes() })).toBe('test:570000000001');
+  const pauseParts = options('Check handoff pause').split('}},{{').map((part) => part);
+  expect(pauseParts).toHaveLength(3);
+  expect(evaluateExpression(`${pauseParts[0] ?? ''}}}`, { nodes: nodes() })).toBe('570000000001');
+  expect(evaluateExpression(`={{${pauseParts[1] ?? ''}}}`, { nodes: nodes() })).toBe('m1');
 });

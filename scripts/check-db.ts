@@ -100,6 +100,7 @@ const PROBE_PHONE = '570000000099';
  */
 export const PROBES: readonly Probe[] = [
   { file: 'process-message.json', node: 'Record inbound message', params: [PROBE_ID, 'test', PROBE_PHONE, 'check-db probe', '2026-01-01T00:00:00Z'] },
+  { file: 'process-message.json', node: 'Check handoff pause', params: [PROBE_PHONE, PROBE_ID, '12'] },
   { file: 'process-message.json', node: 'Count recent messages', params: [PROBE_PHONE, '10'] },
   { file: 'process-message.json', node: 'Recent conversation', params: ['test:' + PROBE_PHONE] },
   { file: 'process-message.json', node: 'Recent patient messages', params: [PROBE_PHONE, 'check-db-other'] },
@@ -177,6 +178,171 @@ export function behaviorProblems(stdout: string): string[] {
     const have = got.at(index);
     return have === want ? [] : [`${names.at(index) ?? 'probe'} returned ${have ?? 'nothing'}, expected ${want}`];
   });
+}
+
+/**
+ * What `handoffPauseScript` prints for "Check handoff pause": `paused|first_paused` for the first of
+ * two messages that arrive in the same second, for the second, for a later one, and for a message
+ * after a handoff whose agent run failed.
+ */
+export const HANDOFF_PAUSE_EXPECTED: readonly string[] = ['t|t', 't|f', 't|f', 't|t'];
+const PAUSE_PHONE = '570000000097';
+const PAUSE_PHONE_FAILED = '570000000096';
+
+/** A psql helper shared by the behavior scripts: finds one statement's SQL, as its workflow wrote it. */
+function findStatement(statements: readonly WorkflowStatement[], file: string, node: string): string {
+  const statement = statements.find((s) => s.file === file && s.node === node);
+  if (!statement) throw new Error(`${file} › ${node} is missing, so check-db cannot probe its behavior`);
+  return statement.query.trim().replace(/;$/, '');
+}
+
+const bindValues = (...params: string[]): string => `\\bind ${params.map(psqlLiteral).join(' ')} \\g`;
+
+/**
+ * A psql script that checks what "Check handoff pause" decides, beyond running: a handoff inside the
+ * window pauses, and exactly one message gets the first-paused line even when two arrive in the same
+ * second, because the decision is a pure function of the recorded rows. It records a handoff, then
+ * two in-flight messages with one timestamp, a later message after the first is saved, and a handoff
+ * whose agent run failed (saved as `fallback`), all rolled back.
+ */
+export function handoffPauseScript(statements: readonly WorkflowStatement[]): string {
+  const find = (file: string, node: string): string => findStatement(statements, file, node);
+  const insert = find('process-message.json', 'Record inbound message');
+  const saveRoute = find('process-message.json', 'Save route');
+  const saveTriage = find('process-message.json', 'Save triage');
+  const check = find('process-message.json', 'Check handoff pause');
+  const record = (id: string, phone: string, at: string): string => `${insert}\n\\bind ${psqlLiteral(id)} 'test' ${psqlLiteral(phone)} 'pause probe' :'${at}' \\g`;
+  return [
+    '\\pset tuples_only on',
+    '\\pset format unaligned',
+    'BEGIN;',
+    "SELECT (now() - interval '3 minutes')::text AS handoff_at, (now() - interval '2 minutes')::text AS burst_at, (now() - interval '1 minute')::text AS later_at \\gset",
+    record('check-db-pause-a', PAUSE_PHONE, 'handoff_at'),
+    saveRoute, bindValues('check-db-pause-a', 'handoff'),
+    record('check-db-pause-b', PAUSE_PHONE, 'burst_at'),
+    record('check-db-pause-c', PAUSE_PHONE, 'burst_at'),
+    check, bindValues(PAUSE_PHONE, 'check-db-pause-b', '12'),
+    check, bindValues(PAUSE_PHONE, 'check-db-pause-c', '12'),
+    saveRoute, bindValues('check-db-pause-b', 'handoff_paused'),
+    record('check-db-pause-d', PAUSE_PHONE, 'later_at'),
+    check, bindValues(PAUSE_PHONE, 'check-db-pause-d', '12'),
+    record('check-db-pause-e', PAUSE_PHONE_FAILED, 'handoff_at'),
+    saveRoute, bindValues('check-db-pause-e', 'fallback'),
+    saveTriage, bindValues('check-db-pause-e', '{"route":"handoff"}'),
+    record('check-db-pause-f', PAUSE_PHONE_FAILED, 'burst_at'),
+    check, bindValues(PAUSE_PHONE_FAILED, 'check-db-pause-f', '12'),
+    'ROLLBACK;',
+  ].join('\n') + '\n';
+}
+
+/** `stdout` of `handoffPauseScript` compared with `HANDOFF_PAUSE_EXPECTED`, as one problem per mismatch. */
+export function handoffPauseProblems(stdout: string): string[] {
+  // Each insert prints its own count; only the pause check's rows hold a `|`.
+  const got = stdout.split('\n').filter((line) => line.includes('|'));
+  const names = [
+    'the first of two messages in the same second gets the line',
+    'the second of two messages in the same second does not get the line',
+    'a later message after a paused one does not get the line',
+    'a handoff whose agent run failed still pauses',
+  ];
+  return HANDOFF_PAUSE_EXPECTED.flatMap((want, index) => {
+    const have = got.at(index);
+    return have === want ? [] : [`${names.at(index) ?? 'probe'} returned ${have ?? 'nothing'}, expected ${want}`];
+  });
+}
+
+/** What `cooldownScript` prints: the same reason held back, another reason and an emergency not, then both again after a second mark. */
+export const COOLDOWN_EXPECTED: readonly string[] = ['t', 'f', 'f', 't', 'f'];
+const COOLDOWN_PHONE = '570000000095';
+
+/**
+ * A psql script that checks what notify-team's cooldown holds back: an alert is held back only by an
+ * earlier alert of the same reason, the list keeps every reason marked on a message, and an
+ * emergency is never held back. It marks a `non_text` alert, asks for `non_text`, `human_requested`
+ * and `emergency`, marks an `emergency` on the same message, and asks again, all rolled back.
+ */
+export function cooldownScript(statements: readonly WorkflowStatement[]): string {
+  const insert = findStatement(statements, 'process-message.json', 'Record inbound message');
+  const mark = findStatement(statements, 'notify-team.json', 'Mark team alerted');
+  const check = findStatement(statements, 'notify-team.json', 'Check alert cooldown');
+  const ask = (reason: string): string => `${check}\n${bindValues(COOLDOWN_PHONE, '60', reason)}`;
+  return [
+    '\\pset tuples_only on',
+    '\\pset format unaligned',
+    'BEGIN;',
+    'SELECT now()::text AS cooldown_at \\gset',
+    `${insert}\n\\bind 'check-db-cooldown' 'test' ${psqlLiteral(COOLDOWN_PHONE)} 'cooldown probe' :'cooldown_at' \\g`,
+    mark, bindValues('check-db-cooldown', 'non_text'),
+    ask('non_text'),
+    ask('human_requested'),
+    ask('emergency'),
+    mark, bindValues('check-db-cooldown', 'emergency'),
+    ask('non_text'),
+    ask('emergency'),
+    'ROLLBACK;',
+  ].join('\n') + '\n';
+}
+
+/** `stdout` of `cooldownScript` compared with `COOLDOWN_EXPECTED`, as one problem per mismatch. */
+export function cooldownProblems(stdout: string): string[] {
+  // Inserts print a count; the cooldown check prints `t` or `f`.
+  const got = stdout.split('\n').filter((line) => line === 't' || line === 'f');
+  const names = [
+    'an alert of the same reason is held back',
+    'an alert of another reason is not held back',
+    'an emergency is not held back',
+    'a reason stays held back after a second reason is marked on the message',
+    'an emergency is still not held back',
+  ];
+  return COOLDOWN_EXPECTED.flatMap((want, index) => {
+    const have = got.at(index);
+    return have === want ? [] : [`${names.at(index) ?? 'probe'} returned ${have ?? 'nothing'}, expected ${want}`];
+  });
+}
+
+/**
+ * A psql script that proves the chat-memory shape "Recent conversation" reads: a human line, an ai
+ * line with string content and an ai line whose content is blocks (only the `text` block may reach
+ * the team). It inserts them as the owner, then runs the workflow's own SQL as the runtime role, and
+ * rolls back.
+ */
+export function chatThreadScript(statements: readonly WorkflowStatement[]): string {
+  const recent = findStatement(statements, 'process-message.json', 'Recent conversation');
+  const line = (message: string): string => `('check-db-thread', ${psqlLiteral(message)}::jsonb)`;
+  return [
+    '\\getenv runtime_role APP_RUNTIME_DB_USER',
+    '\\pset tuples_only on',
+    '\\pset format unaligned',
+    'BEGIN;',
+    `INSERT INTO n8n_chat_histories (session_id, message) VALUES ${[
+      line('{"type":"human","data":{"content":"Hola","additional_kwargs":{},"response_metadata":{}}}'),
+      line('{"type":"ai","data":{"content":"Buenos días","tool_calls":[],"additional_kwargs":{},"response_metadata":{},"invalid_tool_calls":[]}}'),
+      line('{"type":"ai","data":{"content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"Segunda"}],"tool_calls":[]}}'),
+    ].join(', ')};`,
+    'SET LOCAL ROLE :"runtime_role";',
+    recent,
+    bindValues('check-db-thread'),
+    'ROLLBACK;',
+  ].join('\n') + '\n';
+}
+
+/** What `chatThreadScript` must read back: the thread in order, with the block line reduced to its text. */
+const CHAT_THREAD_EXPECTED = [
+  { role: 'patient', text: 'Hola' },
+  { role: 'assistant', text: 'Buenos días' },
+  { role: 'assistant', text: 'Segunda' },
+];
+
+/** `stdout` of `chatThreadScript` compared with the expected thread, as at most one problem. */
+export function chatThreadProblems(stdout: string): string[] {
+  const row = stdout.split('\n').find((text) => text.startsWith('['));
+  let thread: unknown;
+  try {
+    thread = JSON.parse(row ?? '');
+  } catch {
+    return [`the thread query printed no JSON array: ${row ?? 'nothing'}`];
+  }
+  return JSON.stringify(thread) === JSON.stringify(CHAT_THREAD_EXPECTED) ? [] : [`the thread read back as ${JSON.stringify(thread)}, expected ${JSON.stringify(CHAT_THREAD_EXPECTED)}`];
 }
 
 /** Every privilege the runtime role holds on a table or sequence in `public`, as `name:PRIVILEGE`. */
@@ -292,6 +458,33 @@ function checks(statements: readonly WorkflowStatement[], migrationFiles: readon
         const result = await runPsql(asRuntime('app'), behaviorScript(statements));
         if (!result.ok) return { ok: false, detail: lastLines(result.stderr) };
         const problems = behaviorProblems(result.stdout);
+        return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+      },
+    },
+    {
+      name: 'Recent conversation reads a human line, an ai line and an ai line of blocks as the alert thread (rolled back)',
+      run: async () => {
+        const result = await runPsql(AS_SUPERUSER, chatThreadScript(statements));
+        if (!result.ok) return { ok: false, detail: lastLines(result.stderr) };
+        const problems = chatThreadProblems(result.stdout);
+        return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+      },
+    },
+    {
+      name: 'An alert is held back only by an earlier alert of the same reason, and an emergency never is (rolled back)',
+      run: async () => {
+        const result = await runPsql(asRuntime('app'), cooldownScript(statements));
+        if (!result.ok) return { ok: false, detail: lastLines(result.stderr) };
+        const problems = cooldownProblems(result.stdout);
+        return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
+      },
+    },
+    {
+      name: 'Check handoff pause pauses after a handoff, and one message in a same-second burst gets the line (rolled back)',
+      run: async () => {
+        const result = await runPsql(asRuntime('app'), handoffPauseScript(statements));
+        if (!result.ok) return { ok: false, detail: lastLines(result.stderr) };
+        const problems = handoffPauseProblems(result.stdout);
         return problems.length === 0 ? { ok: true } : { ok: false, detail: problems.join('; ') };
       },
     },

@@ -37,6 +37,8 @@ export const REPLY_KEYS = [
   'technical_issue',
   'technical_issue_retry',
   'medical_advice',
+  'handed_off',
+  'emergency_paused',
   'price_check',
 ] as const;
 

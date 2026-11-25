@@ -56,8 +56,8 @@ test('every config key the workflows read is documented', () => {
 test('the live-check list is numbered and covers the checks only a live run can prove', () => {
   const live = section('Test scenarios').split('\n### Pending live checks\n')[1] ?? '';
   const items = live.split('\n').filter((line) => /^\d+\. /.test(line));
-  expect(items).toHaveLength(27);
-  expect(items.map((line) => Number(line.split('.')[0]))).toEqual(Array.from({ length: 27 }, (_, i) => i + 1));
+  expect(items).toHaveLength(28);
+  expect(items.map((line) => Number(line.split('.')[0]))).toEqual(Array.from({ length: 28 }, (_, i) => i + 1));
   for (const text of ['jev-1.14.0', '--tool-failure', 'Workflow failed: Dev harness', 'too_many_bookings', '413', '+57 605 000 0000']) expect(live, text).toContain(text);
 });
 
@@ -74,5 +74,5 @@ test('the README links every diagram image', () => {
 
 test('Limitations names the scope and the known gaps a client asks about', () => {
   const limits = section('Limitations');
-  for (const text of ['`Create calendar event`', '`replied_at`', 'After a handoff', 'Scope: no appointment reminders']) expect(limits, text).toContain(text);
+  for (const text of ['`Create calendar event`', '`replied_at`', 'handoff pause', 'Scope: no appointment reminders']) expect(limits, text).toContain(text);
 });

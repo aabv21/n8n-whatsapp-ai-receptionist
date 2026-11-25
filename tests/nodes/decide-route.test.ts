@@ -70,3 +70,21 @@ test('a complaint alone hands off and alerts as a complaint', () => {
   const r = decide({ ...low, complaint: 0.8 });
   expect([r.route, r.notify_reason, r.flags.handoff]).toEqual(['handoff', 'complaint', true]);
 });
+
+// The emergency-only check is how the handoff pause still catches an emergency: Jev answers one
+// question, so every other signal is absent, and only the emergency score and threshold count.
+test('emergency_only routes on the emergency score alone, ignoring the signals it never asked about', () => {
+  const only = (emergency: unknown): Triage => run({ scores: { emergency } as unknown as Scores, thresholds, emergency_only: true });
+  expect(only(0.9)).toMatchObject({ route: 'emergency', notify_reason: 'emergency', flags: { urgent: true, triage_failed: false } });
+  expect(only(0.9).notes[0]).toMatch(/^URGENT:/);
+  expect(only(0.6).route).toBe('emergency');
+  expect(only(0.59)).toMatchObject({ route: 'agent', notify_reason: null, notes: [], flags: { urgent: false, triage_failed: false } });
+});
+test('emergency_only fails open on a missing or invalid emergency score, and still rejects invalid thresholds', () => {
+  for (const scores of [null, {}, { emergency: Number.NaN }, { emergency: 2 }] as unknown as (Scores | null)[]) {
+    expect(run({ scores, thresholds, emergency_only: true }), JSON.stringify(scores)).toMatchObject({ route: 'agent', flags: { triage_failed: true } });
+  }
+  expect(() => run({ scores: { emergency: 0.9 } as unknown as Scores, thresholds: { ...thresholds, emergency: 0 }, emergency_only: true })).toThrow(/thresholds/);
+});
+test('without emergency_only, a lone emergency score still fails open', () =>
+  expect(run({ scores: { emergency: 0.9 } as unknown as Scores, thresholds }).flags.triage_failed).toBe(true));
