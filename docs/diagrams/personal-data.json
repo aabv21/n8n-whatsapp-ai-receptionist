@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Personal Data Flow",
+    "locale": "en",
+    "output": "docs/diagrams/personal-data.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1000,
+      640
+    ]
+  },
+  "stages": [
+    {
+      "label": "Patient"
+    },
+    {
+      "label": "Intake"
+    },
+    {
+      "label": "n8n"
+    },
+    {
+      "label": "Processors and stores"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "patient",
+      "type": "frontend",
+      "label": "Patient",
+      "sublabel": "WhatsApp message",
+      "stage": 0,
+      "row": 2
+    },
+    {
+      "id": "meta",
+      "type": "external",
+      "label": "WhatsApp",
+      "sublabel": "Meta Cloud API",
+      "brand": "whatsapp",
+      "stage": 1,
+      "row": 2
+    },
+    {
+      "id": "n8n",
+      "type": "backend",
+      "label": "n8n",
+      "sublabel": "executions kept 168 h",
+      "stage": 2,
+      "row": 2
+    },
+    {
+      "id": "retention",
+      "type": "backend",
+      "label": "retention-cleanup",
+      "sublabel": "daily at 03:00",
+      "stage": 2,
+      "row": 0
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "messages: retention_days",
+      "brand": "postgresql",
+      "stage": 3,
+      "row": 0
+    },
+    {
+      "id": "anthropic",
+      "type": "external",
+      "label": "Anthropic",
+      "sublabel": "Claude Haiku 5.5",
+      "brand": "anthropic",
+      "stage": 3,
+      "row": 1
+    },
+    {
+      "id": "jev",
+      "type": "external",
+      "label": "TypeSafe Jev",
+      "sublabel": "triage",
+      "stage": 3,
+      "row": 2
+    },
+    {
+      "id": "google",
+      "type": "external",
+      "label": "Google",
+      "sublabel": "Calendar, Sheets, Gmail",
+      "stage": 3,
+      "row": 3
+    }
+  ],
+  "flows": [
+    {
+      "id": "message",
+      "from": "patient",
+      "to": "meta",
+      "label": "message",
+      "classification": "phone, text",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "webhook",
+      "from": "meta",
+      "to": "n8n",
+      "label": "signed webhook",
+      "classification": "phone, name, text",
+      "variant": "emphasis",
+      "route": "straight"
+    },
+    {
+      "id": "to-postgres",
+      "from": "n8n",
+      "to": "postgres",
+      "label": "messages, chat memory",
+      "classification": "phone, text",
+      "route": "vertical-channel",
+      "channelX": 610,
+      "labelAt": [
+        745,
+        108
+      ]
+    },
+    {
+      "id": "to-anthropic",
+      "from": "n8n",
+      "to": "anthropic",
+      "label": "prompt",
+      "classification": "text, memory, business facts",
+      "route": "vertical-channel",
+      "channelX": 634,
+      "labelAt": [
+        745,
+        222
+      ]
+    },
+    {
+      "id": "to-jev",
+      "from": "n8n",
+      "to": "jev",
+      "label": "triage",
+      "classification": "text + 3 recent",
+      "route": "straight",
+      "labelAt": [
+        745,
+        336
+      ]
+    },
+    {
+      "id": "prune",
+      "from": "retention",
+      "to": "postgres",
+      "label": "deletes rows",
+      "classification": "Postgres only",
+      "variant": "dashed",
+      "route": "straight"
+    },
+    {
+      "id": "to-google",
+      "from": "n8n",
+      "to": "google",
+      "label": "events, rows, alerts",
+      "classification": "name, phone, service, slot, recent messages",
+      "variant": "security",
+      "route": "vertical-channel",
+      "channelX": 658,
+      "labelAt": [
+        745,
+        450
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "What stays where",
+      "items": [
+        "Postgres deletes messages after retention_days, and deletes a phone's chat memory only once it has no message inside that window",
+        "Sheets rows and Calendar events stay until staff delete them",
+        "Alert emails, with the patient's recent messages, stay in the team inbox until deleted",
+        "n8n keeps execution data for 168 hours"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What leaves the host",
+      "items": [
+        "Anthropic gets the message text, the memory and the business facts",
+        "Jev gets the text and the 3 recent messages",
+        "Google gets the booking, the Patients row and the alert email"
+      ]
+    }
+  ]
+}

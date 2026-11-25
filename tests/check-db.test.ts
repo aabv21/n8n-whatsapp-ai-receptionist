@@ -1,10 +1,21 @@
 import { basename } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  BEHAVIOR_EXPECTED,
+  behaviorProblems,
+  behaviorScript,
   diffGrants,
   isDenied,
   paramCount,
   PROBES,
+  chatThreadProblems,
+  chatThreadScript,
+  COOLDOWN_EXPECTED,
+  HANDOFF_PAUSE_EXPECTED,
+  cooldownProblems,
+  cooldownScript,
+  handoffPauseProblems,
+  handoffPauseScript,
   probeScript,
   psqlLiteral,
   roleProblems,
@@ -99,11 +110,13 @@ describe('workflow statements', () => {
 
   it('finds every Postgres query node in workflows/', () => {
     expect(statements.map(key).sort()).toEqual([
-      'dev-harness.json › Delete test memories',
-      'dev-harness.json › Delete test messages',
+      'dev-cleanup.json › Delete test memories',
+      'dev-cleanup.json › Delete test messages',
       'notify-team.json › Check alert cooldown',
       'notify-team.json › Mark team alerted',
+      'process-message.json › Check handoff pause',
       'process-message.json › Count recent messages',
+      'process-message.json › Recent conversation',
       'process-message.json › Recent patient messages',
       'process-message.json › Record inbound message',
       'process-message.json › Save route',
@@ -137,11 +150,106 @@ describe('workflow statements', () => {
     expect(order.indexOf('notify-team.json › Mark team alerted')).toBeGreaterThan(order.indexOf('process-message.json › Record inbound message'));
     // Both bind the reason as emergency, the value the cooldown compares and the mark stores.
     expect(PROBES.find((p) => key(p) === 'notify-team.json › Mark team alerted')?.params).toEqual(['check-db-probe', 'emergency']);
-    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60', 'emergency']);
+    expect(PROBES.find((p) => key(p) === 'notify-team.json › Check alert cooldown')?.params).toEqual(['570000000099', '60', 'emergency', '5', '6']);
   });
 
   it('refuses a probe list that misses a statement', () => {
     const extra: WorkflowStatement = { file: 'new.json', node: 'New query', query: 'SELECT $1' };
     expect(() => probeScript([...statements, extra], PROBES)).toThrow(/new\.json › New query has no probe/);
+  });
+});
+
+describe('behavior probes', () => {
+  const statements = workflowStatements(listJsonFiles('workflows').map((path) => ({ file: basename(path), wf: readWorkflow(path) })));
+  const insert = statements.find((s) => s.node === 'Record inbound message');
+  const count = statements.find((s) => s.node === 'Count recent messages');
+
+  it('inserts one message_id twice and a second inside the window, all rolled back', () => {
+    const script = behaviorScript(statements);
+    expect(script.startsWith('\\pset')).toBe(true);
+    expect(script.endsWith('ROLLBACK;\n')).toBe(true);
+    expect(script.split(insert?.query ?? 'missing').length - 1).toBe(3);
+    expect(script.split(count?.query ?? 'missing').length - 1).toBe(1);
+  });
+
+  it('reports no problems for 1, 0, 1, 1 and names each mismatch', () => {
+    expect([...BEHAVIOR_EXPECTED]).toEqual(['1', '0', '1', '1']);
+    expect(behaviorProblems('1\n0\n1\n1\n')).toEqual([]);
+    const problems = behaviorProblems('1\n1\n1\n2\n');
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('repeat insert');
+    expect(problems[1]).toContain('window count');
+  });
+
+  it('refuses a workflow set without the insert statement', () => {
+    expect(() => behaviorScript(statements.filter((s) => s.node !== 'Record inbound message'))).toThrow(/Record inbound message/);
+  });
+});
+
+describe('handoff pause probe', () => {
+  const statements = workflowStatements(listJsonFiles('workflows').map((path) => ({ file: basename(path), wf: readWorkflow(path) })));
+  const check = statements.find((s) => s.node === 'Check handoff pause');
+
+  it('checks two messages in flight in the same second, then a later one, then a failed-agent handoff, all rolled back', () => {
+    const script = handoffPauseScript(statements);
+    expect(script.endsWith('ROLLBACK;\n')).toBe(true);
+    expect(script.split(check?.query ?? 'missing').length - 1).toBe(4);
+    for (const text of ["'handoff'", "'handoff_paused'", "'fallback'", '{"route":"handoff"}']) expect(script).toContain(text);
+    // The two in-flight messages share one timestamp variable, so they land in the same second.
+    expect(script.split(":'burst_at'").length - 1).toBeGreaterThanOrEqual(2);
+  });
+
+  it('reports no problems for t|t, t|f, t|f, t|t, and names a mismatch', () => {
+    expect([...HANDOFF_PAUSE_EXPECTED]).toEqual(['t|t', 't|f', 't|f', 't|t']);
+    expect(handoffPauseProblems('1\nt|t\n1\nt|f\nt|f\nt|t\n')).toEqual([]);
+    const problems = handoffPauseProblems('t|t\nt|t\nt|f\nt|t\n');
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('same second');
+  });
+
+  it('refuses a workflow set without the pause check', () => {
+    expect(() => handoffPauseScript(statements.filter((s) => s.node !== 'Check handoff pause'))).toThrow(/Check handoff pause/);
+  });
+});
+
+describe('alert cooldown probe', () => {
+  const statements = workflowStatements(listJsonFiles('workflows').map((path) => ({ file: basename(path), wf: readWorkflow(path) })));
+
+  it('marks two reasons on one message and checks each reason, all rolled back', () => {
+    const script = cooldownScript(statements);
+    expect(script.endsWith('ROLLBACK;\n')).toBe(true);
+    for (const reason of ["'non_text'", "'human_requested'", "'emergency'", "'triage_failed'"]) expect(script).toContain(reason);
+    const check = statements.find((s) => s.node === 'Check alert cooldown');
+    expect(script.split(check?.query ?? 'missing').length - 1).toBe(14);
+  });
+
+  it('expects the same reason held back, another reason and an emergency not', () => {
+    expect([...COOLDOWN_EXPECTED]).toEqual(['t', 'f', 'f', 't', 't', 'f', 't', 'f', 'f', 't', 'f', 'f', 'f', 'f']);
+    expect(cooldownProblems('1\nt\nf\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\nf\nf\n')).toEqual([]);
+    const problems = cooldownProblems('t\nt\nf\nt\nt\nf\nt\nf\nf\nt\nf\nf\nf\nf\n');
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('another reason');
+  });
+});
+
+describe('chat thread probe', () => {
+  const statements = workflowStatements(listJsonFiles('workflows').map((path) => ({ file: basename(path), wf: readWorkflow(path) })));
+
+  it('stores a human line, an ai line, and an ai line made of blocks, then reads them back as the runtime role, rolled back', () => {
+    const script = chatThreadScript(statements);
+    expect(script).toContain('\\getenv runtime_role APP_RUNTIME_DB_USER');
+    expect(script).toContain('SET LOCAL ROLE :"runtime_role";');
+    expect(script).toContain('INSERT INTO n8n_chat_histories');
+    expect(script).toContain('"type":"thinking"');
+    expect(script.endsWith('ROLLBACK;\n')).toBe(true);
+    const recent = statements.find((s) => s.node === 'Recent conversation');
+    expect(script).toContain(`${recent?.query ?? 'missing'}\n\\bind 'check-db-thread'`);
+  });
+
+  it('accepts the thread in order, with only the text blocks, and names any other result', () => {
+    const good = '[{"role": "patient", "text": "Hola"}, {"role": "assistant", "text": "Buenos días"}, {"role": "assistant", "text": "Segunda"}]';
+    expect(chatThreadProblems(`${good}\n`)).toEqual([]);
+    expect(chatThreadProblems('[]\n')[0]).toContain('thread');
+    expect(chatThreadProblems('not json\n')).toHaveLength(1);
   });
 });

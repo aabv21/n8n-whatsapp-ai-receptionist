@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scanSql } from './lib/sql.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from './lib/workflow.ts';
 import { CODE_NODES, CREDENTIALS, ERROR_WORKFLOW_ID, LOAD_CONTEXT_ID } from './manifest.ts';
 
@@ -19,51 +20,9 @@ const RETRY_REQUIRED_TYPES = new Set([
   'n8n-nodes-base.whatsApp',
 ]);
 
-/**
- * Pulls out the text of every `--` line comment and block comment in a SQL string, in source
- * order. Not a SQL lexer: it has no notion of string literals, so a comment marker inside a
- * quoted string would be misread as a comment start. None of this repo's queries do that, and
- * neither does n8n's own query formatter, which is the thing this check guards against.
- */
-export function sqlComments(query: string): string[] {
-  const comments: string[] = [];
-  let inBlock = false;
-  for (const line of query.split('\n')) {
-    let rest = line;
-    if (inBlock) {
-      const end = rest.indexOf('*/');
-      if (end === -1) {
-        comments.push(rest);
-        continue;
-      }
-      comments.push(rest.slice(0, end));
-      rest = rest.slice(end + 2);
-      inBlock = false;
-    }
-    for (;;) {
-      const dash = rest.indexOf('--');
-      const block = rest.indexOf('/*');
-      if (dash === -1 && block === -1) break;
-      if (block === -1 || (dash !== -1 && dash < block)) {
-        comments.push(rest.slice(dash + 2));
-        break;
-      }
-      const end = rest.indexOf('*/', block + 2);
-      if (end === -1) {
-        comments.push(rest.slice(block + 2));
-        inBlock = true;
-        break;
-      }
-      comments.push(rest.slice(block + 2, end));
-      rest = rest.slice(end + 2);
-    }
-  }
-  return comments;
-}
-
-/** True when a `$` followed by a digit appears inside a SQL comment -- see AGENTS.md's Conventions. */
+/** True when a `$` followed by a digit appears inside a SQL comment -- see AGENTS.md's rules. */
 export function hasCommentPlaceholder(query: string): boolean {
-  return sqlComments(query).some((comment) => DOLLAR_DIGIT_RE.test(comment));
+  return scanSql(query).comments.some((comment) => DOLLAR_DIGIT_RE.test(comment));
 }
 
 export function checkWorkflow(

@@ -6,6 +6,7 @@ export interface AlertInput {
   phone: string;
   name: string;
   summary: string;
+  /** Strings, read as the patient's, or `{ role, text }` entries from the chat memory. */
   recent_messages: unknown[];
   /** The current time as ISO 8601, from the workflow, since a Code node reads no clock. */
   now: string;
@@ -14,6 +15,8 @@ export interface AlertInput {
   team_locale: unknown;
   /** `config.limits.alert_cooldown_minutes`; anything but an integer of 1 or more adds a note. */
   alert_cooldown_minutes: unknown;
+  /** `business.name`, the subject's brand tag; a missing one drops the tag. */
+  business_name: unknown;
 }
 
 const isReason = (value: string): value is AlertReason => (ALERT_REASONS as readonly string[]).includes(value);
@@ -26,9 +29,15 @@ export function run(input: AlertInput): { subject: string; body: string } {
   const { messages, invalid } = teamMessages(input.team_locale);
   const reasonText = plain(input.reason);
   const reason = messages.reasons[isReason(reasonText) ? reasonText : 'other'];
+  const brand = plain(input.business_name).trim();
   const name = plain(input.name);
   const phone = plain(input.phone);
-  const recent = Array.isArray(input.recent_messages) ? input.recent_messages.map(plain) : [];
+  const recent = (Array.isArray(input.recent_messages) ? input.recent_messages : []).flatMap((entry): string[] => {
+    const turn = typeof entry === 'object' && entry !== null ? (entry as { role?: unknown; text?: unknown }) : { role: 'patient', text: entry };
+    // Continuation lines are indented so a patient's multi-line message can't pose as a labeled line.
+    const text = plain(turn.text).replace(/\r?\n/g, '\n  ');
+    return text.trim() === '' ? [] : [`${turn.role === 'assistant' ? messages.assistant : messages.patient}: ${text}`];
+  });
   const lines = [
     `${messages.reason}: ${reason}`,
     `${messages.name}: ${name || messages.notGiven}`,
@@ -41,5 +50,5 @@ export function run(input: AlertInput): { subject: string; body: string } {
   ];
   if (invalid) lines.push('', INVALID_TEAM_LOCALE_NOTE);
   if (!isPositiveInteger(input.alert_cooldown_minutes)) lines.push('', INVALID_ALERT_COOLDOWN_NOTE);
-  return { subject: `[Cumbident] ${reason}: ${name || phone}`, body: lines.join('\n') };
+  return { subject: `${reasonText === 'emergency' ? `${messages.urgent} ` : ''}${brand ? `[${brand}] ` : ''}${reason}: ${name || phone}`, body: lines.join('\n') };
 }

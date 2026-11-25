@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -7,7 +7,7 @@ import { checkWorkflow, hasCommentPlaceholder } from '../scripts/check-workflows
 import { normalizeWorkflow } from '../scripts/export-workflows.ts';
 import { missingTriggerCredentials, restartProblem } from '../scripts/import-workflows.ts';
 import { listJsonFiles, readWorkflow, type Workflow, type WorkflowNode } from '../scripts/lib/workflow.ts';
-import { CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
+import { CODE_NODES, CREDENTIALS, LOAD_CONTEXT_ID } from '../scripts/manifest.ts';
 import { buildCredentials, buildImportCall, EXPORT_SCRIPT, existingCredentialIds, IMPORT_SCRIPT, skipExisting } from '../scripts/setup-credentials.ts';
 import { runGenerated } from './helpers/run-generated.ts';
 
@@ -237,4 +237,20 @@ test('restartProblem names an unset N8N_URL instead of reporting n8n unhealthy',
   expect(restartProblem('', false)).toBe('N8N_URL is not set in .env, so setup could not check that n8n came back after the restart');
   expect(restartProblem('http://localhost:5678', false)).toBe('n8n did not become healthy after restart');
   expect(restartProblem('http://localhost:5678', true)).toBeNull();
+});
+
+test('release.yml tags only a merged release PR whose head is develop or a release/ branch', () => {
+  const workflow = readFileSync('.github/workflows/release.yml', 'utf8');
+  expect(workflow).toContain("github.event.pull_request.merged && startsWith(github.event.pull_request.title, 'release:') && (github.event.pull_request.head.ref == 'develop' || startsWith(github.event.pull_request.head.ref, 'release/'))");
+});
+
+test('SECURITY.md says which releases get fixes, without naming a version that goes stale', () => {
+  const policy = readFileSync('SECURITY.md', 'utf8');
+  expect(policy).toContain('## Supported versions');
+  expect(policy).toContain('latest release on `main`');
+  expect(policy).not.toMatch(/v\d+\.\d+/);
+});
+
+test("no Code node's why claims a single expression can't do what it does", () => {
+  for (const entry of CODE_NODES) expect(entry.why, `${entry.file} › ${entry.node}`).not.toContain('not a single expression');
 });

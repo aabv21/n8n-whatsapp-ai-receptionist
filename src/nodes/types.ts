@@ -17,12 +17,15 @@ export interface Business {
   name: string;
   description: string;
   address: string;
+  emergency_phone: string;
   timezone: string;
   currency: string;
   hours: Record<Weekday, [string, string] | null>;
   appointment_minutes: number;
   max_slots_offered: number;
   min_notice_minutes: number;
+  /** How many hours before an appointment a patient can still cancel or move it. */
+  change_notice_hours: number;
   payment_methods: string[];
   services: Service[];
   replies: Record<ReplyKey, Localized>;
@@ -36,6 +39,8 @@ export const REPLY_KEYS = [
   'technical_issue',
   'technical_issue_retry',
   'medical_advice',
+  'handed_off',
+  'emergency_paused',
   'price_check',
 ] as const;
 

@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "WhatsApp Message Reply",
+    "locale": "en",
+    "output": "docs/diagrams/message-reply.html",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [
+      1000,
+      816
+    ]
+  },
+  "participants": [
+    {
+      "id": "process",
+      "type": "backend",
+      "label": "process-message"
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "AI Agent"
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Agent tools",
+      "sublabel": "4 workflows"
+    },
+    {
+      "id": "google",
+      "type": "external",
+      "label": "Google"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "brand": "postgresql"
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "whatsapp-entry"
+    },
+    {
+      "id": "meta",
+      "type": "external",
+      "label": "WhatsApp",
+      "brand": "whatsapp"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 454,
+      "label": "7 Agent with tool calls"
+    },
+    {
+      "from": 460,
+      "to": 536,
+      "label": "8 Reply check"
+    },
+    {
+      "from": 542,
+      "to": 618,
+      "label": "9 Reply"
+    },
+    {
+      "from": 624,
+      "to": 700,
+      "label": "10 Mark replied"
+    }
+  ],
+  "messages": [
+    {
+      "id": "message-reply-1",
+      "from": "process",
+      "to": "agent",
+      "y": 196,
+      "label": "prompt, language, notes",
+      "variant": "emphasis"
+    },
+    {
+      "id": "message-reply-2",
+      "from": "agent",
+      "to": "db",
+      "y": 234,
+      "label": "chat memory"
+    },
+    {
+      "id": "message-reply-3",
+      "from": "agent",
+      "to": "tools",
+      "y": 272,
+      "label": "book_appointment"
+    },
+    {
+      "id": "message-reply-4",
+      "from": "tools",
+      "to": "google",
+      "y": 310,
+      "label": "validate, recheck, create"
+    },
+    {
+      "id": "message-reply-5",
+      "from": "tools",
+      "to": "agent",
+      "y": 348,
+      "label": "result",
+      "variant": "return"
+    },
+    {
+      "id": "message-reply-6",
+      "from": "agent",
+      "to": "process",
+      "y": 386,
+      "label": "reply text",
+      "variant": "return"
+    },
+    {
+      "id": "message-reply-7",
+      "from": "agent",
+      "to": "process",
+      "y": 424,
+      "label": "fails: alert, fallback reply",
+      "variant": "dashed"
+    },
+    {
+      "id": "message-reply-8",
+      "from": "process",
+      "to": "entry",
+      "y": 506,
+      "label": "checked reply, route",
+      "variant": "return"
+    },
+    {
+      "id": "message-reply-9",
+      "from": "entry",
+      "to": "meta",
+      "y": 588,
+      "label": "send (3 tries, 2000 ms)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "message-reply-10",
+      "from": "entry",
+      "to": "db",
+      "y": 670,
+      "label": "set replied_at"
+    }
+  ]
+}

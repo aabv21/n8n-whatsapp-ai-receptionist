@@ -7,6 +7,6 @@
 
 ## Checklist
 - [ ] Targets `develop`, or is a release from `develop` to `main`.
-- [ ] The Definition of done in `AGENTS.md` passes locally.
+- [ ] The gate in `AGENTS.md` passes locally.
 - [ ] Test data is fictional: `example.com` emails and the `5700000000` phone prefix.
 - [ ] Docs reflect the change.

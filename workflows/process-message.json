@@ -231,7 +231,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ { reply: $('Load context').item.json.business.replies.non_text[$('Resolve language').first().json.lang], route: 'non_text', flags: {}, tool_calls: [] } }}",
+        "jsonOutput": "={{ { reply: $('Load context').first().json.business.replies.non_text[$('Resolve language').first().json.lang], route: 'non_text', flags: {}, tool_calls: [] } }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000008",
@@ -239,7 +239,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1760,
+        2000,
         600
       ]
     },
@@ -331,7 +331,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2240,
+        3960,
         300
       ],
       "retryOnFail": true,
@@ -386,7 +386,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        2480,
+        4200,
         300
       ]
     },
@@ -403,7 +403,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        2720,
+        4440,
         300
       ],
       "retryOnFail": true,
@@ -528,7 +528,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.5,
       "position": [
-        2960,
+        4680,
         300
       ]
     },
@@ -543,7 +543,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3200,
+        4920,
         100
       ]
     },
@@ -597,7 +597,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        3200,
+        4920,
         500
       ],
       "onError": "continueRegularOutput"
@@ -616,7 +616,7 @@
             "reason": "={{ $('Triage message').first().json.notify_reason }}",
             "phone": "={{ $('When called').first().json.phone }}",
             "name": "={{ $('When called').first().json.name }}",
-            "recent_messages": "={{ $('Recent patient messages').first().json.recent.concat([$('Normalize text').first().json.text]) }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
             "message_id": "={{ $('When called').first().json.message_id }}"
           },
           "schema": [
@@ -671,7 +671,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        3440,
+        5160,
         300
       ],
       "onError": "continueRegularOutput"
@@ -679,7 +679,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Triage message').item.json.notes,\n  team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true && $('Alert the team').first().json.suppressed !== true,\n  now: $now.toISO(),\n  lang: $('Resolve language').first().json.lang,\n  lang_detected: $('Resolve language').first().json.lang_detected\n} }}",
+        "jsonOutput": "={{ {\n  system_prompt: $('Load context').item.json.system_prompt,\n  business: $('Load context').item.json.business,\n  knowledge_base: $('Load context').item.json.knowledge_base,\n  notes: $('Triage message').item.json.notes,\n  team_alerted: $('Alert the team').isExecuted && $('Alert the team').first().json.ok === true && $('Alert the team').first().json.suppressed !== true,\n  now: $now.toISO(),\n  lang: $('Resolve language').first().json.lang,\n  lang_detected: $('Resolve language').first().json.lang_detected,\n  retention_days: $('Load context').first().json.config.limits?.retention_days\n} }}",
         "options": {}
       },
       "id": "90000000-0000-4000-8000-000000000013",
@@ -687,7 +687,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3680,
+        5400,
         300
       ]
     },
@@ -695,14 +695,14 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n\n  // src/nodes/decide-route.ts\n  var TEAM_ALERTED_NOTE = \"TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.\";\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/build-system-prompt.ts\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|LANGUAGE|TRIAGE_NOTES)>>/g;\n  var LANGUAGE_NAMES = { en: \"English\", es: \"Spanish\" };\n  function languageHint(input) {\n    const lang = normalizeLocale(input.lang);\n    if (lang !== null && input.lang_detected) {\n      return `The patient is writing in ${pick(LANGUAGE_NAMES, lang)}.`;\n    }\n    const fallback = pick(LANGUAGE_NAMES, lang ?? \"en\");\n    return `This message doesn't show which language the patient is writing in. If the conversation so far doesn't either, use ${fallback}, the clinic's default.`;\n  }\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"LANGUAGE\", languageHint(input)],\n      [\"TRIAGE_NOTES\", notes.length > 0 ? notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: prompt placeholders are filled verbatim and the local time is formatted. Generated from src/nodes/build-system-prompt.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/build-system-prompt.ts\n  var build_system_prompt_exports = {};\n  __export(build_system_prompt_exports, {\n    run: () => run\n  });\n\n  // src/nodes/decide-route.ts\n  var TEAM_ALERTED_NOTE = \"TEAM ALERTED: The team has been alerted and will contact the patient soon. Tell the patient so, and do not call notify_team.\";\n\n  // src/nodes/shared/limits.ts\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 1;\n  }\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/build-system-prompt.ts\n  var PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|LANGUAGE|TRIAGE_NOTES)>>/g;\n  var LANGUAGE_NAMES = { en: \"English\", es: \"Spanish\" };\n  function languageHint(input) {\n    const lang = normalizeLocale(input.lang);\n    if (lang !== null && input.lang_detected) {\n      return `The patient is writing in ${pick(LANGUAGE_NAMES, lang)}.`;\n    }\n    const fallback = pick(LANGUAGE_NAMES, lang ?? \"en\");\n    return `This message doesn't show which language the patient is writing in. If the conversation so far doesn't either, use ${fallback}, the clinic's default.`;\n  }\n  function run(input) {\n    const zone = input.business.timezone;\n    const now = DateTime.fromISO(input.now, { zone, locale: \"en-US\" });\n    const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;\n    const values = /* @__PURE__ */ new Map([\n      [\"BUSINESS\", JSON.stringify(isPositiveInteger(input.retention_days) ? { ...input.business, chat_retention_days: input.retention_days } : input.business, null, 2)],\n      [\"KNOWLEDGE_BASE\", input.knowledge_base],\n      [\"NOW\", `${now.toFormat(\"cccc, yyyy-LL-dd HH:mm\")} (${zone})`],\n      [\"LANGUAGE\", languageHint(input)],\n      [\"TRIAGE_NOTES\", notes.length > 0 ? notes.join(\"\\n\") : \"None.\"]\n    ]);\n    const system_message = input.system_prompt.replace(PLACEHOLDER_RE, (match, name) => values.get(name) ?? match);\n    return { system_message };\n  }\n  return __toCommonJS(build_system_prompt_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       },
       "id": "90000000-0000-4000-8000-000000000014",
       "name": "Build system prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3920,
+        5640,
         300
       ]
     },
@@ -721,7 +721,7 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        4160,
+        5880,
         300
       ],
       "onError": "continueErrorOutput"
@@ -744,7 +744,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.6,
       "position": [
-        3960,
+        5420,
         580
       ],
       "credentials": {
@@ -766,7 +766,7 @@
       "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "typeVersion": 1.4,
       "position": [
-        4120,
+        5560,
         580
       ],
       "credentials": {
@@ -818,7 +818,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4280,
+        5700,
         580
       ]
     },
@@ -891,7 +891,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4440,
+        5840,
         580
       ]
     },
@@ -963,7 +963,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4600,
+        5980,
         580
       ]
     },
@@ -1044,7 +1044,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        4760,
+        6120,
         580
       ]
     },
@@ -1078,7 +1078,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.4,
       "position": [
-        4480,
+        6200,
         300
       ]
     },
@@ -1093,7 +1093,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4720,
+        6440,
         200
       ]
     },
@@ -1108,7 +1108,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4960,
+        6680,
         200
       ]
     },
@@ -1116,14 +1116,14 @@
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/check-reply.ts\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n  var CONFIRMATIONS = {\n    en: {\n      locale: \"en-US\",\n      date: \"EEEE, MMMM d, yyyy\",\n      time: \"h:mm a\",\n      line: (service, date, time) => `Your appointment is booked: ${service} on ${date} at ${time}.`\n    },\n    es: {\n      locale: \"es-CO\",\n      date: \"EEEE d 'de' MMMM 'de' yyyy\",\n      time: \"H:mm\",\n      line: (service, date, time) => `Su cita quedó agendada: ${service}, el ${date} a las ${time}.`\n    }\n  };\n  function bookingConfirmations(business, toolCalls, lang) {\n    const format = pick(CONFIRMATIONS, lang);\n    const lines = [];\n    for (const call of toolCalls) {\n      const output = call.output;\n      if (call.tool !== \"book_appointment\" || typeof output !== \"object\" || output === null) continue;\n      const { ok, start, service } = output;\n      if (ok !== true || typeof start !== \"string\" || typeof service !== \"string\") continue;\n      const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);\n      if (!at.isValid) continue;\n      const listed = business.services.find((s) => s.name === service);\n      const shown = listed?.name_i18n ? pick(listed.name_i18n, lang) : service;\n      lines.push(format.line(shown, at.toFormat(format.date), at.toFormat(format.time)));\n    }\n    return lines;\n  }\n  function run(input) {\n    const { reply, business } = input;\n    const lang = normalizeLocale(input.lang) ?? \"en\";\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.medical_advice, lang);\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.price_check, lang);\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = pick(business.replies.price_check, lang);\n    }\n    if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };\n    const confirmations = bookingConfirmations(business, input.tool_calls, lang);\n    return {\n      reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join(\"\\n\")}` : replacement,\n      flags: { ...input.flags, reply_replaced: true }\n    };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
+        "jsCode": "// Why Code: matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions. Generated from src/nodes/check-reply.ts by pnpm run build:workflows; edit the source.\n\"use strict\";\nvar __node = (() => {\n  var __defProp = (obj, key, desc) => { obj[key] = desc && \"get\" in desc ? desc.get() : desc.value; return obj; };\n  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;\n  var __getOwnPropNames = Object.getOwnPropertyNames;\n  var __hasOwnProp = Object.prototype.hasOwnProperty;\n  var __export = (target, all) => {\n    for (var name in all)\n      __defProp(target, name, { get: all[name], enumerable: true });\n  };\n  var __copyProps = (to, from, except, desc) => {\n    if (from && typeof from === \"object\" || typeof from === \"function\") {\n      for (let key of __getOwnPropNames(from))\n        if (!__hasOwnProp.call(to, key) && key !== except)\n          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });\n    }\n    return to;\n  };\n  var __toCommonJS = (mod) => __copyProps(__defProp({}, \"__esModule\", { value: true }), mod);\n\n  // src/nodes/check-reply.ts\n  var check_reply_exports = {};\n  __export(check_reply_exports, {\n    run: () => run\n  });\n\n  // src/nodes/shared/locale.ts\n  function normalizeLocale(value) {\n    if (typeof value !== \"string\") return null;\n    const [primary = \"\", ...subtags] = value.trim().toLowerCase().split(/[-_]/);\n    if (!subtags.every((subtag) => /^[a-z0-9]{1,8}$/.test(subtag))) return null;\n    return primary === \"en\" || primary === \"es\" ? primary : null;\n  }\n  function pick(table, lang) {\n    return table[lang];\n  }\n\n  // src/nodes/shared/tool-results.ts\n  var BOOK_APPOINTMENT_TOOL = \"book_appointment\";\n  var CANCEL_APPOINTMENT_TOOL = \"cancel_appointment\";\n  var RESCHEDULE_APPOINTMENT_TOOL = \"reschedule_appointment\";\n  function toolResults(toolCalls, tool) {\n    const results = [];\n    for (const call of toolCalls) {\n      if (call.tool === tool && typeof call.output === \"object\" && call.output !== null) results.push(call.output);\n    }\n    return results;\n  }\n\n  // src/nodes/shared/confirmations.ts\n  var CONFIRMATIONS = {\n    en: {\n      locale: \"en-US\",\n      date: \"EEEE, MMMM d, yyyy\",\n      line: (service, date, at) => `Your appointment is booked: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      moved: (service, date, at) => `Your appointment was moved: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      cancelled: (service, date, at) => `Your appointment is cancelled: ${service} on ${date} at ${at.toFormat(\"h:mm a\")}.`,\n      address: (address) => `Address: ${address}`\n    },\n    es: {\n      locale: \"es-CO\",\n      date: \"EEEE d 'de' MMMM 'de' yyyy\",\n      // Spanish says \"a la 1\" and \"a las 2\". The abbreviation's own period ends the sentence.\n      line: (service, date, at) => `Su cita quedó agendada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      moved: (service, date, at) => `Su cita quedó reprogramada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      cancelled: (service, date, at) => `Su cita quedó cancelada: ${service}, el ${date} a ${at.hour % 12 === 1 ? \"la\" : \"las\"} ${at.toFormat(\"h:mm\")} ${at.hour < 12 ? \"a. m.\" : \"p. m.\"}`,\n      address: (address) => `Dirección: ${address}`\n    }\n  };\n  function bookingConfirmations(business, toolCalls, lang) {\n    const format = pick(CONFIRMATIONS, lang);\n    const lines = [];\n    let hasVisit = false;\n    for (const call of toolCalls) {\n      const kind = call.tool === BOOK_APPOINTMENT_TOOL ? \"line\" : call.tool === RESCHEDULE_APPOINTMENT_TOOL ? \"moved\" : call.tool === CANCEL_APPOINTMENT_TOOL ? \"cancelled\" : null;\n      if (!kind || typeof call.output !== \"object\" || call.output === null) continue;\n      const { ok, start, service } = call.output;\n      if (ok !== true || typeof start !== \"string\" || typeof service !== \"string\") continue;\n      const at = DateTime.fromISO(start, { setZone: true }).setZone(business.timezone).setLocale(format.locale);\n      if (!at.isValid) continue;\n      const listed = business.services.find((s) => s.name === service);\n      const shown = listed?.name_i18n ? pick(listed.name_i18n, lang) : service;\n      const line = kind === \"line\" ? format.line : kind === \"moved\" ? format.moved : format.cancelled;\n      lines.push(line(shown, at.toFormat(format.date), at));\n      if (kind !== \"cancelled\") hasVisit = true;\n    }\n    if (hasVisit) lines.push(format.address(business.address));\n    return lines;\n  }\n\n  // src/nodes/shared/prices.ts\n  var NUMBER_RE = /\\d[\\d.,]*/g;\n  var SPACED_THOUSANDS_RE = /(\\d)[ \\u00A0\\u202F](?=\\d{3}(?!\\d))/g;\n  var CURRENCY_BEFORE_RE = /(?:\\$|\\bCOP)\\s?$/i;\n  var CURRENCY_AFTER_RE = /^\\s?(?:COP|pesos)(?!\\p{L})/iu;\n  var MULTIPLIER_AFTER_RE = /^\\s?(mil|k|mill[oó]n|mill[oó]nes)(?!\\p{L})/iu;\n  function groupedValue(token) {\n    const parts = token.split(/[.,]/);\n    if (parts.length > 2 && parts.at(-1)?.length === 2) parts.pop();\n    const [head = \"\", ...groups] = parts;\n    if (groups.length === 0 || !/^\\d{1,3}$/.test(head) || !groups.every((group) => /^\\d{3}$/.test(group))) return null;\n    return Number(head + groups.join(\"\"));\n  }\n  function numberValue(token) {\n    const grouped = groupedValue(token);\n    if (grouped !== null) return grouped;\n    if (/^\\d+$/.test(token)) return Number(token);\n    if (/^\\d+[.,]\\d{1,2}$/.test(token)) return Number(token.replace(\",\", \".\"));\n    return null;\n  }\n  function amounts(text) {\n    const normalized = text.replace(SPACED_THOUSANDS_RE, \"$1.\");\n    const found = [];\n    for (const match of normalized.matchAll(NUMBER_RE)) {\n      const token = match[0].replace(/[.,]+$/, \"\");\n      const value = numberValue(token);\n      if (value === null) continue;\n      const before = normalized.slice(Math.max(0, match.index - 5), match.index);\n      const after = normalized.slice(match.index + token.length);\n      const multiplier = MULTIPLIER_AFTER_RE.exec(after)?.[1]?.toLowerCase();\n      if (multiplier !== void 0) found.push(Math.round(value * (multiplier === \"mil\" || multiplier === \"k\" ? 1e3 : 1e6)));\n      else if (CURRENCY_BEFORE_RE.test(before) || CURRENCY_AFTER_RE.test(after)) found.push(value);\n    }\n    return found;\n  }\n  function allowedPrices(business, toolCalls) {\n    const prices = new Set(business.services.map((service) => service.price_cop));\n    for (const output of toolResults(toolCalls, BOOK_APPOINTMENT_TOOL)) {\n      const price = output.price_cop;\n      if (typeof price === \"number\") prices.add(price);\n    }\n    return prices;\n  }\n\n  // src/nodes/check-reply.ts\n  var MEDICAL_PATTERNS = [\n    /\\d\\s?(?:mg|ml)(?!\\p{L})/iu,\n    /\\bcada\\s+\\d+\\s?h(?:oras|ora|rs|r)?(?!\\p{L})/iu,\n    /\\bevery\\s+\\d+\\s?h(?:ours|our|rs|r)?(?!\\p{L})/iu,\n    /\\b(?:ibuprofeno?|amoxicilina|amoxicillin|acetaminof[eé]n|acetaminophen|paracetamol|naproxeno?|diclofenaco?|aspirin(?:a|as)?|nimesulid[ae]|ketorolaco?|metamizole?|dipirona|tramadol|code[ií]na|codeine|penicilinas?|penicillin|clindamicina|clindamycin|metronidazole?|azitromicina|azithromycin)(?!\\p{L})/iu,\n    /\\b(?:dolex|advil|tylenol|buscapina|noxpirin|ibuflash|apronax|voltaren|aleve|motrin|ponstan|winadeine)(?!\\p{L})/iu,\n    /\\b(?:analg[eé]sicos?|analgesics?|antibi[oó]ticos?|antibiotics?|antiinflamatorios?|anti-?inflammator(?:y|ies))(?!\\p{L})/iu\n  ];\n  var DISCOUNT_PATTERNS = [\n    /\\d\\s?%\\s*(?:de\\s)?\\s*descuento/iu,\n    /\\bdescuentos?\\s+del?\\s+\\d/iu,\n    /\\d\\s?%\\s*(?:off|discount)(?!\\p{L})/iu,\n    /\\bdiscount\\s+of\\s+\\d/iu\n  ];\n  function run(input) {\n    const { reply, business } = input;\n    const lang = normalizeLocale(input.lang) ?? \"en\";\n    let replacement = null;\n    if (MEDICAL_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.medical_advice, lang);\n    } else if (DISCOUNT_PATTERNS.some((pattern) => pattern.test(reply))) {\n      replacement = pick(business.replies.price_check, lang);\n    } else {\n      const allowed = allowedPrices(business, input.tool_calls);\n      if (amounts(reply).some((amount) => !allowed.has(amount))) replacement = pick(business.replies.price_check, lang);\n    }\n    if (replacement === null) return { reply, flags: { ...input.flags, reply_replaced: false } };\n    const confirmations = bookingConfirmations(business, input.tool_calls, lang);\n    return {\n      reply: confirmations.length > 0 ? `${replacement}\n\n${confirmations.join(\"\\n\")}` : replacement,\n      flags: { ...input.flags, reply_replaced: true }\n    };\n  }\n  return __toCommonJS(check_reply_exports);\n})();\nreturn [{ json: __node.run($input.first().json) }];\n"
       },
       "id": "90000000-0000-4000-8000-000000000026",
       "name": "Check reply",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5200,
+        6920,
         200
       ]
     },
@@ -1138,7 +1138,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        5440,
+        7160,
         200
       ]
     },
@@ -1193,7 +1193,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        4720,
+        6440,
         20
       ],
       "onError": "continueRegularOutput"
@@ -1209,7 +1209,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        4960,
+        6680,
         20
       ]
     },
@@ -1226,7 +1226,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.8,
       "position": [
-        5720,
+        7440,
         400
       ],
       "retryOnFail": true,
@@ -1248,15 +1248,16 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        5960,
+        7680,
         300
       ]
     },
     {
       "parameters": {
-        "width": 2560,
-        "height": 160,
-        "content": "## Intake\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it."
+        "width": 4340,
+        "height": 1160,
+        "content": "## Intake\nRecords the message before anything else, so a message_id seen before answers duplicate and stops. Resolve language (generated from src/nodes/resolve-language.ts) then picks the language every fixed reply uses: the one the text shows, or config.locale.default when it shows none, as for a non-text message, \"ok\", or an emoji; a default naming no supported language falls back to English, so a config mistake never costs a patient a reply. A non-text or whitespace-only message gets the fixed non_text reply. A phone over config.limits.max_messages_per_window text messages in the window gets rate_limited, with the reply only on the first message over the limit. A phone whose last handoff is inside config.limits.handoff_pause_hours skips triage and the agent. Each paused message is first checked for an emergency with Jev's emergency question alone: a hit gets the fixed urgent reply and an emergency alert. If that check fails, the message gets the handed_off line and the team a triage_failed alert. Any other paused message is answered once, the first one after the handoff by recorded order, with the fixed handed_off reply and one re-alert to the team; later ones get no reply. A missing or invalid setting turns the pause off. The Postgres nodes are typeVersion 2.8, the first to bind each Query Parameters expression as exactly one value, so commas in patient text can't split it.",
+        "color": 4
       },
       "id": "90000000-0000-4000-8000-000000000023",
       "name": "Sticky Note",
@@ -1269,47 +1270,882 @@
     },
     {
       "parameters": {
-        "width": 1200,
-        "height": 160,
-        "content": "## Triage and alerts\nThe text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Mark patient handed off, Alert the team and Report agent failure continue on error, so a failed side call never costs the patient a reply; the failed sub-run still reaches error-handler through its own error workflow."
+        "width": 1160,
+        "height": 940,
+        "content": "## Triage and alerts\nThe text, cut to max_text_chars, is triaged with up to 3 earlier messages from the same phone: blocked gets a fixed reply; emergency and handoff alert the team (handoff also marks the patient handed_off) and then join agent. Mark patient handed off, Alert the team and Report agent failure continue on error, so a failed side call never costs the patient a reply; the failed sub-run still reaches error-handler through its own error workflow.",
+        "color": 3
       },
       "id": "90000000-0000-4000-8000-000000000024",
       "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2400,
+        4140,
         -200
       ]
     },
     {
       "parameters": {
-        "width": 1000,
-        "height": 280,
-        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets a language hint that, when detection fails, names the default without claiming the patient wrote in it, and the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back."
+        "width": 1340,
+        "height": 1060,
+        "content": "## Agent\nClaude Haiku 5.5 with adaptive thinking (effort low, 1024 max tokens, no sampling parameters) and Postgres Chat Memory keyed by phone (test:<phone> on the test channel). The memory connects through its own owner-role credential, App DB (chat memory), because it runs CREATE TABLE IF NOT EXISTS on every execution; every Postgres node uses the runtime role. Each tool node's name is the tool name the model sees, and every tool takes phone from When called, never from the model. my_appointments, cancel_appointment and reschedule_appointment call change-appointment with their own fixed action, and only change what this phone's own booked events hold. notify_team's reason is clamped to unknown_treatment, out_of_scope, or other, so the model can't claim tool_failure (which skips notify-team's cooldown) or emergency. No Retry On Fail: a retry would re-run tools that already had side effects. The prompt gets a language hint that, when detection fails, names the default without claiming the patient wrote in it, and the TEAM ALERTED note only when the emergency or handoff alert actually sent, not when notify-team's cooldown held it back.",
+        "color": 5
       },
       "id": "90000000-0000-4000-8000-000000000040",
       "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        3640,
+        5360,
         -320
       ]
     },
     {
       "parameters": {
-        "width": 1440,
-        "height": 220,
-        "content": "## Reply check and result\nCheck reply (src/nodes/check-reply.ts) replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply, and one offering a discount or an unlisted peso amount with price_check, in the patient's language; it sets flags.reply_replaced and adds a confirmation line per booking this turn made, so a replacement never hides a booking. It's a pattern check, not a classifier. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't. Every route except duplicate is saved before the result returns."
+        "width": 1500,
+        "height": 800,
+        "content": "## Reply check and result\nCheck reply (src/nodes/check-reply.ts) replaces a reply that gives a dose or names a medicine with the fixed medical_advice reply, and one offering a discount or an unlisted peso amount with price_check, in the patient's language; it sets flags.reply_replaced and adds a confirmation line per booking this turn made, so a replacement never hides a booking. It's a pattern check, not a classifier. Nodes after the agent read earlier nodes with .first(): there is one item, and its paired items needn't survive the tool loop. The error output and a run without reply text (how a sub-node that fails to load, such as a missing credential, comes out) both alert the team with tool_failure and reply as route fallback: technical_issue when that alert sent, technical_issue_retry when it didn't. Every route except duplicate is saved before the result returns.",
+        "color": 6
       },
       "id": "90000000-0000-4000-8000-000000000041",
       "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        4680,
+        6400,
         -260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT coalesce(jsonb_agg(jsonb_build_object('role', CASE WHEN message->>'type' = 'human' THEN 'patient' ELSE 'assistant' END, 'text', CASE jsonb_typeof(message->'data'->'content') WHEN 'string' THEN message->'data'->>'content' ELSE (SELECT string_agg(b->>'text', '') FROM jsonb_array_elements(message->'data'->'content') b WHERE b->>'type' = 'text') END) ORDER BY id), '[]'::jsonb) AS thread FROM (SELECT id, message FROM n8n_chat_histories WHERE session_id = $1 ORDER BY id DESC LIMIT 6) t",
+        "options": {
+          "queryReplacement": "={{ ($('When called').first().json.channel === 'test' ? 'test:' : '') + $('When called').first().json.phone }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000042",
+      "name": "Recent conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2240,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH c AS (SELECT received_at FROM inbound_messages WHERE message_id = $2), h AS (SELECT max(received_at) AS at FROM inbound_messages WHERE phone = $1 AND message_id <> $2 AND (route = 'handoff' OR (route = 'fallback' AND triage->>'route' = 'handoff')) AND received_at > now() - make_interval(hours => $3)) SELECT h.at IS NOT NULL AS paused, NOT EXISTS (SELECT 1 FROM inbound_messages m, c WHERE m.phone = $1 AND m.message_id <> $2 AND m.body IS NOT NULL AND m.received_at >= h.at AND (m.route = 'handoff_paused' OR (m.route IS NULL AND m.received_at > now() - interval '10 minutes' AND (m.received_at, m.message_id) < (c.received_at, $2)))) AS first_paused FROM h",
+        "options": {
+          "queryReplacement": "={{ $('When called').first().json.phone }},{{ $('When called').first().json.message_id }},{{ Number.isInteger($('Load context').first().json.config.limits?.handoff_pause_hours) && $('Load context').first().json.config.limits.handoff_pause_hours >= 1 ? $('Load context').first().json.config.limits.handoff_pause_hours : 0 }}"
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000043",
+      "name": "Check handoff pause",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2480,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "cmbCredAppDb0001",
+          "name": "App DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a0109",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.paused === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000044",
+      "name": "Is the patient with the team",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a010a",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Check handoff pause').first().json.first_paused === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000045",
+      "name": "Is it the first paused message",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        3440,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "handoff_followup",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000046",
+      "name": "Re-alert the team",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        3680,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Check handoff pause').first().json.first_paused ? $('Load context').first().json.business.replies.handed_off[$('Resolve language').first().json.lang] : null, route: 'handoff_paused', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-000000000047",
+      "name": "Reply handed off",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3920,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbTriageMsg0001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "text": "={{ $('Normalize text').first().json.text }}",
+            "recent_messages": "={{ [] }}",
+            "emergency_only": "={{ true }}"
+          },
+          "schema": [
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "emergency_only",
+              "displayName": "emergency_only",
+              "type": "boolean",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000049",
+      "name": "Check urgent message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        2720,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a010b",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.route === 'emergency' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000004a",
+      "name": "Is it urgent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2960,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "emergency",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000004b",
+      "name": "Alert urgent message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        3200,
+        820
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Load context').first().json.business.replies.emergency_paused[$('Resolve language').first().json.lang], route: 'emergency', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000004c",
+      "name": "Reply urgent while paused",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3440,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "non_text",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ [] }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000048",
+      "name": "Alert non-text message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1760,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "90000000-0001-4000-8000-0000000a010c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.route === undefined || $json.flags?.triage_failed === true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000004d",
+      "name": "Did the urgency check fail",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        3200,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbNotifyTeam001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reason": "triage_failed",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "name": "={{ $('When called').first().json.name }}",
+            "recent_messages": "={{ $('Recent conversation').first().json.thread.concat([{ role: 'patient', text: $('Normalize text').first().json.text }]) }}",
+            "message_id": "={{ $('When called').first().json.message_id }}"
+          },
+          "schema": [
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "recent_messages",
+              "displayName": "recent_messages",
+              "type": "array",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-00000000004e",
+      "name": "Alert failed urgency check",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        3680,
+        820
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ { reply: $('Load context').first().json.business.replies.handed_off[$('Resolve language').first().json.lang], route: 'handoff_paused', flags: {}, tool_calls: [] } }}",
+        "options": {}
+      },
+      "id": "90000000-0000-4000-8000-00000000004f",
+      "name": "Reply handed off after failed check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3920,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "description": "List this patient's upcoming appointments that the assistant booked, with each one's day, time, and service.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "list",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "date": "",
+            "time": "",
+            "new_date": "",
+            "new_time": ""
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000051",
+      "name": "my_appointments",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        6260,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Cancel one of this patient's upcoming appointments. Call it only after the patient has confirmed which appointment to cancel.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "cancel",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "date": "={{ $fromAI('date', 'The current day of the appointment, as YYYY-MM-DD', 'string') }}",
+            "time": "={{ $fromAI('time', 'The current start time of the appointment, as 24-hour HH:mm', 'string') }}",
+            "new_date": "",
+            "new_time": ""
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000052",
+      "name": "cancel_appointment",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        6400,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Move one of this patient's upcoming appointments to a slot check_availability offered. Call it only after the patient has confirmed the appointment and the new day and time.",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "cmbChangeAppt001"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "action": "reschedule",
+            "phone": "={{ $('When called').first().json.phone }}",
+            "date": "={{ $fromAI('date', 'The current day of the appointment, as YYYY-MM-DD', 'string') }}",
+            "time": "={{ $fromAI('time', 'The current start time of the appointment, as 24-hour HH:mm', 'string') }}",
+            "new_date": "={{ $fromAI('new_date', 'The new day, as YYYY-MM-DD', 'string') }}",
+            "new_time": "={{ $fromAI('new_time', 'The new start time, as 24-hour HH:mm', 'string') }}"
+          },
+          "schema": [
+            {
+              "id": "action",
+              "displayName": "action",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_date",
+              "displayName": "new_date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            },
+            {
+              "id": "new_time",
+              "displayName": "new_time",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "removed": false
+            }
+          ],
+          "matchingColumns": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "90000000-0000-4000-8000-000000000053",
+      "name": "reschedule_appointment",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        6540,
+        580
       ]
     }
   ],
@@ -1409,7 +2245,7 @@
         ],
         [
           {
-            "node": "Reply non-text",
+            "node": "Alert non-text message",
             "type": "main",
             "index": 0
           }
@@ -1438,7 +2274,7 @@
         ],
         [
           {
-            "node": "Recent patient messages",
+            "node": "Recent conversation",
             "type": "main",
             "index": 0
           }
@@ -1781,6 +2617,236 @@
       ]
     },
     "notify_team": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recent conversation": {
+      "main": [
+        [
+          {
+            "node": "Check handoff pause",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check handoff pause": {
+      "main": [
+        [
+          {
+            "node": "Is the patient with the team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the patient with the team": {
+      "main": [
+        [
+          {
+            "node": "Check urgent message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Recent patient messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-alert the team": {
+      "main": [
+        [
+          {
+            "node": "Reply handed off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply handed off": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check urgent message": {
+      "main": [
+        [
+          {
+            "node": "Is it urgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it urgent": {
+      "main": [
+        [
+          {
+            "node": "Alert urgent message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Did the urgency check fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert urgent message": {
+      "main": [
+        [
+          {
+            "node": "Reply urgent while paused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply urgent while paused": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it the first paused message": {
+      "main": [
+        [
+          {
+            "node": "Re-alert the team",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply handed off",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert non-text message": {
+      "main": [
+        [
+          {
+            "node": "Reply non-text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did the urgency check fail": {
+      "main": [
+        [
+          {
+            "node": "Alert failed urgency check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is it the first paused message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert failed urgency check": {
+      "main": [
+        [
+          {
+            "node": "Reply handed off after failed check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply handed off after failed check": {
+      "main": [
+        [
+          {
+            "node": "Save route",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Return result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "my_appointments": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cancel_appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reschedule_appointment": {
       "ai_tool": [
         [
           {

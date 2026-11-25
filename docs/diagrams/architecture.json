@@ -97,7 +97,7 @@
       "id": "agent",
       "type": "backend",
       "label": "AI Agent",
-      "sublabel": "4 tools · chat memory",
+      "sublabel": "7 tools · chat memory",
       "row": 1,
       "col": 4,
       "size": [
@@ -119,23 +119,11 @@
       ]
     },
     {
-      "id": "retention",
-      "type": "backend",
-      "label": "retention-cleanup",
-      "sublabel": "daily at 03:00",
-      "row": 2,
-      "col": 2,
-      "size": [
-        150,
-        64
-      ]
-    },
-    {
       "id": "notify",
       "type": "backend",
       "label": "notify-team",
-      "sublabel": "+ error-handler",
-      "row": 2,
+      "sublabel": "alerts · cooldown",
+      "row": 3,
       "col": 4,
       "size": [
         150,
@@ -158,10 +146,34 @@
       "id": "postgres",
       "type": "database",
       "label": "Postgres 17",
-      "sublabel": "app + n8n databases",
+      "sublabel": "app + n8n · daily prune",
       "brand": "postgresql",
-      "row": 3,
+      "row": 4,
       "col": 3,
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Agent tools",
+      "sublabel": "4 tool workflows",
+      "row": 2,
+      "col": 4,
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "errhandler",
+      "type": "backend",
+      "label": "error-handler",
+      "sublabel": "emails the team",
+      "row": 2,
+      "col": 2,
       "size": [
         150,
         64
@@ -178,9 +190,10 @@
         "process",
         "agent",
         "triage",
-        "retention",
         "notify",
-        "postgres"
+        "postgres",
+        "tools",
+        "errhandler"
       ],
       "pad": 26
     },
@@ -192,8 +205,9 @@
         "process",
         "agent",
         "triage",
-        "retention",
-        "notify"
+        "notify",
+        "tools",
+        "errhandler"
       ],
       "pad": 12
     }
@@ -246,14 +260,6 @@
       "label": "2 tries"
     },
     {
-      "id": "tools",
-      "from": "agent",
-      "to": "google",
-      "label": "Calendar · Sheets",
-      "fromSide": "bottom",
-      "toSide": "top"
-    },
-    {
       "id": "alert",
       "from": "process",
       "to": "notify",
@@ -265,7 +271,9 @@
       "id": "gmail",
       "from": "notify",
       "to": "google",
-      "label": "Gmail"
+      "label": "Gmail",
+      "fromSide": "right",
+      "toSide": "bottom"
     },
     {
       "id": "records",
@@ -281,17 +289,8 @@
       "from": "notify",
       "to": "postgres",
       "label": "cooldown + mark",
-      "fromSide": "bottom",
+      "fromSide": "left",
       "toSide": "right"
-    },
-    {
-      "id": "prune",
-      "from": "retention",
-      "to": "postgres",
-      "label": "daily prune",
-      "variant": "dashed",
-      "fromSide": "bottom",
-      "toSide": "left"
     },
     {
       "id": "mark-replied",
@@ -310,6 +309,38 @@
       "variant": "dashed",
       "fromSide": "top",
       "toSide": "top"
+    },
+    {
+      "id": "tool-calls",
+      "from": "agent",
+      "to": "tools",
+      "label": "tool calls",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "tool-google",
+      "from": "tools",
+      "to": "google",
+      "label": "Calendar · Sheets"
+    },
+    {
+      "id": "on-failure",
+      "from": "entry",
+      "to": "errhandler",
+      "label": "any workflow fails",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "error-mail",
+      "from": "errhandler",
+      "to": "google",
+      "label": "Gmail",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "bottom"
     }
   ],
   "cards": [
@@ -319,7 +350,8 @@
       "items": [
         "Meta signs every webhook; the tunnel forwards one path",
         "One process-message run per change: dedupe, language, limit, triage, route",
-        "Check reply swaps a dose or an unlisted price for a fixed reply"
+        "Check reply swaps a dose or an unlisted price for a fixed reply",
+        "The agent's tools are check-availability, book-appointment, change-appointment and upsert-patient"
       ]
     },
     {
@@ -328,7 +360,7 @@
       "items": [
         "A Jev failure sends the message straight to the agent",
         "notify-team holds repeat alerts per phone, read from Postgres",
-        "error-handler emails the team when any workflow fails"
+        "error-handler emails the team when any workflow fails, and load-context feeds every workflow"
       ]
     },
     {
@@ -336,7 +368,7 @@
       "title": "Languages and test calls",
       "items": [
         "Fixed replies follow the message: English or Spanish",
-        "Team emails follow config.team_locale",
+        "Team emails follow config.team_locale; retention-cleanup prunes Postgres daily at 03:00",
         "dev-harness takes POST /webhook/dev with X-Dev-Token"
       ]
     }

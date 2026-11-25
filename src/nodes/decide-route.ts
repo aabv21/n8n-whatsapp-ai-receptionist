@@ -4,6 +4,11 @@ export type Scores = Record<Signal, number>;
 export interface RouteInput {
   scores: Scores | null;
   thresholds: Scores;
+  /**
+   * True when Jev was asked only the emergency question, as during a handoff pause: only the
+   * emergency score is read, and the route is `emergency` or `agent`.
+   */
+  emergency_only?: boolean;
 }
 
 export interface Triage {
@@ -19,7 +24,7 @@ export const SIGNALS: readonly Signal[] = ['emergency', 'asks_for_human', 'compl
 
 const NOTES = {
   urgent:
-    'URGENT: The patient may have a dental emergency. Offer the first free slot today with check_availability; if today has none, offer the next available day.',
+    'URGENT: The patient may have a dental emergency. Offer the first free slot today with check_availability. If today has none, give the patient BUSINESS emergency_phone first, then offer the next available day.',
   handoff: 'HANDOFF: A person needs to take over this conversation.',
   noMedicalAdvice: 'NO MEDICAL ADVICE: Do not give medical advice. Offer an initial evaluation instead.',
 } as const;
@@ -68,8 +73,23 @@ function assertValidThresholds(thresholds: Scores | null | undefined): void {
   }
 }
 
+/** The emergency question alone: the other signals were never asked, so they are neither read nor required. */
+function runEmergencyOnly(input: RouteInput): Triage {
+  const { scores, thresholds } = input;
+  if (scores === null || !isScore(scores.emergency)) return FAILED_OPEN;
+  const urgent = meetsThreshold(scores, thresholds, 'emergency');
+  return {
+    scores,
+    route: urgent ? 'emergency' : 'agent',
+    flags: { urgent, handoff: false, no_medical_advice: false, triage_failed: false },
+    notify_reason: urgent ? 'emergency' : null,
+    notes: urgent ? [NOTES.urgent] : [],
+  };
+}
+
 export function run(input: RouteInput): Triage {
   assertValidThresholds(input.thresholds);
+  if (input.emergency_only === true) return runEmergencyOnly(input);
   const { scores } = input;
   if (scores === null || !isValidScores(scores)) return FAILED_OPEN;
 

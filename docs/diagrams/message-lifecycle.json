@@ -1,0 +1,178 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Message Lifecycle",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "output": "docs/diagrams/message-lifecycle.html"
+  },
+  "mainPath": [
+    "received",
+    "routed",
+    "agent",
+    "replied"
+  ],
+  "states": [
+    {
+      "id": "received",
+      "type": "start",
+      "label": "received",
+      "sublabel": "in Postgres",
+      "tag": "entry",
+      "step": "01"
+    },
+    {
+      "id": "routed",
+      "type": "decision",
+      "label": "routed",
+      "sublabel": "language, limit, pause, Jev",
+      "tag": "route",
+      "step": "02"
+    },
+    {
+      "id": "agent",
+      "type": "active",
+      "label": "agent",
+      "sublabel": "tools, reply check",
+      "tag": "work",
+      "step": "03"
+    },
+    {
+      "id": "replied",
+      "type": "success",
+      "label": "replied",
+      "sublabel": "replied_at set",
+      "tag": "done",
+      "step": "04"
+    },
+    {
+      "id": "duplicate",
+      "type": "neutral",
+      "label": "duplicate",
+      "sublabel": "silent",
+      "tag": "end"
+    },
+    {
+      "id": "fixed",
+      "type": "neutral",
+      "label": "fixed reply or pause",
+      "sublabel": "non_text, limit, blocked, paused",
+      "tag": "sent"
+    },
+    {
+      "id": "alerted",
+      "type": "waiting",
+      "label": "alerted",
+      "sublabel": "emergency or handoff",
+      "tag": "alert"
+    },
+    {
+      "id": "fallback",
+      "type": "failure",
+      "label": "fallback",
+      "sublabel": "apology, sent",
+      "tag": "sent"
+    },
+    {
+      "id": "errored",
+      "type": "failure",
+      "label": "errored",
+      "sublabel": "team emailed, no reply",
+      "tag": "end"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "a",
+      "from": "received",
+      "to": "routed",
+      "label": "new"
+    },
+    {
+      "id": "b",
+      "from": "routed",
+      "to": "agent",
+      "label": "agent"
+    },
+    {
+      "id": "c",
+      "from": "agent",
+      "to": "replied",
+      "label": "sent"
+    },
+    {
+      "id": "d",
+      "from": "received",
+      "to": "duplicate",
+      "label": "same id",
+      "variant": "dashed"
+    },
+    {
+      "id": "e",
+      "from": "received",
+      "to": "errored",
+      "label": "db down",
+      "variant": "security"
+    },
+    {
+      "id": "f",
+      "from": "routed",
+      "to": "fixed",
+      "label": "stops"
+    },
+    {
+      "id": "g",
+      "from": "routed",
+      "to": "alerted",
+      "label": "urgent"
+    },
+    {
+      "id": "h",
+      "from": "alerted",
+      "to": "agent",
+      "label": "then"
+    },
+    {
+      "id": "i",
+      "from": "routed",
+      "to": "errored",
+      "label": "thresholds",
+      "variant": "security"
+    },
+    {
+      "id": "j",
+      "from": "agent",
+      "to": "fallback",
+      "label": "fails",
+      "variant": "security"
+    },
+    {
+      "id": "k",
+      "from": "agent",
+      "to": "errored",
+      "label": "send fails",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Main path",
+      "items": [
+        "Every message is recorded first, then routed (language, rate limit, handoff pause, triage), answered by the agent and sent",
+        "replied_at is set after Meta accepts the send, including for the fixed replies"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Ways out",
+      "items": [
+        "duplicate ends silently. non_text, rate_limited, blocked and fallback end with a fixed reply that is sent; a non_text message also alerts the team",
+        "After a handoff, config.limits.handoff_pause_hours keeps the agent out: a paused emergency gets the fixed urgent reply and an alert, the first other message gets one fixed line and one re-alert (handoff_paused), and later ones get no reply",
+        "An emergency or a handoff alerts the team, then still reaches the agent",
+        "errored sends no reply: Postgres down at record, bad triage thresholds, or a send that still fails after 3 tries. error-handler emails the team"
+      ]
+    }
+  ]
+}

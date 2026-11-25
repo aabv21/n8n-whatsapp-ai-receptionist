@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { DateTime } from 'luxon';
 import type { Scores } from '../src/nodes/decide-route.ts';
 import { callDev } from './lib/dev-client.ts';
-import { BOGOTA, checkTurn, resolveTokens, triageAccuracy, type AccuracyRow, type ProcessResult, type Scenario, type TriageItem } from './lib/scenarios.ts';
+import { errorMessage, runMain } from './lib/errors.ts';
+import { BOGOTA, checkTurn, resolveTokens, triageAccuracy, triageRequest, type AccuracyRow, type ProcessResult, type Scenario, type TriageItem } from './lib/scenarios.ts';
 
 const CLEANUP_PREFIX = '5700000000';
 const CONFIG_PATH = 'config/config.json';
@@ -46,7 +47,7 @@ export async function runTriageScenarios(path: string): Promise<AccuracyRow[]> {
 
   const scores: (Scores | null)[] = [];
   for (const item of items) {
-    const result = (await callDev('triage-message', { text: item.text, recent_messages: [] })) as TriageResult;
+    const result = (await callDev('triage-message', triageRequest(item))) as TriageResult;
     scores.push(result.scores);
   }
 
@@ -72,10 +73,6 @@ function isTomorrowSunday(now: DateTime): boolean {
 async function cleanup(label: string): Promise<void> {
   const result = await callDev('cleanup', { phone_prefix: CLEANUP_PREFIX });
   console.log(`cleanup (${label}): ${JSON.stringify(result)}`);
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -129,45 +126,82 @@ export async function runConversationScenarios(scenarios: readonly Scenario[], n
   return rows;
 }
 
-/** Lives here, not in conversations.json: it rewrites config/config.json, so it only runs under `--tool-failure`, never the full suite. */
-const TOOL_FAILURE_SCENARIO: Scenario = {
-  id: 'tool-failure',
-  phone: '570000000022',
-  turns: [
-    {
-      text: 'Do you have any openings next Wednesday?',
-      expect: {
-        tool_output: [
-          { tool: 'check_availability', field: 'reason', equals: 'calendar_unavailable' },
-          { tool: 'check_availability', field: 'team_notified', equals: true },
-        ],
-        reply_matches: ['(sorry|apolog)'],
-      },
+/** One tool-failure scenario and the single `config.google` key that breaks the tool it exercises. */
+export interface ToolFailureCase {
+  scenario: Scenario;
+  breakConfig: (config: { google: Record<string, string> }) => void;
+}
+
+/** Live here, not in conversations.json: they rewrite config/config.json, so they only run under `--tool-failure`, never the full suite. */
+export const TOOL_FAILURE_CASES: readonly ToolFailureCase[] = [
+  {
+    scenario: {
+      id: 'tool-failure',
+      phone: '570000000022',
+      turns: [
+        {
+          text: 'Do you have any openings next Wednesday?',
+          expect: {
+            tool_output: [
+              { tool: 'check_availability', field: 'reason', equals: 'calendar_unavailable' },
+              { tool: 'check_availability', field: 'team_notified', equals: true },
+            ],
+            reply_matches: ['(sorry|apolog)'],
+          },
+        },
+      ],
     },
-  ],
-};
+    breakConfig: (config) => {
+      config.google.calendar_id = 'invalid-test-calendar@example.com';
+    },
+  },
+  {
+    scenario: {
+      id: 'sheets-failure',
+      phone: '570000000023',
+      turns: [
+        {
+          text: 'Hola, soy Lina Mora y me interesa un blanqueamiento dental.',
+          expect: {
+            tool_output: [
+              { tool: 'upsert_patient', field: 'reason', equals: 'sheets_unavailable' },
+              { tool: 'upsert_patient', field: 'team_notified', equals: true },
+            ],
+            reply_matches: ['(disculp|lo siento|sorry)'],
+          },
+        },
+      ],
+    },
+    breakConfig: (config) => {
+      config.google.patients_sheet_id = 'invalid-test-sheet';
+    },
+  },
+];
 
 /**
  * n8n reads `config/config.json` through a bind mount on every execution, so this never edits it
  * in place: `writeFileSync` truncates first, and a reader in between would see partial JSON. The
  * original lives in an on-disk `.bak`, never only in memory, so even a SIGINT that skips `finally`
- * leaves it recoverable.
+ * leaves it recoverable. Each case restores the config before the next one breaks it.
  */
-export async function runToolFailureScenario(now: DateTime): Promise<ConversationRow> {
-  copyFileSync(CONFIG_PATH, CONFIG_BACKUP_PATH);
-  try {
-    const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) as { google: { calendar_id: string } };
-    config.google.calendar_id = 'invalid-test-calendar@example.com';
-    writeFileSync(CONFIG_TMP_PATH, `${JSON.stringify(config, null, 2)}\n`);
-    renameSync(CONFIG_TMP_PATH, CONFIG_PATH);
+export async function runToolFailureScenarios(now: DateTime): Promise<ConversationRow[]> {
+  const rows: ConversationRow[] = [];
+  for (const { scenario, breakConfig } of TOOL_FAILURE_CASES) {
+    copyFileSync(CONFIG_PATH, CONFIG_BACKUP_PATH);
+    try {
+      const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8')) as { google: Record<string, string> };
+      breakConfig(config);
+      writeFileSync(CONFIG_TMP_PATH, `${JSON.stringify(config, null, 2)}\n`);
+      renameSync(CONFIG_TMP_PATH, CONFIG_PATH);
 
-    await cleanup('before');
-    const row = await runScenario(TOOL_FAILURE_SCENARIO, now);
-    await cleanup('after');
-    return row;
-  } finally {
-    renameSync(CONFIG_BACKUP_PATH, CONFIG_PATH);
+      await cleanup('before');
+      rows.push(await runScenario(scenario, now));
+      await cleanup('after');
+    } finally {
+      renameSync(CONFIG_BACKUP_PATH, CONFIG_PATH);
+    }
   }
+  return rows;
 }
 
 function usage(): void {
@@ -186,9 +220,9 @@ async function main(): Promise<void> {
       return;
     }
 
-    const row = await runToolFailureScenario(now);
-    console.log(formatConversationTable([row]));
-    if (row.result === 'FAIL') process.exitCode = 1;
+    const rows = await runToolFailureScenarios(now);
+    console.log(formatConversationTable(rows));
+    if (rows.some((row) => row.result === 'FAIL')) process.exitCode = 1;
     return;
   }
 
@@ -231,8 +265,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

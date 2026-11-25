@@ -2,7 +2,7 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWorkflows } from './build-workflows.ts';
-import { isExecError } from './lib/errors.ts';
+import { isExecError, runMain } from './lib/errors.ts';
 import { compose, loadDotEnv } from './lib/runtime.ts';
 import { listJsonFiles, readWorkflow, writeWorkflow, type Workflow } from './lib/workflow.ts';
 import { CODE_NODES, WORKFLOWS } from './manifest.ts';
@@ -82,8 +82,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

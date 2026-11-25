@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { readWorkflow, writeWorkflow } from './lib/workflow.ts';
 import { CODE_NODES, type CodeNodeEntry } from './manifest.ts';
+import { runMain } from './lib/errors.ts';
 
 export function wrapBundle(bundle: string, entry: Pick<CodeNodeEntry, 'source' | 'why'>): string {
   const header = `// Why Code: ${entry.why}. Generated from ${entry.source} by pnpm run build:workflows; edit the source.`;
@@ -104,8 +105,5 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-  });
+  runMain(main);
 }

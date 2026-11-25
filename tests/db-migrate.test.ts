@@ -4,16 +4,14 @@ import {
   BOOTSTRAP_SQL,
   MIGRATION_LOCK_KEY,
   migrationScript,
-  missingEnv,
-  missingEnvError,
-  orderMigrations,
-  pendingMigrations,
   recordMigration,
   requiredEnv,
   RUNTIME_PASSWORD_SQL,
   runtimeRoleClashes,
   transactionControl,
 } from '../scripts/db-migrate.ts';
+import { missingEnv, missingEnvError } from '../scripts/lib/env.ts';
+import { orderMigrations, pendingMigrations } from '../scripts/lib/migrations.ts';
 import { psqlArgs, redact, secretValues } from '../scripts/lib/runtime.ts';
 import { readWorkflow } from '../scripts/lib/workflow.ts';
 import { run as decideRoute, SIGNALS, type Scores } from '../src/nodes/decide-route.ts';
@@ -212,8 +210,17 @@ describe('003_received_at_index.sql', () => {
   });
 });
 
-describe('002_route_check.sql', () => {
-  const sql = readFileSync('db/migrations/002_route_check.sql', 'utf8');
+describe('005_alerted_reasons.sql', () => {
+  const sql = readFileSync('db/migrations/005_alerted_reasons.sql', 'utf8');
+  it('backfills the reason list from the latest reason, only for a mark without a list, so a second run changes nothing', () => {
+    expect(sql).toContain("jsonb_build_object('alerted_reasons', jsonb_build_array(triage->>'alerted_reason'))");
+    expect(sql).toContain("triage->>'team_alerted' = 'true'");
+    expect(sql).toContain("NOT (triage ? 'alerted_reasons')");
+  });
+});
+
+describe('route check constraint', () => {
+  const sql = readFileSync('db/migrations/004_handoff_paused_route.sql', 'utf8');
   const checkValues = (): string[] => {
     const list = /route IN \(([^)]*)\)/.exec(sql)?.[1] ?? '';
     return [...list.matchAll(/'([a-z_]+)'/g)].map((m) => m[1] ?? '').sort();
@@ -250,11 +257,15 @@ describe('002_route_check.sql', () => {
 
   it('allows exactly the routes "Save route" can write: decide-route.ts\'s own, plus process-message\'s fixed ones', () => {
     expect(checkValues()).toEqual([...savedRoutes()].sort());
-    expect(checkValues()).toEqual(['agent', 'blocked', 'emergency', 'fallback', 'handoff', 'non_text', 'rate_limited']);
+    expect(checkValues()).toEqual(['agent', 'blocked', 'emergency', 'fallback', 'handoff', 'handoff_paused', 'non_text', 'rate_limited']);
   });
 
-  it('allows NULL, the value before "Save route" runs, and is guarded so a second run adds nothing', () => {
+  it('allows NULL, the value before "Save route" runs', () => {
     expect(sql).toContain('route IS NULL OR route IN (');
-    expect(sql).toMatch(/IF NOT EXISTS \(\s*SELECT 1 FROM pg_constraint/);
+  });
+
+  it('004 drops the constraint only if it exists, so a second run ends with the same constraint', () => {
+    expect(sql).toContain('DROP CONSTRAINT IF EXISTS inbound_messages_route_check');
+    expect(sql.indexOf('DROP CONSTRAINT')).toBeLessThan(sql.indexOf('ADD CONSTRAINT inbound_messages_route_check'));
   });
 });

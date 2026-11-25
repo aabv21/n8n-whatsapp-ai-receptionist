@@ -32,10 +32,12 @@ export const WORKFLOWS: readonly WorkflowEntry[] = [
   { id: LOAD_CONTEXT_ID, name: 'Load context', file: 'load-context.json' },
   { id: ERROR_WORKFLOW_ID, name: 'Error handler', file: 'error-handler.json' },
   { id: 'cmbNotifyTeam001', name: 'Notify team', file: 'notify-team.json' },
+  { id: 'cmbDevCleanup001', name: 'Dev cleanup', file: 'dev-cleanup.json' },
   { id: 'cmbDevHarness001', name: 'Dev harness', file: 'dev-harness.json', webhookPath: 'dev' },
   { id: 'cmbCheckAvail001', name: 'Check availability', file: 'check-availability.json' },
   { id: 'cmbUpsertPatient', name: 'Upsert patient', file: 'upsert-patient.json' },
   { id: 'cmbBookAppt00001', name: 'Book appointment', file: 'book-appointment.json' },
+  { id: 'cmbChangeAppt001', name: 'Change appointment', file: 'change-appointment.json' },
   { id: 'cmbTriageMsg0001', name: 'Triage message', file: 'triage-message.json' },
   { id: 'cmbProcMessage01', name: 'Process message', file: 'process-message.json' },
   { id: 'cmbWhatsappEntry', name: 'WhatsApp entry', file: 'whatsapp-entry.json' },
@@ -167,6 +169,18 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     why: "reruns validate-booking's ordered checks with the phone's upcoming-booking count, so the limit follows the same rules as the first pass",
   },
   {
+    file: 'change-appointment.json',
+    node: 'Check change request',
+    source: 'src/nodes/plan-appointment-change.ts',
+    why: 'ordered checks of the action, the dates, the new slot, ownership and notice must yield one plan, the same function before and after the Calendar read',
+  },
+  {
+    file: 'change-appointment.json',
+    node: 'Plan appointment change',
+    source: 'src/nodes/plan-appointment-change.ts',
+    why: 'ordered checks of the action, the dates, the new slot, ownership and notice must yield one plan, the same function before and after the Calendar read',
+  },
+  {
     file: 'triage-message.json',
     node: 'Decide route',
     source: 'src/nodes/decide-route.ts',
@@ -197,6 +211,12 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
     why: 'matching dose, medicine, and peso-amount patterns against the listed prices needs loops and regular expressions',
   },
   {
+    file: 'upsert-patient.json',
+    node: 'Merge patient fields',
+    source: 'src/nodes/merge-patient.ts',
+    why: 'the merge rules (blank keeps the stored value, inquiry never downgrades a status) are product rules, kept as one typed, unit-tested function instead of an expression',
+  },
+  {
     file: 'notify-team.json',
     node: 'Compose alert',
     source: 'src/nodes/compose-alert.ts',
@@ -210,15 +230,15 @@ export const CODE_NODES: readonly CodeNodeEntry[] = [
   },
   {
     // Why one decision point per delete part: see src/nodes/count-cleanup-outcomes.ts.
-    file: 'dev-harness.json',
+    file: 'dev-cleanup.json',
     node: 'Count event outcomes',
     source: 'src/nodes/count-cleanup-outcomes.ts',
-    why: 'counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression',
+    why: "keeps the one rule, any failed delete makes this part's count null, as a tested function beside the Aggregate that fixes the merge race; a Set expression could hold it, but would leave the rule outside the unit tests",
   },
   {
-    file: 'dev-harness.json',
+    file: 'dev-cleanup.json',
     node: 'Count row outcomes',
     source: 'src/nodes/count-cleanup-outcomes.ts',
-    why: 'counting successes while detecting any failure among a mix of per-item delete outcomes needs a loop, not a single expression',
+    why: "keeps the one rule, any failed delete makes this part's count null, as a tested function beside the Aggregate that fixes the merge race; a Set expression could hold it, but would leave the rule outside the unit tests",
   },
 ];

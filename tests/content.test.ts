@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import { FREE_SLOT_REASONS } from '../src/nodes/compute-free-slots.ts';
 import { LANGS } from '../src/nodes/shared/locale.ts';
 import { REPLY_KEYS, type Business } from '../src/nodes/types.ts';
+import { CHANGE_REASONS } from '../src/nodes/plan-appointment-change.ts';
 import { BOOKING_REASONS } from '../src/nodes/validate-booking.ts';
 
 const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
@@ -97,12 +98,12 @@ test('the prompt tells the agent what to do with every booking limit the tools e
   const errors = section('Tool errors');
   for (const reason of ['off_grid', 'too_far', 'too_many_bookings']) expect(errors).toContain(reason);
 });
-test('a cancellation or reschedule request goes to the team, and the assistant never claims it is done', () => {
+test('cancel and reschedule go through the tools, after confirmation, and are claimed only on ok: true', () => {
   const rule = section('Cancellations and changes');
-  expect(rule).toMatch(/cancel/i);
-  expect(rule).toMatch(/reschedule/i);
-  expect(rule).toContain('call notify_team with reason other');
-  expect(rule).toMatch(/never say the appointment is cancel/i);
+  for (const text of ['my_appointments', 'cancel_appointment', 'reschedule_appointment', 'only after the tool returns ok: true', 'call notify_team with reason other']) {
+    expect(rule, text).toContain(text);
+  }
+  expect(rule).toMatch(/confirm/i);
 });
 test('a suppressed alert is never presented as a forwarded request', () => {
   const errors = section('Tool errors');
@@ -116,7 +117,7 @@ const WORKFLOW_REASONS = ['slot_taken', 'calendar_unavailable', 'sheets_unavaila
 
 test('every reason a tool can return has a rule in the Tool errors section', () => {
   const errors = section('Tool errors');
-  for (const reason of new Set([...BOOKING_REASONS, ...FREE_SLOT_REASONS, ...WORKFLOW_REASONS])) expect(errors, reason).toContain(reason);
+  for (const reason of new Set([...BOOKING_REASONS, ...CHANGE_REASONS, ...FREE_SLOT_REASONS, ...WORKFLOW_REASONS])) expect(errors, reason).toContain(reason);
 });
 
 // A translated service or a malformed date is the model's own mistake: sending the patient away
@@ -130,4 +131,35 @@ test('argument errors tell the agent to fix its own call, never to send the pati
   // invalid_input means a phone or status the workflow itself supplied, which the model can't fix.
   expect(line).not.toContain('invalid_input');
   expect(lines.find((l) => l.includes('invalid_input'))).toMatch(/^- Any other error/);
+});
+
+test("the clinic's emergency phone is a placeholder that reads as fake", () =>
+  expect(business.emergency_phone).toBe('+57 605 000 0000'));
+
+test('blocked, rate_limited, non_text, and handed_off each end with a way forward: the emergency phone', () => {
+  for (const key of ['blocked', 'rate_limited', 'non_text', 'handed_off', 'emergency_paused'] as const)
+    for (const lang of LANGS) expect(business.replies[key][lang], `${key}.${lang}`).toContain(business.emergency_phone);
+});
+
+test('the first-message rule greets, names three things, and states the retention from BUSINESS', () => {
+  const rule = section('First message');
+  expect(rule).toContain('chat_retention_days');
+  expect(rule).toContain('automated assistant');
+  // An emergency comes first: the urgent guidance is answered before the greeting and the retention line.
+  expect(rule).toMatch(/URGENT[^.]*first/);
+  for (const thing of ['prices', 'opening hours', 'booking a visit']) expect(rule, thing).toContain(thing);
+  expect(rule).not.toMatch(/\d/);
+  expect(prompt.indexOf('## First message')).toBeGreaterThan(prompt.indexOf('## Identity and language'));
+  expect(prompt.indexOf('## First message')).toBeLessThan(prompt.indexOf('## Knowledge limits'));
+});
+
+test('the prompt gives the emergency phone when today has no slot, and sends severe cases to the emergency room', () => {
+  const notes = section('Triage notes');
+  expect(notes).toContain('BUSINESS emergency_phone');
+  expect(notes).toMatch(/nearest emergency room/);
+});
+
+test('change_notice_hours is 24, matching the knowledge base\'s 24 hours\' notice', () => {
+  expect(business.change_notice_hours).toBe(24);
+  expect(kb).toMatch(/24 hours' notice/);
 });

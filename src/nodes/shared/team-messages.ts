@@ -1,12 +1,13 @@
 import { localeSetting, pick, type Lang } from './locale.ts';
 
 /** Every reason notify-team accepts; anything else reads as `other`. */
-export const ALERT_REASONS = ['emergency', 'human_requested', 'complaint', 'unknown_treatment', 'out_of_scope', 'tool_failure', 'other'] as const;
+export const ALERT_REASONS = ['emergency', 'human_requested', 'complaint', 'unknown_treatment', 'out_of_scope', 'tool_failure', 'handoff_followup', 'non_text', 'triage_failed', 'other'] as const;
 
 export type AlertReason = (typeof ALERT_REASONS)[number];
 
 export interface TeamMessages {
   reasons: Record<AlertReason, string>;
+  urgent: string;
   reason: string;
   name: string;
   notGiven: string;
@@ -15,6 +16,8 @@ export interface TeamMessages {
   none: string;
   time: string;
   recentMessages: string;
+  patient: string;
+  assistant: string;
   workflowFailed: string;
   failedNode: string;
   error: string;
@@ -31,8 +34,12 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       unknown_treatment: "Asked about a treatment we don't list",
       out_of_scope: "Question the assistant couldn't answer",
       tool_failure: 'Assistant tool failure',
+      handoff_followup: 'Wrote again while waiting for the team',
+      non_text: "Sent a voice note, photo, or other message the assistant can't read",
+      triage_failed: "Couldn't check a paused message for an emergency",
       other: 'Needs attention',
     },
+    urgent: 'URGENT',
     reason: 'Reason',
     name: 'Name',
     notGiven: '(not given)',
@@ -41,6 +48,8 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
     none: '(none)',
     time: 'Time',
     recentMessages: 'Recent messages',
+    patient: 'Patient',
+    assistant: 'Assistant',
     workflowFailed: 'Workflow failed',
     failedNode: 'Failed node',
     error: 'Error',
@@ -54,8 +63,12 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
       unknown_treatment: 'Preguntó por un tratamiento que no ofrecemos',
       out_of_scope: 'Pregunta que el asistente no pudo responder',
       tool_failure: 'Falla de una herramienta del asistente',
+      handoff_followup: 'Volvió a escribir mientras espera al equipo',
+      non_text: 'Envió una nota de voz, una foto u otro mensaje que el asistente no puede leer',
+      triage_failed: 'No se pudo revisar un mensaje en pausa por una urgencia',
       other: 'Requiere atención',
     },
+    urgent: 'URGENTE',
     reason: 'Motivo',
     name: 'Nombre',
     notGiven: '(no lo indicó)',
@@ -64,6 +77,8 @@ export const TEAM_MESSAGES: Record<Lang, TeamMessages> = {
     none: '(ninguno)',
     time: 'Hora',
     recentMessages: 'Mensajes recientes',
+    patient: 'Paciente',
+    assistant: 'Asistente',
     workflowFailed: 'Falló un flujo',
     failedNode: 'Nodo que falló',
     error: 'Error',

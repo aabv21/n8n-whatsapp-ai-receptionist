@@ -9,3 +9,16 @@ export function isExecError(err: unknown): err is { stdout: string; stderr: stri
   const { stdout, stderr } = err as { stdout?: unknown; stderr?: unknown };
   return typeof stdout === 'string' && typeof stderr === 'string';
 }
+
+/** An error's message, or any other thrown value as a string. */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Runs a CLI's `main`, printing a failure's message to stderr and setting exit code 1. */
+export function runMain(main: () => Promise<void>): void {
+  main().catch((err: unknown) => {
+    console.error(errorMessage(err));
+    process.exitCode = 1;
+  });
+}

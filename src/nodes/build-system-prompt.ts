@@ -1,4 +1,5 @@
 import { TEAM_ALERTED_NOTE } from './decide-route.ts';
+import { isPositiveInteger } from './shared/limits.ts';
 import { normalizeLocale, pick, type Lang } from './shared/locale.ts';
 import type { Business } from './types.ts';
 
@@ -12,6 +13,8 @@ export interface PromptInput {
   /** This message's language, or the configured default when it couldn't be detected. */
   lang: Lang;
   lang_detected: boolean;
+  /** `config.limits.retention_days`; anything but an integer of 1 or more leaves the retention out of BUSINESS. */
+  retention_days: unknown;
 }
 
 const PLACEHOLDER_RE = /<<(BUSINESS|KNOWLEDGE_BASE|NOW|LANGUAGE|TRIAGE_NOTES)>>/g;
@@ -37,7 +40,7 @@ export function run(input: PromptInput): { system_message: string } {
   const now = DateTime.fromISO(input.now, { zone, locale: 'en-US' });
   const notes = input.team_alerted ? [...input.notes, TEAM_ALERTED_NOTE] : input.notes;
   const values = new Map<string, string>([
-    ['BUSINESS', JSON.stringify(input.business, null, 2)],
+    ['BUSINESS', JSON.stringify(isPositiveInteger(input.retention_days) ? { ...input.business, chat_retention_days: input.retention_days } : input.business, null, 2)],
     ['KNOWLEDGE_BASE', input.knowledge_base],
     ['NOW', `${now.toFormat('cccc, yyyy-LL-dd HH:mm')} (${zone})`],
     ['LANGUAGE', languageHint(input)],

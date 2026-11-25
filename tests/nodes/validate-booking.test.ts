@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { run, type BookingCheck, type BookingInput } from '../../src/nodes/validate-booking.ts';
+import { checkSlot, run, type BookingCheck, type BookingInput } from '../../src/nodes/validate-booking.ts';
 import type { Business } from '../../src/nodes/types.ts';
 
 const business = JSON.parse(readFileSync('business/business.json', 'utf8')) as Business;
@@ -73,4 +73,27 @@ test('missing or invalid booking limits fail with a fixed message instead of all
   for (const bad of [{}, { max_booking_days_ahead: 60 }, { max_booking_days_ahead: 0, max_upcoming_bookings: 3 }, { max_booking_days_ahead: 60, max_upcoming_bookings: 1.5 }]) {
     expect(() => call({ limits: bad as BookingInput['limits'] })).toThrow(message);
   }
+});
+
+test('a start exactly min_notice_minutes away is valid; one minute closer is too_soon', () => {
+  expect(call({ now: '2026-11-04T08:30:00-05:00' }).ok).toBe(true);
+  expect(reason({ now: '2026-11-04T08:31:00-05:00' })).toBe('too_soon');
+});
+test('a start exactly now is too_soon, not past', () => expect(reason({ now: '2026-11-04T09:30:00-05:00' })).toBe('too_soon'));
+test('a start exactly at the horizon is valid; the next slot is too_far', () => {
+  const tight = { max_booking_days_ahead: 1, max_upcoming_bookings: 3 };
+  const at = (time: string): Partial<BookingInput> => ({ limits: tight, now: '2026-11-03T09:30:00-05:00', time });
+  expect(call(at('09:30')).ok).toBe(true);
+  expect(reason(at('10:15'))).toBe('too_far');
+});
+test('with 60-minute slots, the last one ends exactly at closing time', () =>
+  expect(run({ ...base, business: { ...business, appointment_minutes: 60 }, now: '2026-11-03T15:00:00-05:00', time: '17:00' }))
+    .toMatchObject({ ok: true, end: '2026-11-04T18:00:00.000-05:00' }));
+
+test("checkSlot returns the slot's start and end, or the first failing slot reason", () => {
+  const slot = { now: '2026-11-03T15:00:00-05:00', business, max_booking_days_ahead: 60 };
+  const ok = checkSlot({ ...slot, date: '2026-11-04', time: '09:30' });
+  expect(ok.ok && [ok.start.toISO(), ok.end.toISO()]).toEqual(['2026-11-04T09:30:00.000-05:00', '2026-11-04T10:15:00.000-05:00']);
+  expect(checkSlot({ ...slot, date: '2026-11-08', time: '09:30' })).toEqual({ ok: false, reason: 'closed' });
+  expect(checkSlot({ ...slot, date: '2026-11-04', time: '09:31' })).toEqual({ ok: false, reason: 'off_grid' });
 });

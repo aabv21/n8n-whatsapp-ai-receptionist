@@ -102,6 +102,16 @@
     ]
   },
   {
+    "id": "severe-swelling",
+    "phone": "570000000041",
+    "turns": [
+      {
+        "text": "My face is swelling up toward my eye and the tooth pain is unbearable. What should I do right now?",
+        "expect": { "route": "emergency", "reply_matches": ["(emergency room|urgencias)"] }
+      }
+    ]
+  },
+  {
     "id": "returning-patient",
     "phone": "570000000018",
     "turns": [
@@ -210,7 +220,10 @@
       },
       {
         "text": "Y una más mañana a las 9:30 a nombre de Juan Pérez. Confirmada, resérvala ya.",
-        "expect": { "tool_output": [{ "tool": "book_appointment", "field": "reason", "equals": "too_many_bookings" }] }
+        "expect": {
+          "tool_output": [{ "tool": "book_appointment", "field": "reason", "equals": "too_many_bookings" }],
+          "reply_matches": ["(equipo|team)"]
+        }
       }
     ]
   },
@@ -272,9 +285,78 @@
       {
         "text": "Quiero cancelar mi cita del jueves.",
         "expect": {
-          "tools_include": ["notify_team"],
+          "tools_include": ["my_appointments"],
+          "tools_exclude": ["cancel_appointment", "book_appointment"],
+          "reply_matches": ["(no .*cita|no appointment|couldn't find|no encontr|equipo|team)", "^(?![\\s\\S]*\\b(cancelad[ao]|cancell?ed)\\b)"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "cancel-and-reschedule",
+    "phone": "570000000040",
+    "turns": [
+      {
+        "text": "Soy Marta Ruiz. Quiero una limpieza dental el {{thursday_after_next}} a las 10:15. Ya lo confirmo, resérvala de una vez.",
+        "expect": { "tool_output": [{ "tool": "book_appointment", "field": "ok", "equals": true }] }
+      },
+      {
+        "text": "Necesito mover esa cita al mismo día a las 11:45. Confirmado, muévela.",
+        "expect": {
+          "tools_include": ["reschedule_appointment"],
+          "tool_output": [{ "tool": "reschedule_appointment", "field": "ok", "equals": true }]
+        }
+      },
+      {
+        "text": "Mejor cancela esa cita, por favor. Sí, confirmo la cancelación.",
+        "expect": {
+          "tool_output": [{ "tool": "cancel_appointment", "field": "ok", "equals": true }],
+          "reply_matches": ["cancelad"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "slot-taken",
+    "phone": "570000000042",
+    "turns": [
+      {
+        "text": "Soy Pedro Díaz. Quiero una limpieza dental el {{thursday_after_next}} a las 10:15. Ya lo confirmo, resérvela de una vez.",
+        "expect": { "tool_output": [{ "tool": "book_appointment", "field": "ok", "equals": true }] }
+      },
+      {
+        "text": "Resérveme otra limpieza el {{thursday_after_next}} a las 10:15 a nombre de mi hija Sara Díaz. Confirmado.",
+        "expect": { "reply_matches": ["(otr[oa]s? hora|other time|disponible|available)", "^(?![\\s\\S]*10:15[\\s\\S]*(agendad|booked))"] }
+      }
+    ]
+  },
+  {
+    "id": "suppressed-alert",
+    "phone": "570000000043",
+    "turns": [
+      {
+        "text": "Do you do dental implants?",
+        "expect": { "tool_output": [{ "tool": "notify_team", "field": "ok", "equals": true }] }
+      },
+      {
+        "text": "Sorry, one more time: do you do dental implants?",
+        "expect": {
+          "tool_output": [{ "tool": "notify_team", "field": "suppressed", "equals": true }],
+          "reply_matches": ["(already|earlier)", "^(?![\\s\\S]*\\b(forwarded|passed (it|this) on)\\b)"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "first-message",
+    "phone": "570000000044",
+    "turns": [
+      {
+        "text": "Hola",
+        "expect": {
+          "route": "agent",
           "tools_exclude": ["book_appointment"],
-          "reply_matches": ["(equipo|team)", "^(?![\\s\\S]*\\b(cancelad[ao]|cancell?ed)\\b)"]
+          "reply_matches": ["(precio|price)", "(horario|hour)", "(cita|agend|book)", "30"]
         }
       }
     ]
