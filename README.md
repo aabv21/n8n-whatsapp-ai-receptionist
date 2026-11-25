@@ -8,8 +8,10 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 
 - The [architecture doc](docs/architecture.md) follows a message from webhook to reply, lists what each failure does, and explains the design decisions.
 - The [red-team doc](docs/red-team.md) maps where a patient's text reaches a model, lists the adversarial inputs the assistant is checked against, and names the guard behind each one.
+- The [HTTP surface](docs/architecture.md#http-surface) lists every path n8n answers, who reaches it and what it returns.
 - The [testing doc](docs/testing.md) lists every test suite and what CI runs.
-- The [message sequence](docs/diagrams/message-sequence.svg) follows one message from the webhook to the reply.
+- The [message intake](docs/diagrams/message-intake.svg) and [message reply](docs/diagrams/message-reply.svg) diagrams follow one message from the webhook to the reply.
+- The [message lifecycle](docs/diagrams/message-lifecycle.svg) shows every state a message can end in, and the [personal data flow](docs/diagrams/personal-data.svg) shows what each service receives.
 
 ## What it does
 
@@ -30,7 +32,9 @@ An n8n WhatsApp assistant that answers a dental studio's questions, books appoin
 - **`load-context`** reads the four mounted files into one item. A missing file fails its read and the calling run, so it shows in the executions list instead of answering with no context.
 - **`error-handler`** emails the team the failed workflow, node, error, and execution link; **`retention-cleanup`** deletes old chat memory and messages from Postgres daily at 03:00 Bogota time.
 - **`dev-harness`** (`node scripts/dev-call.ts <target> '<json>'`) calls any sub-workflow over HTTP with a token, plus `find-patient`, `cleanup`, `retention`, and `raise-error`.
-- **The runtime:** Postgres 17 and n8n on the 2.45 line in Docker Compose, a least-privilege `app_runtime` database role with numbered migrations ([docs/database.md](docs/database.md)), an optional ngrok tunnel that forwards only the trigger's path, rate-limited and capped at 2 MiB per body, and an optional queue-mode override. Every Code node is generated from `src/nodes/*.ts`, and CI runs the gate, gitleaks, `pnpm audit`, actionlint, zizmor, CodeQL once the repo is public, and an `n8n` job that boots the real stack.
+- **The runtime:** Postgres 17 and n8n on the 2.45 line in Docker Compose, a least-privilege `app_runtime` database role with numbered migrations ([docs/database.md](docs/database.md)), an optional ngrok tunnel that forwards only the trigger's path, rate-limited and capped at 2 MiB per body, and an optional queue-mode override.
+  - Every Code node is generated from `src/nodes/*.ts`.
+  - [docs/testing.md](docs/testing.md#what-ci-runs) lists what CI runs.
 
 ## Status
 
@@ -50,7 +54,9 @@ docker compose up -d --wait
 pnpm run setup
 ```
 
-`init-env.ts` writes `.env` with random local secrets and leaves every third-party value blank. `pnpm run setup` applies the database migrations, imports the credentials whose `.env` values are filled, and publishes the workflows, holding back one whose trigger needs a credential that isn't set. Without credentials, the platform workflows and every tool's offline checks already run; [Offline dev-harness checks](#offline-dev-harness-checks) lists the calls and their expected answers. To see it run, call `node scripts/dev-call.ts load-context '{}'`: it prints the business facts and config the workflows read.
+`init-env.ts` writes `.env` with random local secrets and leaves every third-party value blank. `pnpm run setup` applies the database migrations, imports the credentials whose `.env` values are filled, and publishes the workflows, holding back one whose trigger needs a credential that isn't set.
+
+Without credentials, the platform workflows and every tool's offline checks already run; [Offline dev-harness checks](#offline-dev-harness-checks) lists the calls and their expected answers. To see it run, call `node scripts/dev-call.ts load-context '{}'`: it prints the business facts and config the workflows read.
 
 ## Configuration
 
@@ -113,9 +119,16 @@ Replace `process-message`'s `Anthropic Chat Model` sub-node with another provide
 
 Pulling this version into a checkout that already has a `config/config.json`, a local stack, or signed-in Google credentials takes three steps:
 
-1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`. Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting. Without either booking key, `check-availability` and every booking fail closed before any Calendar call. A `triage.thresholds` value that's missing or outside (0, 1] fails triage with an error email.
-2. **Narrow the Gmail sign-in to sending.** `pnpm run setup` skips a Google credential that already exists, so an older Gmail credential keeps n8n's full-mailbox scopes. In the n8n editor, open **Gmail**, turn on **Custom Scopes**, set **Enabled Scopes** to `https://www.googleapis.com/auth/gmail.send`, save, and sign in again. (`node scripts/setup-credentials.ts --force` re-imports every credential instead, which signs out all three.) The old grant stays valid until you remove the app under your Google Account's [third-party access](https://myaccount.google.com/connections), which signs out all three Google credentials.
-3. **Recreate the containers.** `docker compose up -d --wait` recreates `postgres` and `n8n` with the current hardening and the 30 s stop grace period, keeping the named volumes. Add the flags you start with: `--profile tunnel` recreates `ngrok`, and `-f compose.yaml -f compose.queue.yaml` recreates `redis` and the workers. A stack from before `db/migrations/` also needs the two `APP_RUNTIME_DB_*` lines in `.env`; the database doc's [upgrade steps](docs/database.md#upgrading-an-existing-local-stack) add them without printing the password.
+1. **Add the new keys to `config/config.json`.** Copy `team_locale`, `locale.default`, `limits.alert_cooldown_minutes`, `limits.max_booking_days_ahead`, and `limits.max_upcoming_bookings` from `config/config.example.json`.
+   - Without a valid `alert_cooldown_minutes`, alerts still send, without the per-phone cooldown, and each one carries a line naming the setting.
+   - Without either booking key, `check-availability` and every booking fail closed before any Calendar call.
+   - A `triage.thresholds` value that's missing or outside (0, 1] fails triage with an error email.
+2. **Narrow the Gmail sign-in to sending.** `pnpm run setup` skips a Google credential that already exists, so an older Gmail credential keeps n8n's full-mailbox scopes.
+   - In the n8n editor, open **Gmail**, turn on **Custom Scopes**, set **Enabled Scopes** to `https://www.googleapis.com/auth/gmail.send`, save, and sign in again.
+   - Alternatively, `node scripts/setup-credentials.ts --force` re-imports every credential, which signs out all three. The old grant stays valid until you remove the app under your Google Account's [third-party access](https://myaccount.google.com/connections), which signs out all three Google credentials.
+3. **Recreate the containers.** `docker compose up -d --wait` recreates `postgres` and `n8n` with the current hardening and the 30 s stop grace period, keeping the named volumes.
+   - Add the flags you start with: `--profile tunnel` recreates `ngrok`, and `-f compose.yaml -f compose.queue.yaml` recreates `redis` and the workers.
+   - A stack from before `db/migrations/` also needs the two `APP_RUNTIME_DB_*` lines in `.env`; the database doc's [upgrade steps](docs/database.md#upgrading-an-existing-local-stack) add them without printing the password.
 
 ## Test scenarios
 
@@ -203,10 +216,16 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
 13. **Triage accuracy:** `pnpm run scenarios -- --triage` prints the accuracy table. Tune English misses by question wording or thresholds, and record Spanish misses as they are.
 14. **Conversations:** `pnpm run scenarios` shows every conversation `PASS`, or `SKIP` on a Sunday. That covers the nine red-team scenarios and `booking-limit`'s fourth booking, refused with `too_many_bookings` and no fourth event.
 15. **Alert cooldown, and an emergency after another alert:**
-    - Cooldown: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-cooldown-1","phone":"570000000004","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-cooldown-2"`. The team gets one email, and in the n8n editor (Executions) the second `Notify team` run ends at `Return suppressed`. Then `node scripts/dev-call.ts notify-team '{"reason":"tool_failure","phone":"570000000004","summary":"Live check"}'` returns `{"ok":true}` and still sends.
-    - Emergency after another alert: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-1","phone":"570000000005","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-emergency-2"` and `"text":"Me sangra mucho la encía y tengo la cara hinchada."`, then again with `"message_id":"live-emergency-3"` and that same text. The team gets two emails, the second a dental emergency. The third run's `Notify team` ends at `Return suppressed`, and its reply doesn't say this message reached the team.
+    - Cooldown: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-cooldown-1","phone":"570000000004","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-cooldown-2"`.
+      - The team gets one email, and in the n8n editor (Executions) the second `Notify team` run ends at `Return suppressed`.
+      - Then `node scripts/dev-call.ts notify-team '{"reason":"tool_failure","phone":"570000000004","summary":"Live check"}'` returns `{"ok":true}` and still sends.
+    - Emergency after another alert: `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-emergency-1","phone":"570000000005","name":"Test","type":"text","text":"Quiero hablar con una persona","received_at":"<now, ISO 8601>"}'`, then the same call with `"message_id":"live-emergency-2"` and `"text":"Me sangra mucho la encía y tengo la cara hinchada."`, then again with `"message_id":"live-emergency-3"` and that same text.
+      - The team gets two emails, the second a dental emergency.
+      - The third run's `Notify team` ends at `Return suppressed`, and its reply doesn't say this message reached the team.
     - Then `node scripts/dev-call.ts cleanup '{"phone_prefix":"5700000000"}'`.
-16. **Agent failure:** **Manual action:** in the n8n editor, set the `Anthropic` credential's key to `sk-ant-invalid`. `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-agent-failure-1","phone":"570000000003","name":"Test","type":"text","text":"How much is a dental cleaning?","received_at":"<now, ISO 8601>"}'` returns route `fallback` with the `technical_issue` reply, and an "Assistant tool failure" email arrives. `node scripts/setup-credentials.ts` restores the key from `.env`.
+16. **Agent failure:** **Manual action:** in the n8n editor, set the `Anthropic` credential's key to `sk-ant-invalid`.
+    - `node scripts/dev-call.ts process-message '{"channel":"test","message_id":"live-agent-failure-1","phone":"570000000003","name":"Test","type":"text","text":"How much is a dental cleaning?","received_at":"<now, ISO 8601>"}'` returns route `fallback` with the `technical_issue` reply, and an "Assistant tool failure" email arrives.
+    - `node scripts/setup-credentials.ts` restores the key from `.env`.
 17. **Real phone, through the tunnel:** **Manual action**, from a verified recipient phone: an FAQ in Spanish and one in English are each answered in their language; `ok` is answered in `locale.default`'s language; a booking appears in Calendar and the Patients sheet; an emergency and a complaint each alert the team; a dose request is declined with an offer of an evaluation, and the fixed `medical_advice` reply appears only if the agent named a medicine or dose; a voice note gets the fixed `non_text` reply.
 18. **Latency:** **Manual action:** time five real-phone messages from send to reply; each is answered in under 10 s. Record the maximum.
 19. **Meta webhook:** **Manual action:** App Dashboard → WhatsApp → Configuration shows `https://<NGROK_DOMAIN>/webhook/a0000000-aaaa-4bbb-8ccc-000000000001/webhook`. Send a real message; the executions query then shows a new `WhatsApp entry` row with status `success`.
@@ -214,7 +233,9 @@ docker compose exec -T postgres psql -U "$POSTGRES_USER" -d n8n -c 'SELECT e.id,
 21. **Signatures:** `curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/json' -H 'X-Hub-Signature-256: sha256=00' -d '{"object":"whatsapp_business_account","entry":[]}' https://$NGROK_DOMAIN/webhook/a0000000-aaaa-4bbb-8ccc-000000000001/webhook` prints `200`, and the executions query shows no new `WhatsApp entry` row. A real message (check 19) does add one.
 22. **Rate limit:** `for i in $(seq 1 70); do curl -s -o /dev/null -w '%{http_code}\n' -X POST https://$NGROK_DOMAIN/webhook/a0000000-aaaa-4bbb-8ccc-000000000001/webhook; done | sort | uniq -c` shows `429` after 60. A real WhatsApp message a minute later still gets its reply (**Manual action**), and `docker compose exec ngrok wget -qO- http://localhost:4040/api/requests/http` fails, because inspection is off.
 23. **Body cap:** `head -c 3000000 /dev/zero | curl -s -o /dev/null -w '%{http_code}\n' -X POST --data-binary @- https://$NGROK_DOMAIN/webhook/a0000000-aaaa-4bbb-8ccc-000000000001/webhook` prints `413`, and the executions query shows no new row.
-24. **Queue mode:** `docker compose -f compose.yaml -f compose.queue.yaml up -d --wait --scale n8n-worker=2` starts it; `docker compose ps` shows `redis` and two workers healthy, and `docker inspect --format '{{.Name}} {{.HostConfig.SecurityOpt}} {{.HostConfig.CapDrop}}' $(docker compose ps -q redis n8n-worker)` shows `no-new-privileges` on `redis` and `[ALL]` on each worker. `node scripts/dev-call.ts retention '{}'` returns `{"success":true}`, and `docker compose logs n8n-worker` shows the job. Return with `docker compose -f compose.yaml -f compose.queue.yaml down && docker compose --profile tunnel up -d --wait`.
+24. **Queue mode:** `docker compose -f compose.yaml -f compose.queue.yaml up -d --wait --scale n8n-worker=2` starts it; `docker compose ps` shows `redis` and two workers healthy, and `docker inspect --format '{{.Name}} {{.HostConfig.SecurityOpt}} {{.HostConfig.CapDrop}}' $(docker compose ps -q redis n8n-worker)` shows `no-new-privileges` on `redis` and `[ALL]` on each worker.
+    - `node scripts/dev-call.ts retention '{}'` returns `{"success":true}`, and `docker compose logs n8n-worker` shows the job.
+    - Return with `docker compose -f compose.yaml -f compose.queue.yaml down && docker compose --profile tunnel up -d --wait`.
 25. **Open red-team questions:** **Manual action:** answer each item in [Questions only a live run can answer](docs/red-team.md#questions-only-a-live-run-can-answer) from the runs above, and record the answer in that doc.
 26. **Cost:** after one full `pnpm run scenarios`, **Manual action:** read the input and output tokens in the Anthropic Console (Usage) and divide by the agent turns. Replace the estimate under Cost per message.
 27. **Emergency out of hours:** run on a Sunday, or after 17:00 America/Bogota:
@@ -250,7 +271,9 @@ The [architecture doc](docs/architecture.md#design-decisions-and-their-trade-off
 
 ### When you'd need queue mode
 
-The default stack runs n8n as one process that receives webhooks and runs every execution, enough for this demo. Reach for `compose.queue.yaml` when that process runs short of CPU or memory, or when worker count should grow on its own (`--scale n8n-worker=N`) while the main instance keeps receiving webhooks. The cost is a Redis container and one or more workers to run, monitor, and keep healthy. The architecture doc's [scaling section](docs/architecture.md#scaling-limits-and-what-to-change) has the details.
+The default stack runs n8n as one process that receives webhooks and runs every execution, enough for this demo. Reach for `compose.queue.yaml` when that process runs short of CPU or memory, or when worker count should grow on its own (`--scale n8n-worker=N`) while the main instance keeps receiving webhooks.
+
+The cost is a Redis container and one or more workers to run, monitor, and keep healthy. The architecture doc's [scaling section](docs/architecture.md#scaling-limits-and-what-to-change) has the details.
 
 ```bash
 docker compose -f compose.yaml -f compose.queue.yaml up -d --wait --scale n8n-worker=2

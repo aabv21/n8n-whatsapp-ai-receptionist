@@ -115,3 +115,5 @@ The README's [Pending live checks](../README.md#pending-live-checks), check 15, 
 - **The Gmail limit.** What is the configured Google account's real daily send limit? It sets how low `alert_cooldown_minutes` can safely go.
 - **Forged email lines.** Can a profile name, or a `summary` the model wrote with line breaks, forge lines in the alert email? n8n's Gmail node should strip CR and LF from the subject header.
 - **Blocked context.** A blocked message stays among the earlier messages Jev sees for the next 3 turns. Does that make Jev block the same patient's next, harmless messages?
+- **Cut replies.** Does an agent reply ever stop at `max_tokens`, so that `Check reply` sees a cut reply? Read `stop_reason` in five executions.
+- **Outage alerts.** How many `tool_failure` emails does a 5-minute Calendar outage send?

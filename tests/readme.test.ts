@@ -66,9 +66,10 @@ test('the quick start names its requirements and the first call to make', () => 
   for (const text of ['Node 24', 'pnpm 11', 'Docker', "node scripts/dev-call.ts load-context '{}'"]) expect(quick, text).toContain(text);
 });
 
-test('the README links both diagrams', () => {
-  expect(readme).toContain('docs/diagrams/architecture.svg');
-  expect(readme).toContain('docs/diagrams/message-sequence.svg');
+test('the README links every diagram image', () => {
+  for (const name of ['architecture', 'message-intake', 'message-reply', 'message-lifecycle', 'personal-data']) {
+    expect(readme, name).toContain(`docs/diagrams/${name}.svg`);
+  }
 });
 
 test('Limitations names the scope and the known gaps a client asks about', () => {
