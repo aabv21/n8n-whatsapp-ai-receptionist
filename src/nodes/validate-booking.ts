@@ -1,5 +1,5 @@
 import { isPositiveInteger } from './shared/limits.ts';
-import { atTime, openingWindow } from './shared/opening-hours.ts';
+import { openingWindow, parseSlotStart } from './shared/opening-hours.ts';
 import type { Business } from './types.ts';
 
 export interface BookingInput {
@@ -44,13 +44,52 @@ export type BookingCheck =
     }
   | { ok: false; reason: (typeof BOOKING_REASONS)[number] };
 
-const TIME_RE = /^\d{2}:\d{2}$/;
-
 /** `dt.toISO()`, which is only null for an invalid DateTime; every instant here is built from a validated date and time. */
 function toISOString(dt: DateTime): string {
   const value = dt.toISO();
   if (value === null) throw new Error('unreachable: booking time is always a valid DateTime');
   return value;
+}
+
+/** Every reason a slot can be refused, in the order `checkSlot` checks them. */
+export type SlotReason = 'invalid_datetime' | 'closed' | 'outside_hours' | 'off_grid' | 'past' | 'too_soon' | 'too_far';
+
+export interface SlotInput {
+  date: string;
+  time: string;
+  now: string;
+  business: Business;
+  max_booking_days_ahead: number;
+}
+
+/**
+ * The checks every appointment slot passes, whether it's a new booking or the target of a move:
+ * a real date and time, inside opening hours, on the slot grid, past the minimum notice, and
+ * within the booking horizon.
+ */
+export function checkSlot(input: SlotInput): { ok: true; start: DateTime; end: DateTime } | { ok: false; reason: SlotReason } {
+  const { business } = input;
+  const zone = business.timezone;
+  const date = input.date.trim();
+  const time = input.time.trim();
+  const start = parseSlotStart(date, time, zone);
+  if (!start) return { ok: false, reason: 'invalid_datetime' };
+  const day = start.startOf('day');
+
+  const window = openingWindow(day, business);
+  if (!window) return { ok: false, reason: 'closed' };
+
+  const end = start.plus({ minutes: business.appointment_minutes });
+  if (start < window.open || end > window.close) return { ok: false, reason: 'outside_hours' };
+  // check-availability offers only starts on this grid; a start between two would block both slots.
+  if (start.diff(window.open, 'minutes').minutes % business.appointment_minutes !== 0) return { ok: false, reason: 'off_grid' };
+
+  const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);
+  if (start < now) return { ok: false, reason: 'past' };
+  if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: 'too_soon' };
+  if (start > now.plus({ days: input.max_booking_days_ahead })) return { ok: false, reason: 'too_far' };
+
+  return { ok: true, start, end };
 }
 
 export function run(input: BookingInput): BookingCheck {
@@ -59,7 +98,6 @@ export function run(input: BookingInput): BookingCheck {
   if (!isPositiveInteger(limits.max_booking_days_ahead) || !isPositiveInteger(limits.max_upcoming_bookings)) {
     throw new Error('config.limits.max_booking_days_ahead and config.limits.max_upcoming_bookings must be integers of 1 or more');
   }
-  const zone = business.timezone;
 
   const phone = input.phone.trim();
   const name = input.name.trim();
@@ -74,28 +112,9 @@ export function run(input: BookingInput): BookingCheck {
   const match = business.services.find((s) => [s.name, ...Object.values(s.name_i18n ?? {})].some((n) => n.toLowerCase() === wanted));
   if (!match) return { ok: false, reason: 'invalid_service' };
 
-  if (!TIME_RE.test(time)) return { ok: false, reason: 'invalid_datetime' };
-  // Luxon would roll 24:00 into the next day and 09:60 into 10:00, so both are refused here.
-  const hour = Number(time.slice(0, 2));
-  const minute = Number(time.slice(3, 5));
-  if (hour > 23 || minute > 59) return { ok: false, reason: 'invalid_datetime' };
-  const day = DateTime.fromISO(date, { zone });
-  if (!day.isValid) return { ok: false, reason: 'invalid_datetime' };
-  const start = atTime(day, time);
-  if (!start.isValid) return { ok: false, reason: 'invalid_datetime' };
-
-  const window = openingWindow(day, business);
-  if (!window) return { ok: false, reason: 'closed' };
-
-  const end = start.plus({ minutes: business.appointment_minutes });
-  if (start < window.open || end > window.close) return { ok: false, reason: 'outside_hours' };
-  // check-availability offers only starts on this grid; a start between two would block both slots.
-  if (start.diff(window.open, 'minutes').minutes % business.appointment_minutes !== 0) return { ok: false, reason: 'off_grid' };
-
-  const now = DateTime.fromISO(input.now, { setZone: true }).setZone(zone);
-  if (start < now) return { ok: false, reason: 'past' };
-  if (start < now.plus({ minutes: business.min_notice_minutes })) return { ok: false, reason: 'too_soon' };
-  if (start > now.plus({ days: limits.max_booking_days_ahead })) return { ok: false, reason: 'too_far' };
+  const slot = checkSlot({ date, time, now: input.now, business, max_booking_days_ahead: limits.max_booking_days_ahead });
+  if (!slot.ok) return { ok: false, reason: slot.reason };
+  const { start, end } = slot;
   if (input.upcoming_bookings >= limits.max_upcoming_bookings) return { ok: false, reason: 'too_many_bookings' };
 
   return {
